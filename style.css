@@ -1,0 +1,333 @@
+/* style.css — 素のCSS。フレームワーク・プリプロセッサ・ビルド不使用（CLAUDE.md 制約9）。 */
+
+/* ===== ① デザイントークン（すべてここで一元管理） ===== */
+:root{
+  /* 色：必ず HEX。oklch()/lab()/color-mix() 禁止（html2canvas 非対応・CLAUDE.md 制約10） */
+  --c-bg:        #0F172A;
+  --c-surface:   #1E293B;
+  --c-border:    #334155;
+  --c-text:      #E2E8F0;
+  --c-text-mute: #94A3B8;
+  --c-brand:     #10B981;
+  --c-accent:    #F59E0B;
+  --c-beta:      #8B5CF6;
+  --c-danger:    #EF4444;
+
+  /* 間隔：4px グリッド */
+  --sp-1:.25rem; --sp-2:.5rem;  --sp-3:.75rem;
+  --sp-4:1rem;   --sp-6:1.5rem; --sp-8:2rem;
+
+  /* 文字：clamp でモバイル〜デスクトップを1指定でカバー */
+  --fs-xs:  clamp(.7rem, 2.6vw, .78rem);
+  --fs-sm:  clamp(.8rem, 3vw,   .88rem);
+  --fs-base:clamp(.9rem, 3.4vw, 1rem);
+  --fs-lg:  clamp(1.05rem, 4vw, 1.25rem);
+  --fs-xl:  clamp(1.3rem, 5.5vw, 1.75rem);
+  --fs-2xl: clamp(1.8rem, 8vw,   2.5rem);
+
+  --radius:12px; --radius-full:999px;
+  --dur:180ms; --ease:cubic-bezier(.4,0,.2,1);
+}
+
+/* ===== ② リセット（最小限） ===== */
+*,*::before,*::after{box-sizing:border-box;}
+body,h1,h2,h3,h4,p,figure,ul{margin:0;padding:0;}
+ul{list-style:none;}
+img,svg{display:block;max-width:100%;}
+button,input,select,textarea{font:inherit;color:inherit;}
+a{color:inherit;}
+[hidden]{display:none !important;}   /* ★他のdisplay指定に負けないよう明示する */
+
+/* ===== ③ ベース ===== */
+body{
+  background:var(--c-bg); color:var(--c-text);
+  font-family:"Noto Sans JP",system-ui,-apple-system,"Hiragino Sans",sans-serif;
+  font-size:var(--fs-base); line-height:1.7;
+  -webkit-text-size-adjust:100%;
+  padding-bottom:calc(64px + env(safe-area-inset-bottom));   /* ボトムナビ分の余白 */
+}
+main{display:block; max-width:640px; margin:0 auto; padding:0 var(--sp-4);}
+h2{font-size:var(--fs-xl); font-weight:700;}
+h3{font-size:var(--fs-lg); font-weight:700;}
+h4{font-size:var(--fs-base); font-weight:700;}
+section{padding:var(--sp-6) 0; border-bottom:1px solid var(--c-border);}
+section:last-of-type{border-bottom:none;}
+.section-lead{color:var(--c-text-mute); font-size:var(--fs-sm); margin-top:var(--sp-1);}
+
+/* ===== ④ コンポーネント（BEM風の命名。ユーティリティを乱造しない） ===== */
+.card{
+  background:var(--c-surface); border:1px solid var(--c-border);
+  border-radius:var(--radius); padding:var(--sp-4);
+}
+.card + .card{margin-top:var(--sp-4);}
+.card__title{display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-base); font-weight:700;}
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2);
+  min-height:44px; padding:var(--sp-3) var(--sp-4);   /* ★タップ領域 44px 確保 */
+  border:none; border-radius:var(--radius);
+  background:var(--c-brand); color:var(--c-bg); font-weight:700;
+  cursor:pointer; transition:opacity var(--dur) var(--ease);
+}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+.btn--ghost{background:transparent; color:var(--c-brand); border:1px solid var(--c-brand);}
+.btn--accent{background:var(--c-accent); color:var(--c-bg);}
+.btn--block{width:100%;}
+.btn-icon{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:44px; min-height:44px; border:1px solid var(--c-border);
+  border-radius:var(--radius); background:transparent; color:var(--c-text-mute); cursor:pointer;
+}
+.btn.is-loading{position:relative; color:transparent;}
+.btn.is-loading::after{
+  content:''; position:absolute; width:1.1em; height:1.1em;
+  border:2px solid var(--c-bg); border-top-color:transparent;
+  border-radius:50%; animation:spin .7s linear infinite;
+}
+.btn.is-copied{background:var(--c-accent);}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.input{
+  width:100%; min-height:44px; padding:var(--sp-3);
+  background:var(--c-bg); border:1px solid var(--c-border);
+  border-radius:var(--radius); color:var(--c-text);
+  font-size:16px;                                     /* ★iOS の自動ズーム防止。16px 未満にしない */
+  text-align:right; font-variant-numeric:tabular-nums;
+}
+.input:focus-visible{outline:2px solid var(--c-brand); outline-offset:2px;}
+.input--label{text-align:left; font-variant-numeric:normal;}
+.input--select{text-align:left;}
+.field{display:flex; flex-direction:column; gap:var(--sp-1); margin-top:var(--sp-3);}
+.field:first-child{margin-top:0;}
+.field__label{font-size:var(--fs-sm); color:var(--c-text-mute);}
+.field-row{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
+.field-check{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
+.field-check input{width:20px; height:20px;}
+
+.before-after{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); margin-top:var(--sp-3);}
+.before-after .field{margin-top:0;}
+
+/* ===== ⑤ プログレスバー ===== */
+.progress{height:8px; background:var(--c-border); border-radius:var(--radius-full); overflow:hidden;}
+.progress__fill{
+  height:100%; background:var(--c-brand);
+  width:var(--progress, 0%);
+  transition:width var(--dur) var(--ease);
+}
+
+/* ===== ⑥ ヘッダー（常時可視・sticky追従） ===== */
+.app-header{
+  position:sticky; top:0; z-index:10;
+  background:rgba(15,23,42,.92); backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--c-border);
+  padding:var(--sp-3) var(--sp-4);
+}
+.app-header__inner{max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:var(--sp-2);}
+.app-header__row{display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-3);}
+.app-header__level{font-size:var(--fs-2xl); font-weight:800; color:var(--c-brand);}
+.app-header__rank{font-size:var(--fs-sm); color:var(--c-text-mute);}
+.app-header__badge{
+  display:inline-flex; align-items:center; padding:0 var(--sp-2); height:20px;
+  border-radius:var(--radius-full); background:var(--c-beta); color:var(--c-bg);
+  font-size:var(--fs-xs); font-weight:700;
+}
+.app-header__gap{font-size:var(--fs-xs); color:var(--c-text-mute);}
+
+/* ===== ⑦ ボトムナビ（iOS セーフエリア対応） ===== */
+.bottom-nav{
+  position:fixed; left:0; right:0; bottom:0; z-index:10;
+  display:flex; justify-content:space-around;
+  background:var(--c-surface); border-top:1px solid var(--c-border);
+  padding:var(--sp-2) var(--sp-2) calc(var(--sp-2) + env(safe-area-inset-bottom));
+}
+.bottom-nav__item{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  min-width:44px; min-height:44px; padding:var(--sp-1) var(--sp-2);
+  border-radius:var(--radius); color:var(--c-text-mute); font-size:var(--fs-xs);
+  text-decoration:none;
+}
+.bottom-nav__item[aria-current="page"]{color:var(--c-brand); font-weight:700;}
+
+/* ===== ⑧ ボトムシート（iOS対応。§3.5） ===== */
+.bottom-sheet{
+  position:fixed; inset:0; z-index:20;
+  display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(15,23,42,.72);
+}
+.bottom-sheet__panel{
+  width:100%; max-width:640px;
+  height:auto; max-height:90dvh;      /* ★vhではなくdvh（キーボード出現時のズレ防止） */
+  overflow-y:auto; overscroll-behavior:contain;
+  background:var(--c-surface); border-top:1px solid var(--c-border);
+  border-radius:var(--radius) var(--radius) 0 0;
+  padding:var(--sp-6) var(--sp-4);
+  padding-bottom:calc(var(--sp-6) + env(safe-area-inset-bottom));
+}
+.bottom-sheet__head{display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--sp-4);}
+
+/* ===== ⑨ フィードバックUI（§3.6） ===== */
+.emotion-buttons{display:flex; gap:var(--sp-2);}
+.emotion-buttons .btn{flex:1; flex-direction:column; background:var(--c-bg); color:var(--c-text); border:1px solid var(--c-border); font-weight:400;}
+.emotion-buttons .btn[aria-pressed="true"]{border-color:var(--c-brand); color:var(--c-brand); font-weight:700;}
+
+.chip-group{display:flex; flex-wrap:wrap; gap:var(--sp-2); margin-top:var(--sp-3);}
+.chip{
+  display:inline-flex; align-items:center; min-height:44px; padding:0 var(--sp-3);
+  border:1px solid var(--c-border); border-radius:var(--radius-full);
+  background:transparent; color:var(--c-text); font-size:var(--fs-sm); cursor:pointer;
+}
+.chip[aria-pressed="true"]{background:var(--c-brand); color:var(--c-bg); border-color:var(--c-brand); font-weight:700;}
+
+.feedback-note{font-size:var(--fs-xs); color:var(--c-text-mute); margin-top:var(--sp-2);}
+textarea.input{text-align:left; resize:vertical; min-height:88px;}
+
+/* ===== ⑩ サブスクリプション階層UI（§3.9） ===== */
+.sub-category > summary{
+  display:flex; justify-content:space-between; align-items:center;
+  min-height:44px; padding:var(--sp-3); cursor:pointer;
+  list-style:none;                          /* デフォルトの三角を消す */
+}
+.sub-category > summary::-webkit-details-marker{display:none;}
+.sub-category > summary::after{content:'▼'; transition:transform var(--dur) var(--ease);}
+.sub-category[open] > summary::after{transform:rotate(180deg);}
+.sub-category{border:1px solid var(--c-border); border-radius:var(--radius); margin-top:var(--sp-3);}
+.sub-category:first-child{margin-top:0;}
+
+.sub-badge{font-size:var(--fs-xs); color:var(--c-brand); font-weight:700;}
+
+.sub-service{padding:0 var(--sp-3) var(--sp-4);}
+.sub-service h4{margin-bottom:var(--sp-2);}
+
+.plan-chips{display:flex; flex-wrap:wrap; gap:var(--sp-2);}
+.plan-chips label{position:relative;}
+.plan-chips input{position:absolute; opacity:0; width:0; height:0;}
+.plan-chips span{
+  display:inline-flex; align-items:center; justify-content:center; text-align:center;
+  min-height:44px; padding:var(--sp-2) var(--sp-3);
+  border:1px solid var(--c-border); border-radius:var(--radius);
+  font-size:var(--fs-xs); line-height:1.3;
+}
+/* ★キーボード操作でも選択位置が分かるようにする */
+.plan-chips input:focus-visible + span{outline:2px solid var(--c-brand); outline-offset:2px;}
+.plan-chips input:checked + span{
+  background:var(--c-brand); color:var(--c-bg); border-color:var(--c-brand); font-weight:700;
+}
+
+.audience-toggle{display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-3); font-size:var(--fs-sm); color:var(--c-text-mute);}
+
+.other-sub-rows{display:flex; flex-direction:column; gap:var(--sp-2); padding:var(--sp-3);}
+.other-sub-row{display:grid; grid-template-columns:1.4fr 1fr 44px; gap:var(--sp-2); align-items:center;}
+.empty-state{color:var(--c-text-mute); font-size:var(--fs-sm); padding:var(--sp-3);}
+
+/* ===== ⑪ クエスト一覧 ===== */
+.quest-list{display:flex; flex-direction:column; gap:var(--sp-3); margin-top:var(--sp-3);}
+.quest-item{background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--radius); padding:var(--sp-4);}
+.quest-item__head{display:flex; justify-content:space-between; align-items:flex-start; gap:var(--sp-3);}
+.quest-item__title{font-size:var(--fs-base); line-height:1.5;}
+.quest-item__toggle{display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-xs); white-space:nowrap;}
+.quest-item__toggle input{width:20px; height:20px; flex-shrink:0;}
+.quest-item__summary{color:var(--c-text-mute); font-size:var(--fs-sm); margin-top:var(--sp-2);}
+.quest-item__description{margin-top:var(--sp-2);}
+.quest-item__basis{margin-top:var(--sp-3); border-top:1px solid var(--c-border); padding-top:var(--sp-2);}
+.quest-item__basis summary{cursor:pointer; color:var(--c-brand); font-size:var(--fs-sm); font-weight:700; min-height:44px; display:flex; align-items:center;}
+.quest-item__talkscript{margin-top:var(--sp-2); padding-left:var(--sp-4); list-style:disc;}
+.quest-item__talkscript li{margin-top:var(--sp-1);}
+.quest-item__disclaimer{margin-top:var(--sp-2); font-size:var(--fs-xs); color:var(--c-text-mute);}
+
+/* ===== ⑫ リボ払いアラート（WCAG 2.3.1：点滅禁止・減衰パルス2回で停止） ===== */
+@keyframes pulse-decay{
+  0%  { box-shadow:0 0 0 0 rgba(239,68,68,.45); }
+  70% { box-shadow:0 0 0 12px rgba(239,68,68,0); }
+  100%{ box-shadow:0 0 0 0 rgba(239,68,68,0); }
+}
+.revolving-alert{
+  display:flex; align-items:center; gap:var(--sp-2);
+  border:1px solid var(--c-danger); border-radius:var(--radius);
+  padding:var(--sp-3); margin-top:var(--sp-3);
+  background:rgba(239,68,68,.08); color:var(--c-danger); font-weight:700;
+  animation:pulse-decay 1s var(--ease) 2;   /* ★infinite禁止。2回で必ず停止する */
+}
+
+/* ===== ⑫a トースト通知 ===== */
+.toast{
+  position:fixed; left:50%; bottom:calc(72px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  max-width:90vw; z-index:30;
+  background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--radius);
+  padding:var(--sp-3) var(--sp-4); font-size:var(--fs-sm);
+  box-shadow:0 4px 16px rgba(0,0,0,.35);
+}
+.toast--warn{border-color:var(--c-danger); color:var(--c-danger);}
+.toast--levelup{border-color:var(--c-accent); color:var(--c-accent); font-weight:700;}
+
+/* ===== ⑬ マイカルテ ===== */
+.karte{text-align:center;}
+.karte__level{font-size:var(--fs-2xl); font-weight:800; color:var(--c-brand);}
+.karte__rank{font-size:var(--fs-lg); font-weight:700; margin-top:var(--sp-1);}
+.karte__amount{font-size:1.1rem; font-weight:500; color:var(--c-brand); margin-top:var(--sp-3);}
+.karte__amount-value{font-size:1.3rem; font-weight:700;}
+.karte__disclaimer{display:block; font-size:var(--fs-xs); color:var(--c-text-mute); margin-top:var(--sp-2);}
+.karte-actions{display:flex; flex-wrap:wrap; gap:var(--sp-2); margin-top:var(--sp-4); justify-content:center;}
+.btn-copy-spell{min-width:14rem; justify-content:center;}  /* ラベル長変化での伸縮を防ぐ */
+.spell-restore{display:flex; gap:var(--sp-2); margin-top:var(--sp-3);}
+.spell-restore .input{text-align:left; font-size:var(--fs-sm);}
+
+/* ===== ⑬a キャプチャ安全CSS（§4.4）：html2canvas 非対応プロパティを無効化 ===== */
+.capture-safe, .capture-safe *{
+  backdrop-filter:none !important; filter:none !important; box-shadow:none !important;
+}
+.capture-safe{ background-color:#0F172A !important; color:#E2E8F0 !important; }
+.capture-safe .card{ background-color:#1E293B !important; border-color:#334155 !important; }
+.capture-safe .karte__level,
+.capture-safe .karte__amount{ color:#10B981 !important; }
+
+/* ===== ⑬b 画像モーダル（iOS長押し保存の案内） ===== */
+.image-modal__img{width:100%; border-radius:var(--radius); margin-top:var(--sp-3);}
+
+/* ===== ⑬c プリントCSSフォールバック：Dark Modeのまま印刷すると判読不能になるため反転 ===== */
+@media print{
+  *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;}
+  body{background:#fff !important; color:#0F172A !important;}
+  .karte{background:#fff !important; border:2px solid #0F172A !important;
+         break-inside:avoid; page-break-inside:avoid;}
+  .karte__level, .karte__amount{color:#047857 !important;}
+  .bottom-nav, .btn, .toast, .app-header__badge{display:none !important;}
+  @page{margin:12mm;}
+}
+
+/* ===== ⑬d フッター（§7.4：法定表示への導線。全ページ共通） ===== */
+.app-footer{
+  margin-top:var(--sp-8); padding-top:var(--sp-6);
+  border-top:1px solid var(--c-border);
+  text-align:center;
+}
+.app-footer__link{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:44px; padding:0 var(--sp-3);
+  color:var(--c-text-mute); font-size:var(--fs-sm); text-decoration:underline;
+}
+.app-footer__link:hover, .app-footer__link:focus-visible{color:var(--c-brand);}
+.app-footer__note{margin-top:var(--sp-1); font-size:var(--fs-xs); color:var(--c-text-mute);}
+
+/* ===== ⑬e privacy.html 専用の簡易レイアウト（index.htmlと統一感のあるトークンを流用） ===== */
+.policy-section{margin-top:var(--sp-6);}
+.policy-section:first-of-type{margin-top:0;}
+.policy-section h2{font-size:var(--fs-lg); color:var(--c-brand); margin-bottom:var(--sp-2);}
+.policy-section p, .policy-section li{color:var(--c-text); font-size:var(--fs-sm);}
+.policy-section ul{list-style:disc; padding-left:var(--sp-6); margin-top:var(--sp-2);}
+.policy-section li + li{margin-top:var(--sp-1);}
+.policy-back{
+  display:inline-flex; align-items:center; gap:var(--sp-2);
+  min-height:44px; padding:0 var(--sp-2);
+  color:var(--c-brand); font-weight:700; text-decoration:none;
+}
+.policy-updated{color:var(--c-text-mute); font-size:var(--fs-xs); margin-top:var(--sp-1);}
+
+/* ===== ⑭ アクセシビリティ／モーション配慮 ===== */
+.visually-hidden{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important; transition:none !important;}
+}

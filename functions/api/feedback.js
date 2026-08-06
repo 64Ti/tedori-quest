@@ -1,0 +1,39 @@
+// functions/api/feedback.js — Cloudflare Pages Functions（Cloudflareのエッジで動作。手元にNode不要）。
+// ★Web3Forms の access_key はここ（env.WEB3FORMS_KEY）にしか存在させない（CLAUDE.md 制約1）。
+//   フロントは同一オリジンの /api/feedback のみを呼ぶ。
+
+/**
+ * POST /api/feedback を受け、access_key を付与して Web3Forms へ中継する。
+ * @param {{request:Request, env:Record<string,string>}} ctx
+ * @returns {Promise<Response>}
+ */
+export async function onRequestPost({ request, env }){
+  let body;
+  try{ body = await request.json(); }
+  catch{ return json({ success:false, message:'invalid body' }, 400); }
+
+  if (body.botcheck) return json({ success:true }, 200);       // Honeypot：静かに握り潰す
+
+  const res = await fetch('https://api.web3forms.com/submit', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      ...body,
+      access_key: env.WEB3FORMS_KEY,                           // ★サーバ側環境変数のみに存在
+      subject: '【てどりクエスト】β版フィードバック'
+    })
+  });
+  return new Response(await res.text(), {
+    status: res.status, headers:{ 'Content-Type':'application/json' }
+  });
+}
+
+/**
+ * JSON レスポンスを組み立てる。
+ * @param {object} obj
+ * @param {number} status
+ * @returns {Response}
+ */
+function json(obj, status){
+  return new Response(JSON.stringify(obj), { status, headers:{ 'Content-Type':'application/json' } });
+}

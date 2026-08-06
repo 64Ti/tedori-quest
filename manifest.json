@@ -1,0 +1,13 @@
+{
+  "name": "てどりクエスト｜手取り最大化シミュレーター",
+  "short_name": "てどりクエスト",
+  "description": "20〜30代単身会社員向けの手取り最大化シミュレーター（β版）",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
+  "lang": "ja",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>てどりクエスト テスト結果</title>
+  <style>
+    body{font-family:system-ui,sans-serif; padding:1rem; background:#0F172A; color:#E2E8F0;}
+    h1{font-size:1.25rem;} h1.pass{color:#10B981;} h1.fail{color:#EF4444;}
+    table{width:100%; border-collapse:collapse; font-size:.85rem; margin-top:1rem;}
+    th,td{border-bottom:1px solid #334155; padding:.5rem; text-align:left; vertical-align:top;}
+    tr.fail{background:rgba(239,68,68,.12);}
+    tr.fail td{color:#FCA5A5;}
+    #pending{margin-top:1.5rem; font-size:.85rem; color:#94A3B8;}
+    #pending h2{font-size:.9rem; color:#E2E8F0; margin:0 0 .5rem;}
+    #pending li{margin-bottom:.25rem;}
+  </style>
+</head>
+<body>
+  <div id="output">実行中…</div>
+  <div id="pending"></div>
+  <script type="module">
+    import { report } from './tests/runner.js';
+
+    // §8.0 は3ファイルを無条件 import するが、Phase 1a 時点ではまだ存在せず
+    // 404 で例外が飛んで report() に到達しない（完了条件の 0/0 表示が出せない）。
+    // 各フェーズで作成された時点で自動的に拾われるよう、存在確認を挟む。
+    const FILES = ['./tests/calc.test.js', './tests/store.test.js', './tests/feedback.test.js'];
+    const pending = [];
+
+    for (const f of FILES) {
+      // 未作成（404）と「存在するが壊れている」を区別するため、先に取得を試す。
+      // ここは JSON API ではないので res.ok のみで判定してよい（制約2の対象外）。
+      const res = await fetch(f, { cache: 'no-store' });
+      if (!res.ok) { pending.push(f); continue; }
+      await import(f);   // 存在するなら失敗は隠さない（構文エラーの握り潰し防止）
+    }
+
+    // ★report() は非同期テストの完了を待ってから描画するため await する
+    //   （待たないと、まだ結果が push されていないテストが一覧から欠落する）。
+    await report(document.getElementById('output'));
+
+    // report() は #output を innerHTML で全置換するため、必ずその後に描画する。
+    if (pending.length) {
+      document.getElementById('pending').innerHTML = `
+        <h2>未作成のテストファイル（${pending.length}）</h2>
+        <ul>${pending.map(f => `<li>${f}</li>`).join('')}</ul>`;
+    }
+  </script>
+</body>
+</html>

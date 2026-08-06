@@ -1,0 +1,491 @@
+// ui.js — 差分描画（§6.6）。DOM操作の唯一の窓口。
+// ★innerHTML による全再構築を禁止する（CLAUDE.md 制約5）。入力中の <input> がDOMごと
+//   破棄され、1文字ごとにフォーカスが飛ぶ（iOSではソフトキーボードが閉じ実質入力不能になる）。
+import { state } from './store.js';
+import * as C from './config.js';
+import * as calc from './calc.js';
+import { selectors } from './selectors.js';
+import { loadHtml2Canvas } from './vendor.js';
+
+const YEN = n => Number(n ?? 0).toLocaleString('ja-JP');
+
+// 医療費100万円のケースを目安として表示する。calcFinalSelfPay の totalMedicalCost に
+// 対応する data-model が §4.1b に存在しないため、QUEST_CATALOG の cancelMedicalInsurance
+// クエスト本文（§6.2.11）と同じ「医療費100万円」の例を UI 側でも代表値として採用する。
+const ILLUSTRATIVE_MEDICAL_COST = 1000000;
+
+/**
+ * サブスク通信費の判定を文言化する。§12.6 の方針どおり、improvable では
+ * 「まだ高い」等の否定的な表現を避け、選択肢の提示にとどめる。
+ * @param {{level:string, gapToAverage:number, gapToOptimized:number}} judge
+ * @returns {string}
+ */
+function smartphoneJudgeText(judge){
+  if (judge.level === 'over_average'){
+    return `平均（${YEN(C.MARKET_AVERAGE_SMARTPHONE.monthly)}円）を上回っています。`
+         + `見直しで月${YEN(judge.gapToAverage)}円ほど下げられる余地があります。`;
+  }
+  if (judge.level === 'improvable'){
+    return '平均は下回っていますが、オンライン専用プランなら'
+         + `月${YEN(C.MARKET_AVERAGE_SMARTPHONE.optimizedMax)}円台という選択肢もあります。`;
+  }
+  return 'すでに十分に最適化された水準です。';
+}
+
+/** その他サブスクの件数・小計テキストを生成する（§4.1b otherSummary）。 */
+function otherSummaryText(state){
+  const rows = state.selections.otherSubscriptions ?? [];
+  if (!rows.length) return '未入力';
+  const total = C.sumOtherSubscriptions(rows);
+  return `${rows.length}件・${YEN(total)}円`;
+}
+
+/**
+ * State から表示用の値をまとめて算出する（§4.1b バインディング契約表の text/progress/toggle 分）。
+ * ★calc.js / selectors.js は DOM に触れないため、DOM 反映用の書式変換はここで行う。
+ * @param {object} s state（Proxyでも可）
+ * @returns {Record<string, *>}
+ */
+function buildViewModel(s){
+  const rank       = selectors.rank(s);
+  const netIncome  = selectors.netIncome(s);
+  const grossHealth = calc.lookupStandardMonthly(s.userProfile.grossSalary);
+  const avgStandardMonthly = grossHealth ? grossHealth.standard : 0;
+
+  const selfPay = calc.calcFinalSelfPay({
+    grossSalary: s.userProfile.grossSalary,
+    isResidentTaxExempt: s.userProfile.isResidentTaxExempt,
+    insuranceType: s.userProfile.insuranceType,
+    fukaKyufuCap: s.userProfile.fukaKyufuCap
+  }, ILLUSTRATIVE_MEDICAL_COST);
+
+  const injuryDaily = calc.calcInjuryAllowanceDaily(avgStandardMonthly, {
+    isUnderOneYear: s.userProfile.isUnderOneYear,
+    insuranceType: s.userProfile.insuranceType,
+    kumiaiAverage: s.userProfile.kumiaiAverage
+  });
+
+  const rentGap  = calc.calcRentGap(netIncome, s.fixedCosts.rent, s.userProfile.area);
+  const bankLoss = calc.calcBankFeeLoss(s.finance?.atmCountOffHours, s.finance?.transferCount);
+
+  // ★§4.1b の data-model にはカード還元の詳細入力（annualSpend / currentRatePercent）が
+  //   無いため、fixedCosts.cardReward を「月間の機会損失額」そのものとして扱う
+  //   （calc.calcCreditCardLoss は詳細入力が無いと呼び出せないため、ここでは使用しない）。
+  const cardRewardMonthly = Math.max(0, Number(s.fixedCosts.cardReward) || 0);
+
+  const judge = C.judgeSmartphoneCost(Number(s.fixedCosts.smartphone) || 0);
+
+  const hasSubscription = (s.selections.subscriptionPlanIds ?? []).length > 0
+    || (s.selections.otherSubscriptions ?? []).length > 0;
+
+  return {
+    displayLevel: selectors.displayLevel(s),
+    moneyLevel: selectors.moneyLevel(s),
+    bonusLevel: selectors.bonusLevel(s),
+    rankTitle: rank.title,
+    annualGainFormatted: selectors.annualGainFormatted(s),
+    monthlyGain: YEN(selectors.monthlyGain(s)),
+    netIncome: YEN(netIncome),
+    nextLevelGap: YEN(selectors.nextLevelGap(s)),
+    selfPayCap: YEN(selfPay.amount),
+    injuryDaily: YEN(injuryDaily),
+    rentOverMarket: YEN(rentGap.overMarket),
+    rentPaybackYears: rentGap.paybackYears === null ? '—' : rentGap.paybackYears.toFixed(1),
+    bankFeeAnnual: YEN(bankLoss.annualLoss),
+    cardLossAnnual: YEN(cardRewardMonthly * 12),
+    progressPct: selectors.progressPct(s),
+    hasCompletedStep1: Boolean(s.meta.hasCompletedStep1),
+    isKumiai: s.userProfile.insuranceType === 'kumiai',
+    // ★isRevolving に対応する data-model が §4.1b に無いため常時 false（未結線。報告済み）
+    isRevolvingAlert: false,
+    otherSummary: otherSummaryText(s),
+    smartphoneJudge: smartphoneJudgeText(judge),
+    hasSubscription
+  };
+}
+
+/**
+ * "a.b.c" 形式のパスで値を読む。
+ * @param {object} obj
+ * @param {string} path
+ * @returns {*}
+ */
+export function getByPath(obj, path){
+  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+
+/**
+ * "a.b.c" 形式のパスで値を書く（途中のオブジェクトは存在している前提）。
+ * @param {object} obj
+ * @param {string} path
+ * @param {*} value
+ * @returns {void}
+ */
+export function setByPath(obj, path, value){
+  const keys = path.split('.');
+  const last = keys.pop();
+  const target = keys.reduce((o, k) => o[k], obj);
+  target[last] = value;
+}
+
+/**
+ * 数値をカンマ区切り文字列にする（入力欄の再表示用）。null/undefined/NaNは空文字。
+ * @param {*} v
+ * @returns {string}
+ */
+export function formatNumber(v){
+  if (v === null || v === undefined || v === '') return '';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString('ja-JP') : '';
+}
+
+let rafId = null, isRendering = false;
+
+/** 次フレームでの再描画を予約する（1フレーム1回に集約）。 */
+export function scheduleRender(){
+  if (rafId !== null) return;
+  rafId = requestAnimationFrame(() => { rafId = null; render(); });
+}
+
+function render(){
+  if (isRendering) return;                              // 再入ガード（第二防波堤）
+  isRendering = true;
+  try{
+    const view = buildViewModel(state);
+
+    document.querySelectorAll('[data-bind]').forEach(el => {
+      const [type, key] = el.dataset.bind.split(':');
+      const val = view[key];
+      if (type === 'text'){
+        if (el.textContent !== String(val)) el.textContent = val;   // 差分時のみ触る
+      } else if (type === 'progress'){
+        const next = `${Math.max(0, Math.min(100, Number(val) || 0))}%`;
+        if (el.style.getPropertyValue('--progress') !== next)
+          el.style.setProperty('--progress', next);
+      } else if (type === 'toggle'){
+        const next = !val;
+        if (el.hidden !== next) el.hidden = next;
+      }
+    });
+
+    // ★フォーカス中・IME変換中の入力欄には絶対に書き戻さない（CLAUDE.md 制約5）
+    document.querySelectorAll('[data-model]').forEach(el => {
+      if (el === document.activeElement) return;
+      if (el.dataset.composing === '1') return;
+
+      const raw = getByPath(state, el.dataset.model);
+      if (el.type === 'checkbox'){
+        const next = Boolean(raw);
+        if (el.checked !== next) el.checked = next;
+      } else if (el.tagName === 'SELECT'){
+        const next = raw ?? '';
+        if (el.value !== String(next)) el.value = String(next);
+      } else {
+        const next = formatNumber(raw);
+        if (el.value !== next) el.value = next;
+      }
+    });
+  } finally { isRendering = false; }
+}
+
+// ---------------------------------------------------------------------------
+// トースト通知（§3.6・§4.5・§6.5 が参照するが定義のない showToast をここに実装する）
+// ---------------------------------------------------------------------------
+let toastTimer = null;
+
+/**
+ * 画面下部にトーストを表示する（即時・上書き）。
+ * @param {string} message
+ * @param {'info'|'warn'|'levelup'} [tone]
+ * @returns {void}
+ */
+export function showToast(message, tone = 'info'){
+  const el = document.getElementById('toast');
+  if (!el) return;                                        // トースト要素が無い環境でも落ちない
+  clearTimeout(toastTimer);
+  el.textContent = message;
+  el.classList.toggle('toast--warn', tone === 'warn');
+  el.classList.toggle('toast--levelup', tone === 'levelup');
+  el.hidden = false;
+  toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
+}
+
+// ---------------------------------------------------------------------------
+// レベル通知（§4.3。連射防止のためキュー管理＋デバウンスする）
+// ---------------------------------------------------------------------------
+const toastQueue = [];
+let toastQueueBusy = false;
+
+/**
+ * トーストをキューに積む。同時表示は最大1件、待機は最大3件（超過分は破棄）。
+ * ★エラー通知など即時性が要る showToast とは別枠（レベルアップ演出用）。
+ * @param {string} message
+ * @param {'info'|'warn'|'levelup'} [tone]
+ * @returns {void}
+ */
+export function enqueueToast(message, tone = 'info'){
+  if (toastQueue.length >= 3) return;                     // 待機3件超過分は破棄
+  toastQueue.push({ message, tone });
+  drainToastQueue();
+}
+
+function drainToastQueue(){
+  if (toastQueueBusy || !toastQueue.length) return;
+  toastQueueBusy = true;
+  const { message, tone } = toastQueue.shift();
+  showToast(message, tone);
+  setTimeout(() => { toastQueueBusy = false; drainToastQueue(); }, 3200);   // showToastの表示時間と揃える
+}
+
+let lastNotifiedLevel = null, levelNotifyTimer = null;
+
+/**
+ * displayLevel の変化を検知し、上昇時のみ「LEVEL UP!」をキューへ積む。
+ * 600ms のデバウンスで、State の連続変更中に何度も通知しないようにする。
+ * ★store.subscribe(maybeNotifyLevelUp) のように状態変化のたびに呼ぶ想定。
+ * @returns {void}
+ */
+export function maybeNotifyLevelUp(){
+  clearTimeout(levelNotifyTimer);
+  levelNotifyTimer = setTimeout(() => {
+    const lv = selectors.displayLevel(state);
+    if (lastNotifiedLevel === null){ lastNotifiedLevel = lv; return; }   // 初回は基準を記録するのみ
+    const diff = lv - lastNotifiedLevel;
+    if (diff > 0) enqueueToast(`LEVEL UP! +${diff} Lv`, 'levelup');
+    lastNotifiedLevel = lv;                                 // 下降時は通知せず基準のみ更新
+  }, 600);
+}
+
+/**
+ * 基準レベルを即座に現在値へ同期する。フィードバックボーナス演出など、
+ * 別の場所で既に専用のレベルアップ通知を出した直後に呼び、
+ * maybeNotifyLevelUp() の遅延判定による重複通知を防ぐ（§3.6 トースト重複防止）。
+ * @returns {void}
+ */
+export function syncNotifiedLevel(){
+  clearTimeout(levelNotifyTimer);
+  lastNotifiedLevel = selectors.displayLevel(state);
+}
+
+// ---------------------------------------------------------------------------
+// ボトムシート（§3.5。iOS Safari の背面スクロール貫通・位置飛び対策）
+// ---------------------------------------------------------------------------
+let savedScrollY = 0;
+let releaseFocusTrap = null;
+
+function trapFocus(sheet){
+  const focusables = sheet.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+  if (!focusables.length) return;
+  const first = focusables[0], last = focusables[focusables.length - 1];
+  first.focus();
+
+  function onKeydown(e){
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  }
+  sheet.addEventListener('keydown', onKeydown);
+  releaseFocusTrap = () => sheet.removeEventListener('keydown', onKeydown);
+}
+
+function onEscape(e){
+  if (e.key !== 'Escape') return;
+  const sheet = document.querySelector('.bottom-sheet:not([hidden])');
+  if (sheet) closeSheet(sheet);
+}
+
+/**
+ * ボトムシートを開く（背面スクロール固定・フォーカストラップ・Escapeクローズ）。
+ * @param {HTMLElement} sheet
+ * @returns {void}
+ */
+export function openSheet(sheet){
+  savedScrollY = window.scrollY;
+  document.body.style.cssText =
+    `position:fixed; top:${-savedScrollY}px; left:0; right:0; width:100%; overflow:hidden;`;
+  sheet.hidden = false;
+  trapFocus(sheet);
+  document.addEventListener('keydown', onEscape);
+}
+
+/**
+ * ボトムシートを閉じる（開く前のスクロール位置へ復帰）。
+ * @param {HTMLElement} sheet
+ * @returns {void}
+ */
+export function closeSheet(sheet){
+  document.body.style.cssText = '';
+  window.scrollTo(0, savedScrollY);   // ★これが無いとページ先頭へ飛ぶ
+  sheet.hidden = true;
+  releaseFocusTrap?.();
+  releaseFocusTrap = null;
+  document.removeEventListener('keydown', onEscape);
+}
+
+// ---------------------------------------------------------------------------
+// コピーボタンの一時ラベル切替（§4.6）
+// ---------------------------------------------------------------------------
+
+/**
+ * ボタンのラベルを一定時間だけ差し替える（コピー完了表示など）。
+ * @param {HTMLButtonElement} btn
+ * @param {string} tempLabel
+ * @param {number} [ms]
+ * @returns {void}
+ */
+export function flashButton(btn, tempLabel, ms = 2000){
+  if (!btn.dataset.originalLabel) btn.dataset.originalLabel = btn.textContent;   // 初回のみ退避
+  clearTimeout(Number(btn.dataset.flashTimer));                                  // 既存タイマー破棄
+  btn.textContent = tempLabel;
+  btn.classList.add('is-copied');
+  btn.setAttribute('aria-live', 'polite');
+  const id = setTimeout(() => {
+    btn.textContent = btn.dataset.originalLabel;
+    btn.classList.remove('is-copied');
+    delete btn.dataset.flashTimer;
+  }, ms);
+  btn.dataset.flashTimer = String(id);
+}
+
+// ---------------------------------------------------------------------------
+// クリップボードコピー（§4.6・非同期。失敗時は execCommand フォールバック）
+// ---------------------------------------------------------------------------
+
+/**
+ * 旧式のクリップボードコピー（iOS Safari 等、Clipboard API が使えない環境向け）。
+ * @param {string} text
+ * @returns {boolean} コピーに成功したか
+ */
+function legacyCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.readOnly = true; ta.contentEditable = 'true';   // readOnly でキーボード抑止
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px;';
+  document.body.appendChild(ta);
+  const range = document.createRange(); range.selectNodeContents(ta);
+  const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try{ ok = document.execCommand('copy'); }catch{ ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+/**
+ * クリップボードへ文字列をコピーする。Clipboard API を優先し、失敗時のみ
+ * execCommand へフォールバックする（非同期・失敗時は false を返し呼び出し側が通知する）。
+ * @param {string} text
+ * @returns {Promise<boolean>}
+ */
+export async function copyToClipboard(text){
+  if (navigator.clipboard && window.isSecureContext){
+    try{ await navigator.clipboard.writeText(text); return true; }
+    catch{ /* 権限拒否等。フォールバックへ */ }
+  }
+  return legacyCopy(text);
+}
+
+// ---------------------------------------------------------------------------
+// マイカルテ画像出力（§4.4）
+// ★html2canvas は vendor.js 経由（Node-Ready N-1）。CDN URL をここに直書きしない。
+// ---------------------------------------------------------------------------
+
+function isIOS(){
+  return /iP(hone|od|ad)/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS 13+ 対策
+}
+
+/**
+ * Canvas が実質空白（全ピクセルが同一色）でないかを判定する。
+ * html2canvas はフォント未ロード等で「例外を投げず真っ白な画像」を返すことがあるため、
+ * 無音で失敗させないよう明示的に検査する。
+ * @param {HTMLCanvasElement} canvas
+ * @returns {boolean}
+ */
+function hasVisiblePixels(canvas){
+  if (!canvas.width || !canvas.height) return false;
+  const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  const [r0, g0, b0, a0] = data;
+  for (let i = 4; i < data.length; i += 4){
+    if (data[i] !== r0 || data[i+1] !== g0 || data[i+2] !== b0 || data[i+3] !== a0) return true;
+  }
+  return false;
+}
+
+/**
+ * マイカルテ要素をキャプチャして Canvas を返す。失敗時は印刷機能へフォールバックし null を返す。
+ * @param {HTMLElement} el
+ * @returns {Promise<HTMLCanvasElement|null>}
+ */
+export async function captureCard(el){
+  el.classList.add('capture-safe');                     // oklch()等キャプチャ非対応プロパティを無効化
+  try{
+    // ★CDNへの到達失敗（オフライン・ブロック等）も「キャプチャできない」の一種として
+    //   同じフォールバックに合流させるため、動的import自体も try に含める。
+    const html2canvas = await loadHtml2Canvas();
+    await document.fonts.ready;                          // フォント未ロードによる文字化け防止
+
+    const rect = el.getBoundingClientRect();
+    const MAX_AREA = 4 * 1024 * 1024;                     // iOS の Canvas 面積上限に対し保守的に設定
+    let scale = 2;
+    while (rect.width*scale * rect.height*scale > MAX_AREA && scale > 1) scale -= 0.25;
+
+    const canvas = await html2canvas(el, {
+      scale, backgroundColor:'#0F172A', useCORS:true, logging:false,
+      windowWidth: document.documentElement.clientWidth,
+      scrollX:0, scrollY:-window.scrollY                // 無いとスクロール量分ずれる
+    });
+    if (!hasVisiblePixels(canvas)) throw new Error('blank canvas');   // 無音で壊れさせない
+    return canvas;
+  }catch{
+    showToast('画像を作成できませんでした。印刷機能で保存できます', 'warn');
+    window.print();
+    return null;
+  } finally {
+    el.classList.remove('capture-safe');
+  }
+}
+
+/**
+ * Canvas を画像として保存する。iOS Safari は `<a download>` を無視するため
+ * 共有シート→通常ダウンロード→長押し保存案内の順に段階的フォールバックする。
+ * @param {HTMLCanvasElement} canvas
+ * @returns {Promise<void>}
+ */
+export async function saveCard(canvas){
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+  const file = new File([blob], 'tedori-quest-karte.png', { type:'image/png' });
+
+  if (navigator.canShare?.({ files:[file] })){          // ① 共有シート（iOS/Android）
+    try{ await navigator.share({ files:[file], title:'てどりクエスト マイカルテ' }); return; }
+    catch(e){ if (e.name === 'AbortError') return; }
+  }
+  if (!isIOS()){                                        // ② 通常ダウンロード（デスクトップ）
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'), { href:url, download:'tedori-quest-karte.png' }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return;
+  }
+  showImageModal(canvas.toDataURL('image/png'),          // ③ 長押し保存を案内
+    '画像を長押しして「写真に追加」を選んでください');
+}
+
+// ---------------------------------------------------------------------------
+// 画像モーダル（iOS長押し保存の案内。§4.4③のフォールバック先）
+// ---------------------------------------------------------------------------
+
+/**
+ * 画像を全画面モーダルで表示する（iOSの長押し保存を案内するため）。
+ * @param {string} dataUrl
+ * @param {string} message
+ * @returns {void}
+ */
+export function showImageModal(dataUrl, message){
+  const modal = document.getElementById('image-modal');
+  if (!modal) return;
+  const img = modal.querySelector('img');
+  const msg = modal.querySelector('.image-modal__message');
+  img.src = dataUrl;
+  if (msg) msg.textContent = message;
+  openSheet(modal);
+}
