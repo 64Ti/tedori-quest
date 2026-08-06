@@ -183,64 +183,76 @@
     <p class="section-lead">現状（Before）と見直し後の目標（After）を並べて入力します。</p>
 
     <!-- --- 通信費 --- -->
+    <!-- ★段階入力：まず「現状」のみ表示し、入力（またはボタン操作）後に「見直し後」を開く。
+         data-reveal-group の値は fixedCosts のキー名と一致させ、ui.js の render() が
+         その値が入力済みかどうかで自動的に開閉を判定する（js/ui.js syncRevealGroups 参照）。 -->
     <div class="card">
       <p class="card__title">📶 通信費</p>
-      <div class="before-after">
-        <div class="field">
-          <label class="field__label" for="in-smartphone">現状（月額）</label>
-          <input id="in-smartphone" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="7,000" autocomplete="off" enterkeyhint="done"
-                 data-model="fixedCosts.smartphone" data-composing="0">
-        </div>
-        <div class="field">
-          <label class="field__label" for="in-opt-smartphone">見直し後（目標）</label>
-          <input id="in-opt-smartphone" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="2,980" autocomplete="off" enterkeyhint="done"
-                 data-model="optimized.smartphone" data-composing="0">
-        </div>
+      <div class="field">
+        <label class="field__label" for="in-smartphone">現状（月額）</label>
+        <input id="in-smartphone" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+               placeholder="7,000" autocomplete="off" enterkeyhint="done"
+               data-model="fixedCosts.smartphone" data-composing="0">
       </div>
       <p class="section-lead" data-bind="text:smartphoneJudge">通信費を入力すると判定が表示されます</p>
+
+      <button type="button" class="btn btn--ghost btn--block cost-card__reveal-btn"
+              data-action="revealOptimized" data-reveal-group="smartphone" style="margin-top:.75rem;">
+        ▼ 見直し後の目標額を入力する
+      </button>
+      <div class="field cost-card__optimized" data-reveal-group="smartphone" hidden>
+        <label class="field__label" for="in-opt-smartphone">見直し後（目標）</label>
+        <input id="in-opt-smartphone" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+               placeholder="2,980" autocomplete="off" enterkeyhint="done"
+               data-model="optimized.smartphone" data-composing="0">
+      </div>
     </div>
 
     <!-- --- 医療保険 --- -->
     <div class="card">
       <p class="card__title">🏥 医療保険</p>
-      <div class="before-after">
-        <div class="field">
-          <label class="field__label" for="in-medicalInsurance">現状（月額）</label>
-          <input id="in-medicalInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="3,000" autocomplete="off" enterkeyhint="done"
-                 data-model="fixedCosts.medicalInsurance" data-composing="0">
-        </div>
-        <div class="field">
-          <label class="field__label" for="in-opt-medicalInsurance">見直し後（目標）</label>
-          <input id="in-opt-medicalInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="0" autocomplete="off" enterkeyhint="done"
-                 data-model="optimized.medicalInsurance" data-composing="0">
-        </div>
+      <div class="field">
+        <label class="field__label" for="in-medicalInsurance">現状（月額）</label>
+        <input id="in-medicalInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+               placeholder="3,000" autocomplete="off" enterkeyhint="done"
+               data-model="fixedCosts.medicalInsurance" data-composing="0">
+      </div>
+
+      <button type="button" class="btn btn--ghost btn--block cost-card__reveal-btn"
+              data-action="revealOptimized" data-reveal-group="medicalInsurance" style="margin-top:.75rem;">
+        ▼ 見直し後の目標額を入力する
+      </button>
+      <div class="field cost-card__optimized" data-reveal-group="medicalInsurance" hidden>
+        <label class="field__label" for="in-opt-medicalInsurance">見直し後（目標）</label>
+        <input id="in-opt-medicalInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+               placeholder="0" autocomplete="off" enterkeyhint="done"
+               data-model="optimized.medicalInsurance" data-composing="0">
       </div>
     </div>
 
     <!-- --- 火災保険 --- -->
     <div class="card">
       <p class="card__title">🔥 火災保険（家財保険）</p>
-      <div class="before-after">
-        <div class="field">
-          <label class="field__label" for="in-fireInsurance">現状（月額換算）</label>
-          <input id="in-fireInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="729" autocomplete="off" enterkeyhint="done"
-                 data-model="fixedCosts.fireInsurance" data-composing="0">
-        </div>
-        <div class="field">
-          <label class="field__label" for="in-opt-fireInsurance">見直し後（目標）</label>
-          <input id="in-opt-fireInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="333" autocomplete="off" enterkeyhint="done"
-                 data-model="optimized.fireInsurance" data-composing="0">
-        </div>
+      <div class="field">
+        <label class="field__label" for="in-fireInsurance">現状（月額換算）</label>
+        <input id="in-fireInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+               placeholder="833" autocomplete="off" enterkeyhint="done"
+               data-model="fixedCosts.fireInsurance" data-composing="0">
       </div>
       <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="assistFireInsurance">
         わからない場合は相場（月833円）を入力する
       </button>
+
+      <button type="button" class="btn btn--ghost btn--block cost-card__reveal-btn"
+              data-action="revealOptimized" data-reveal-group="fireInsurance" style="margin-top:.5rem;">
+        ▼ 見直し後の目標額を入力する
+      </button>
+      <div class="field cost-card__optimized" data-reveal-group="fireInsurance" hidden>
+        <label class="field__label" for="in-opt-fireInsurance">見直し後（目標）</label>
+        <input id="in-opt-fireInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+               placeholder="333" autocomplete="off" enterkeyhint="done"
+               data-model="optimized.fireInsurance" data-composing="0">
+      </div>
     </div>
 
     <!-- --- サブスクリプション（2階層アコーディオン） --- -->
@@ -255,7 +267,7 @@
            カテゴリ内は開閉なしのカード一覧＋プランはラジオボタン（§3.9）。
            各サービスの先頭に「契約なし」ラジオを配置し、選択を解除できるようにする。 -->
       <div class="sub-accordion-group">
-        <details class="sub-category" name="sub-accordion">
+        <details class="sub-category" name="sub-accordion" data-sub-category="video">
           <summary>
             <span>動画配信</span>
             <span class="sub-badge">未選択</span>
@@ -321,7 +333,7 @@
           </div>
         </details>
 
-        <details class="sub-category" name="sub-accordion">
+        <details class="sub-category" name="sub-accordion" data-sub-category="music">
           <summary>
             <span>音楽配信</span>
             <span class="sub-badge">未選択</span>
@@ -367,7 +379,7 @@
           </div>
         </details>
 
-        <details class="sub-category" name="sub-accordion">
+        <details class="sub-category" name="sub-accordion" data-sub-category="books">
           <summary>
             <span>電子書籍・オーディオ</span>
             <span class="sub-badge">未選択</span>
@@ -404,7 +416,7 @@
           </div>
         </details>
 
-        <details class="sub-category" name="sub-accordion">
+        <details class="sub-category" name="sub-accordion" data-sub-category="cloud">
           <summary>
             <span>クラウド・AI</span>
             <span class="sub-badge">未選択</span>
@@ -455,7 +467,7 @@
           </div>
         </details>
 
-        <details class="sub-category" name="sub-accordion">
+        <details class="sub-category" name="sub-accordion" data-sub-category="game">
           <summary>
             <span>ゲーム</span>
             <span class="sub-badge">未選択</span>
@@ -489,7 +501,7 @@
           </div>
         </details>
 
-        <details class="sub-category" name="sub-accordion">
+        <details class="sub-category" name="sub-accordion" data-sub-category="life">
           <summary>
             <span>ライフ・配送</span>
             <span class="sub-badge">未選択</span>
@@ -556,7 +568,11 @@
         ✅ サブスクを選択しています。上のカテゴリから内容を確認・変更できます。
       </p>
 
-      <div class="field" style="margin-top:1rem;">
+      <button type="button" class="btn btn--ghost btn--block cost-card__reveal-btn"
+              data-action="revealOptimized" data-reveal-group="subscriptions" style="margin-top:1rem;">
+        ▼ 見直し後の目標額を入力する
+      </button>
+      <div class="field cost-card__optimized" data-reveal-group="subscriptions" hidden>
         <label class="field__label" for="in-opt-subscriptions">見直し後の目標（月額合計）</label>
         <input id="in-opt-subscriptions" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
                placeholder="1,500" autocomplete="off" enterkeyhint="done"
@@ -594,8 +610,23 @@
                data-model="fixedCosts.rent" data-composing="0">
       </div>
 
-      <p class="section-lead" style="margin-top:1rem;">
-        市場平均との差額：¥<span data-bind="text:rentOverMarket">0</span> / 月
+      <!-- ★常時表示の適正判定メーター。差額が0円/超過なしの場合でも
+           「多め・適正・控えめ」を必ず表示する（金額が動くたびに再計算される）。 -->
+      <p class="rent-meter__verdict" data-bind="text:rentJudgeText">エリアと家賃を入力すると判定が表示されます</p>
+      <div class="rent-meter">
+        <div class="rent-meter__bar" data-bind="progress:rentMeterPct">
+          <div class="rent-meter__fill"></div>
+          <span class="rent-meter__marker rent-meter__marker--average" data-rent-marker="average"></span>
+          <span class="rent-meter__marker rent-meter__marker--limit" data-rent-marker="limit"></span>
+        </div>
+        <div class="rent-meter__legend">
+          <span><i class="rent-meter__dot rent-meter__dot--average" aria-hidden="true"></i>地域平均</span>
+          <span><i class="rent-meter__dot rent-meter__dot--limit" aria-hidden="true"></i>上限目安（手取りの30%）</span>
+        </div>
+      </div>
+
+      <p class="section-lead" style="margin-top:.75rem;">
+        地域平均との差額：¥<span data-bind="text:rentOverMarket">0</span> / 月
       </p>
       <p class="section-lead">
         引っ越し費用の回収年数：<span data-bind="text:rentPaybackYears">—</span> 年
@@ -611,6 +642,14 @@
 
     <div class="card">
       <p class="card__title">🏦 銀行手数料</p>
+      <details class="field-hint">
+        <summary>ℹ️ なぜ入力するのですか？</summary>
+        <p>
+          時間外・土日祝のATM利用や他行宛の振込には、1回ごとに手数料がかかることがあります。
+          回数を入力すると、年間でどれくらいの手数料になっているかを自動計算し、
+          手数料が無料になりやすい銀行への切り替えを検討する材料にできます。
+        </p>
+      </details>
       <div class="field">
         <label class="field__label" for="in-atmCount">時間外・土日祝のATM利用回数（月）</label>
         <input id="in-atmCount" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
@@ -634,6 +673,14 @@
 
     <div class="card">
       <p class="card__title">💳 クレジットカード</p>
+      <details class="field-hint">
+        <summary>ℹ️ なぜ入力するのですか？</summary>
+        <p>
+          クレジットカードの還元率は1%前後を目安とすることが多く、
+          還元率が低いカードを使い続けていると、同じ買い物でも受け取れるポイントに差が出ます。
+          月々の還元額（目安）を入力すると、還元率の高いカードへの集約でどれくらいの差になるかを試算できます。
+        </p>
+      </details>
       <div class="field">
         <label class="field__label" for="in-cardReward">還元の機会損失（月額換算）</label>
         <input id="in-cardReward" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
@@ -861,7 +908,9 @@
         </span>
       </p>
       <p class="karte__rank" data-bind="text:rankTitle">手取り見習い市民</p>
-      <p class="karte__amount">
+      <!-- ★data-capture-amount：saveKarte()がマスク設定を見て、キャプチャ処理中だけ
+           テキストを「非公開」に差し替える対象。画面表示自体は常に金額のまま（マスクは画像のみ）。 -->
+      <p class="karte__amount" data-capture-amount>
         年間で手取りが
         <strong class="karte__amount-value" data-bind="text:annualGainFormatted">0</strong> 円
         増える潜在能力があります
@@ -870,6 +919,11 @@
         </small>
       </p>
     </div>
+
+    <label class="field-check">
+      <input type="checkbox" id="in-mask-amount-on-save">
+      画像保存・SNS共有時は金額を隠す（レベル・称号のみ表示）
+    </label>
 
     <div class="karte-actions">
       <button type="button" class="btn btn--accent" data-action="shareX">🐦 Xでシェア</button>

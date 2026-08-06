@@ -32,6 +32,27 @@ function smartphoneJudgeText(judge){
   return 'すでに十分に最適化された水準です。';
 }
 
+/**
+ * 家賃の常時判定（多め／適正／控えめ）を算出する。閾値超過時のみ表示するのではなく、
+ * 常に3段階のいずれかを返す（改善要望対応：一見して高い/適正/低いが分かるように）。
+ * @param {ReturnType<typeof calc.calcRentGap>} rentGap
+ * @param {number} rent
+ * @returns {{level:'unset'|'appropriate'|'over_average'|'over_limit', text:string}}
+ */
+function rentJudge(rentGap, rent){
+  const r = Math.max(0, Number(rent) || 0);
+  if (r === 0) return { level:'unset', text:'エリアと家賃を入力すると判定が表示されます' };
+  if (r > rentGap.limit){
+    return { level:'over_limit',
+      text:`📕 手取りに対してやや高めです（上限目安の${YEN(rentGap.limit)}円を${YEN(r - rentGap.limit)}円超えています）` };
+  }
+  if (rentGap.overMarket > 0){
+    return { level:'over_average',
+      text:`📙 地域平均（${YEN(rentGap.marketAverage)}円）よりやや高めですが、上限目安の範囲内です` };
+  }
+  return { level:'appropriate', text:'📗 地域平均・上限目安のいずれの範囲内でもあり、適正な水準です' };
+}
+
 /** その他サブスクの件数・小計テキストを生成する（§4.1b otherSummary）。 */
 function otherSummaryText(state){
   const rows = state.selections.otherSubscriptions ?? [];
@@ -66,6 +87,14 @@ function buildViewModel(s){
   });
 
   const rentGap  = calc.calcRentGap(netIncome, s.fixedCosts.rent, s.userProfile.area);
+  const rentValue = Math.max(0, Number(s.fixedCosts.rent) || 0);
+  const rentJudgeInfo = rentJudge(rentGap, rentValue);
+  // ★メーターの表示レンジは「上限目安の1.2倍」を基準にし、家賃がそれを超える場合だけ伸ばす。
+  //   これにより通常時は上限目安がバーの中央よりやや右あたりに来て視認しやすい。
+  const rentScale = Math.max(rentGap.limit * 1.2, rentValue, rentGap.marketAverage, 1);
+  const rentMeterPct = Math.min(100, Math.round((rentValue / rentScale) * 100));
+  const rentAveragePct = Math.min(100, Math.round((rentGap.marketAverage / rentScale) * 100));
+  const rentLimitPct = Math.min(100, Math.round((rentGap.limit / rentScale) * 100));
   const bankLoss = calc.calcBankFeeLoss(s.finance?.atmCountOffHours, s.finance?.transferCount);
 
   // ★§4.1b の data-model にはカード還元の詳細入力（annualSpend / currentRatePercent）が
@@ -91,6 +120,11 @@ function buildViewModel(s){
     injuryDaily: YEN(injuryDaily),
     rentOverMarket: YEN(rentGap.overMarket),
     rentPaybackYears: rentGap.paybackYears === null ? '—' : rentGap.paybackYears.toFixed(1),
+    rentJudgeText: rentJudgeInfo.text,
+    rentJudgeLevel: rentJudgeInfo.level,
+    rentMeterPct,
+    rentAveragePct,
+    rentLimitPct,
     bankFeeAnnual: YEN(bankLoss.annualLoss),
     cardLossAnnual: YEN(cardRewardMonthly * 12),
     progressPct: selectors.progressPct(s),
@@ -168,6 +202,8 @@ function render(){
       }
     });
 
+    syncRentMeter(view);
+
     // ★フォーカス中・IME変換中の入力欄には絶対に書き戻さない（CLAUDE.md 制約5）
     document.querySelectorAll('[data-model]').forEach(el => {
       if (el === document.activeElement) return;
@@ -185,7 +221,98 @@ function render(){
         if (el.value !== next) el.value = next;
       }
     });
+
+    // ★サブスクのラジオボタンは data-model を持たないため、上のループでは同期されない。
+    //   選択直後は見た目上正しく見えるが、他の入力による再描画やページ再読込（永続化からの
+    //   復元）のたびに「契約なし」（HTML静的既定値）へ視覚上戻ってしまうバグがあった。
+    //   選択状態は state.selections.subscriptionPlanIds を唯一の正とし、
+    //   再描画のたびにラジオの checked をそこから引き直す。
+    syncSubscriptionRadios(state);
+    syncSubscriptionBadges(state);
+    syncRevealGroups(state);
   } finally { isRendering = false; }
+}
+
+/**
+ * 家賃の常時比較メーターを更新する。マーカーの left%・バーと判定文の色（data-level）は
+ * data-bind の汎用ループ（text/progress/toggleのみ対応）では表現できないため専用で行う。
+ * @param {Record<string,*>} view buildViewModel() の戻り値
+ * @returns {void}
+ */
+function syncRentMeter(view){
+  const verdict = document.querySelector('.rent-meter__verdict');
+  if (verdict && verdict.dataset.level !== view.rentJudgeLevel) verdict.dataset.level = view.rentJudgeLevel;
+
+  const bar = document.querySelector('.rent-meter__bar');
+  if (bar && bar.dataset.level !== view.rentJudgeLevel) bar.dataset.level = view.rentJudgeLevel;
+
+  const avgMarker = document.querySelector('[data-rent-marker="average"]');
+  if (avgMarker){
+    const next = `${view.rentAveragePct}%`;
+    if (avgMarker.style.left !== next) avgMarker.style.left = next;
+  }
+  const limitMarker = document.querySelector('[data-rent-marker="limit"]');
+  if (limitMarker){
+    const next = `${view.rentLimitPct}%`;
+    if (limitMarker.style.left !== next) limitMarker.style.left = next;
+  }
+}
+
+/**
+ * 段階入力フロー：「現状」に値が入っている（＝ユーザーが入力を終えた）カードだけ
+ * 「見直し後」欄を自動的に開く。呪文復元・ページ再読込で既に値がある場合も
+ * ボタンを押し直させないよう、都度ここで判定し直す（一度開いたら閉じない）。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncRevealGroups(s){
+  document.querySelectorAll('[data-reveal-group].cost-card__optimized').forEach(field => {
+    if (!field.hidden) return;                           // 既に開いていれば何もしない
+    const group = field.dataset.revealGroup;
+    const hasEnteredCurrent = group === 'subscriptions'
+      ? (s.selections.subscriptionPlanIds.length > 0 || s.selections.otherSubscriptions.length > 0)
+      : Number.isFinite(Number(s.fixedCosts[group])) && s.fixedCosts[group] !== null;
+    const hasOptimizedAlready = Number.isFinite(Number(s.optimized[group])) && s.optimized[group] !== null;
+    if (hasEnteredCurrent || hasOptimizedAlready){
+      field.hidden = false;
+      const btn = document.querySelector(`[data-action="revealOptimized"][data-reveal-group="${group}"]`);
+      if (btn) btn.hidden = true;
+    }
+  });
+}
+
+const planGroupCache = new Map();   // groupId(サービスID) → Set(そのサービスのプランID)
+
+function getPlanIdsForGroup(group){
+  if (planGroupCache.has(group)) return planGroupCache.get(group);
+  const service = C.SUBSCRIPTION_PLANS.flatMap(cat => cat.services).find(s => s.id === group);
+  const ids = new Set(service ? service.plans.map(p => p.id) : []);
+  planGroupCache.set(group, ids);
+  return ids;
+}
+
+function syncSubscriptionRadios(s){
+  const selected = new Set(s.selections.subscriptionPlanIds ?? []);
+  const groups = new Set();
+  document.querySelectorAll('[data-plan-group]').forEach(el => groups.add(el.dataset.planGroup));
+
+  groups.forEach(group => {
+    const idsInGroup = getPlanIdsForGroup(group);
+    const selectedId = [...selected].find(id => idsInGroup.has(id)) ?? '';   // 無ければ「契約なし」
+    document.querySelectorAll(`[data-plan-group="${group}"]`).forEach(radio => {
+      const shouldCheck = radio.value === selectedId;
+      if (radio.checked !== shouldCheck) radio.checked = shouldCheck;
+    });
+  });
+}
+
+function syncSubscriptionBadges(s){
+  document.querySelectorAll('[data-sub-category]').forEach(details => {
+    const badge = details.querySelector('.sub-badge');
+    if (!badge) return;
+    const next = selectors.subscriptionSummary(s, details.dataset.subCategory) || '未選択';
+    if (badge.textContent !== next) badge.textContent = next;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -417,8 +544,32 @@ function hasVisiblePixels(canvas){
  * @param {HTMLElement} el
  * @returns {Promise<HTMLCanvasElement|null>}
  */
-export async function captureCard(el){
+/**
+ * キャプチャ対象内の [data-capture-amount] 要素のテキストを一時的に伏せ字へ差し替える。
+ * ★CSSの filter/opacity は capture-safe が無効化してしまう（html2canvas非対応のため）ので、
+ *   テキスト自体を直接差し替える方式にする。restore() で必ず元に戻すこと。
+ * @param {HTMLElement} el キャプチャ対象のルート要素
+ * @returns {() => void} 元のテキストへ戻す関数
+ */
+function maskAmounts(el){
+  const targets = [...el.querySelectorAll('[data-capture-amount]')];
+  const originals = targets.map(t => t.innerHTML);
+  targets.forEach(t => {
+    t.innerHTML = '<span aria-hidden="true">🔒 金額は非公開に設定されています</span>';
+  });
+  return () => targets.forEach((t, i) => { t.innerHTML = originals[i]; });
+}
+
+/**
+ * マイカルテ要素をキャプチャして Canvas を返す。失敗時は印刷機能へフォールバックし null を返す。
+ * @param {HTMLElement} el
+ * @param {{maskAmount?:boolean}} [opts] maskAmount:true の場合、[data-capture-amount] 要素の
+ *   金額表示を画像上でのみ伏せ字にする（画面上の表示自体は変更しない）
+ * @returns {Promise<HTMLCanvasElement|null>}
+ */
+export async function captureCard(el, opts = {}){
   el.classList.add('capture-safe');                     // oklch()等キャプチャ非対応プロパティを無効化
+  const restoreAmounts = opts.maskAmount ? maskAmounts(el) : null;
   try{
     // ★CDNへの到達失敗（オフライン・ブロック等）も「キャプチャできない」の一種として
     //   同じフォールバックに合流させるため、動的import自体も try に含める。
@@ -443,6 +594,7 @@ export async function captureCard(el){
     return null;
   } finally {
     el.classList.remove('capture-safe');
+    restoreAmounts?.();
   }
 }
 

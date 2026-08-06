@@ -334,7 +334,8 @@ export function judgeSmartphoneCost(monthly){
 export const FIRE_INSURANCE = {
   agencyTwoYear:  { min:15000, max:20000 },   // 不動産会社経由（大手損保）2年契約
   onlineTwoYear:  { min: 8000, max:12000 },   // ネット型少額短期保険 2年契約
-  assistMonthly:  729,                        // 「わからない」時の補完値（2年17,500円の中央値÷24）
+  // 「わからない」時の補完値。2年20,000円の目安値÷24（運用判断により833円に統一。2026-08-06）
+  assistMonthly:  833,
   reviewThreshold:15000                       // 2年でこの額を超える場合に見直しを案内する
 };
 export const FIRE_INSURANCE_ASSIST_MONTHLY = FIRE_INSURANCE.assistMonthly;

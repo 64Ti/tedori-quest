@@ -59,6 +59,14 @@ function bindEvents(){
     }
   }, true);
 
+  // ★フォーカス時に全選択：既に値が入っている欄（アシスト補完値等）を
+  //   ワンタップ（1クリック）で上書きできるようにする（改善要望対応）。
+  //   focus はバブリングしないため capture フェーズで拾う。
+  document.addEventListener('focus', e => {
+    const el = e.target.closest('[data-model]');
+    if (el && el.type !== 'checkbox' && el.tagName !== 'SELECT') el.select();
+  }, true);
+
   document.addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (btn) ACTIONS[btn.dataset.action]?.(btn, e);
@@ -218,7 +226,8 @@ const ACTIONS = {
     try{
       const target = document.getElementById('karte-capture-target');
       if (!target) return;
-      const canvas = await captureCard(target);
+      const maskAmount = document.getElementById('in-mask-amount-on-save')?.checked ?? false;
+      const canvas = await captureCard(target, { maskAmount });
       if (canvas) await saveCard(canvas);
     } finally {
       isCapturingKarte = false;
@@ -259,8 +268,19 @@ const ACTIONS = {
   },
 
   assistFireInsurance(){
-    // 「わからない」時の相場補完値。config.js の算出根拠：2年17,500円の中央値÷24。
+    // 「わからない」時の相場補完値（config.js FIRE_INSURANCE.assistMonthly）。
     state.fixedCosts.fireInsurance = C.FIRE_INSURANCE_ASSIST_MONTHLY;
+  },
+
+  /**
+   * 「見直し後」の入力欄を開く（段階入力フロー）。開いたら閉じない片道操作でよい
+   * （閉じる操作を用意すると誤って入力済みの値を隠してしまう事故につながるため）。
+   */
+  revealOptimized(btn){
+    const group = btn.dataset.revealGroup;
+    document.querySelectorAll(`[data-reveal-group="${group}"].field`).forEach(el => { el.hidden = false; });
+    btn.hidden = true;
+    document.querySelector(`[data-reveal-group="${group}"] input`)?.focus();
   },
 
   addOtherSub(){

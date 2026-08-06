@@ -97,12 +97,28 @@ section:last-of-type{border-bottom:none;}
 .input:focus-visible{outline:2px solid var(--c-brand); outline-offset:2px;}
 .input--label{text-align:left; font-variant-numeric:normal;}
 .input--select{text-align:left;}
+/* ★プレースホルダー（例）と実際に入力済みの値を見分けやすくする（改善要望対応）。
+   プレースホルダーは薄く・斜体、入力済みの値は不透明・通常体で表示する。 */
+.input::placeholder{color:var(--c-text-mute); opacity:.65; font-style:italic;}
+.input:not(:placeholder-shown){color:var(--c-text); font-weight:600;}
 .field{display:flex; flex-direction:column; gap:var(--sp-1); margin-top:var(--sp-3);}
 .field:first-child{margin-top:0;}
 .field__label{font-size:var(--fs-sm); color:var(--c-text-mute);}
 .field-row{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
 .field-check{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
 .field-check input{width:20px; height:20px;}
+
+.field-hint{margin-top:var(--sp-2);}
+.field-hint summary{
+  cursor:pointer; min-height:44px; display:flex; align-items:center;
+  font-size:var(--fs-sm); color:var(--c-text-mute);
+}
+.field-hint p{margin-top:var(--sp-2); font-size:var(--fs-sm); color:var(--c-text-mute);}
+
+.cost-card__reveal-btn{margin-top:var(--sp-3);}
+.cost-card__optimized{
+  margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px dashed var(--c-border);
+}
 
 .before-after{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); margin-top:var(--sp-3);}
 .before-after .field{margin-top:0;}
@@ -114,6 +130,39 @@ section:last-of-type{border-bottom:none;}
   width:var(--progress, 0%);
   transition:width var(--dur) var(--ease);
 }
+
+/* ===== ⑤a 家賃の常時比較メーター ===== */
+.rent-meter__verdict{font-weight:700; margin-top:.75rem;}
+.rent-meter__verdict[data-level="appropriate"]{color:var(--c-brand);}
+.rent-meter__verdict[data-level="over_average"]{color:var(--c-accent);}
+.rent-meter__verdict[data-level="over_limit"]{color:var(--c-danger);}
+
+.rent-meter{margin-top:var(--sp-2);}
+.rent-meter__bar{
+  position:relative; height:14px; background:var(--c-border);
+  border-radius:var(--radius-full); overflow:hidden;
+}
+.rent-meter__fill{
+  height:100%; background:var(--c-brand);
+  width:var(--progress, 0%);
+  transition:width var(--dur) var(--ease);
+}
+/* 上限超過時はバー自体を警告色にする（判定と連動） */
+.rent-meter__bar[data-level="over_average"] .rent-meter__fill{background:var(--c-accent);}
+.rent-meter__bar[data-level="over_limit"] .rent-meter__fill{background:var(--c-danger);}
+
+.rent-meter__marker{
+  position:absolute; top:0; bottom:0; width:2px;
+  background:rgba(226,232,240,.7);   /* --c-text の半透明。バー内で視認できる明るさ */
+  transform:translateX(-50%);
+}
+.rent-meter__legend{
+  display:flex; gap:var(--sp-4); margin-top:var(--sp-2);
+  font-size:var(--fs-xs); color:var(--c-text-mute);
+}
+.rent-meter__legend span{display:inline-flex; align-items:center; gap:4px;}
+.rent-meter__dot{width:8px; height:8px; border-radius:50%; background:var(--c-text-mute);}
+.rent-meter__dot--limit{background:var(--c-danger);}
 
 /* ===== ⑥ ヘッダー（常時可視・sticky追従） ===== */
 .app-header{
