@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
 <!-- §7.5 SEO・OGP：タイトル・説明文はSPEC記載の確定文言をそのまま使用する。
-     ★「FP2級監修」の表記は実際に監修者を立てた場合のみ正しい。ダミーのまま公開しないこと（要確認・報告済み） -->
-<title>【β版】FP2級監修｜手取り最大化シミュレーター てどりクエスト</title>
+     ★「FP監修」の表記は実際に監修者を立てた場合のみ正しい。ダミーのまま公開しないこと（要確認・報告済み） -->
+<title>【β版】FP監修｜手取り最大化シミュレーター てどりクエスト</title>
 <meta name="description" content="【自分の手取りレベルがわかる！】公的保障を自動判定！無駄な固定費を削ってレベルを上げる完全無料Webアプリ。">
 
 <!-- OGP（og:image・og:url は本番の絶対パスに差し替えること。ローカル検証用に相対パスを暫定使用） -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="てどりクエスト">
-<meta property="og:title" content="【β版】FP2級監修｜手取り最大化シミュレーター てどりクエスト">
+<meta property="og:title" content="【β版】FP監修｜手取り最大化シミュレーター てどりクエスト">
 <meta property="og:description" content="【自分の手取りレベルがわかる！】公的保障を自動判定！無駄な固定費を削ってレベルを上げる完全無料Webアプリ。">
 <meta property="og:url" content="https://tedori-quest.com/">
 <!-- ★og:image は1200×630pxの画像ファイルが必要。本番公開前に用意すること（現状未作成・要確認・報告済み） -->
@@ -21,7 +21,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="【β版】FP2級監修｜手取り最大化シミュレーター てどりクエスト">
+<meta name="twitter:title" content="【β版】FP監修｜手取り最大化シミュレーター てどりクエスト">
 <meta name="twitter:description" content="【自分の手取りレベルがわかる！】公的保障を自動判定！無駄な固定費を削ってレベルを上げる完全無料Webアプリ。">
 <meta name="twitter:image" content="https://tedori-quest.com/og-image.png">
 
@@ -85,13 +85,13 @@
                data-model="userProfile.age" data-composing="0">
       </div>
       <div class="field">
-        <label class="field__label" for="in-years">勤続年数</label>
-        <input id="in-years" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="1" autocomplete="off" enterkeyhint="done"
-               data-model="userProfile.yearsOfService" data-composing="0">
-      </div>
-      <div class="field">
-        <label class="field__label" for="in-insuranceType">健康保険の種類</label>
+        <div class="field__label-row">
+          <label class="field__label" for="in-insuranceType">健康保険の種類</label>
+          <details class="tip">
+            <summary aria-label="ヒントを見る">？</summary>
+            <p class="tip__text">協会けんぽは中小企業で一般的です。健康保険組合（大企業などに多い）の場合、会社独自の「付加給付」があり、医療費の自己負担がさらに少なくなる（月2.5万円上限など）ケースがあります。</p>
+          </details>
+        </div>
         <select id="in-insuranceType" class="input input--select" data-model="userProfile.insuranceType">
           <option value="association" selected>協会けんぽ</option>
           <option value="kumiai">健康保険組合</option>
@@ -146,9 +146,6 @@
         ¥<span data-bind="text:selfPayCap">0</span>
       </p>
 
-      <p class="section-lead" data-bind="toggle:isKumiai">
-        健康保険組合の平均的な水準（平均標準報酬月額38万円・付加給付の上限2.5万円）で自動計算しています。
-      </p>
     </div>
 
     <div class="card">
@@ -185,7 +182,7 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>理想 ¥2,000</span>
+          <span>理想 2,000円以下</span>
           <span>全国平均 ¥6,000</span>
         </div>
       </div>
@@ -219,7 +216,7 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>理想 ¥3,800</span>
+          <span>理想 3,800円以下</span>
           <span>全国平均 ¥5,500</span>
         </div>
       </div>
@@ -233,7 +230,7 @@
           <label class="field__label" for="in-medicalInsurance">現状（月額）</label>
           <details class="tip">
             <summary aria-label="ヒントを見る">？</summary>
-            <p class="tip__text">公的医療保険（高額療養費制度など）があるため、本当に民間の医療保険が必要か見直す余地があります。</p>
+            <p class="tip__text">公的医療保険（高額療養費制度など）があるため、本当に民間の医療保険が必要か見直す余地があります。生命保険料控除で税金が安くなるからと加入する方もいますが、戻ってくる税金よりも支払う保険料の方が高くなるため、節税目的での加入はおすすめしません。</p>
           </details>
         </div>
         <input id="in-medicalInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
@@ -248,7 +245,7 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>理想 ¥0</span>
+          <span>理想 0円</span>
           <span>全国平均 ¥4,000</span>
         </div>
       </div>
@@ -280,7 +277,7 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>理想 ¥400</span>
+          <span>理想 400円以下</span>
           <span>全国平均 ¥833</span>
         </div>
       </div>
@@ -305,54 +302,8 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>理想 ¥0</span>
+          <span>理想 0円</span>
           <span>全国平均 ¥1,950</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- --- 自動車（保険・駐車場代） --- -->
-    <div class="card">
-      <p class="card__title">🚗 自動車保険・駐車場代</p>
-      <label class="field-check">
-        <input type="checkbox" data-model="fixedCosts.hasCar">
-        自動車を所有している
-      </label>
-
-      <div data-conditional-field="hasCar" hidden>
-        <div class="field">
-          <label class="field__label" for="in-carInsurance">自動車保険（月額換算）</label>
-          <input id="in-carInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="7,000" autocomplete="off" enterkeyhint="done"
-                 data-model="fixedCosts.carInsurance" data-composing="0">
-        </div>
-        <div class="cost-bar" data-cost-bar="carInsurance">
-          <div class="cost-bar__track">
-            <div class="cost-bar__fill"></div>
-            <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
-            <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
-          </div>
-          <div class="cost-bar__legend">
-            <span>理想 ¥4,000</span>
-            <span>全国平均 ¥7,000</span>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="field__label" for="in-parking">駐車場代（月額）</label>
-          <input id="in-parking" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="8,000" autocomplete="off" enterkeyhint="done"
-                 data-model="fixedCosts.parking" data-composing="0">
-        </div>
-        <div class="cost-bar" data-cost-bar="parking">
-          <div class="cost-bar__track">
-            <div class="cost-bar__fill"></div>
-            <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
-          </div>
-          <div class="cost-bar__legend">
-            <span>全国平均 ¥8,000</span>
-            <span>※駐車場代はクエスト判定の対象外です</span>
-          </div>
         </div>
       </div>
     </div>
@@ -694,7 +645,7 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>理想 ¥1,000</span>
+          <span>理想 1,000円以下</span>
           <span>全国平均 ¥2,500</span>
         </div>
       </div>
@@ -740,7 +691,7 @@
           <span class="rent-meter__marker rent-meter__marker--limit" data-rent-marker="limit"></span>
         </div>
         <div class="rent-meter__legend">
-          <span><i class="rent-meter__dot rent-meter__dot--average" aria-hidden="true"></i>地域平均</span>
+          <span><i class="rent-meter__dot rent-meter__dot--average" aria-hidden="true"></i>地域平均 ¥<span data-bind="text:rentAreaAverage">0</span></span>
           <span><i class="rent-meter__dot rent-meter__dot--limit" aria-hidden="true"></i>上限目安（手取りの30%）</span>
         </div>
       </div>
@@ -751,6 +702,52 @@
       <p class="section-lead">
         引っ越し費用の回収年数：<span data-bind="text:rentPaybackYears">—</span> 年
       </p>
+    </div>
+
+    <!-- --- 自動車（保険・駐車場代）。家賃の直下に配置 --- -->
+    <div class="card">
+      <p class="card__title">🚗 自動車保険・駐車場代</p>
+      <label class="field-check">
+        <input type="checkbox" data-model="fixedCosts.hasCar">
+        自動車を所有している
+      </label>
+
+      <div data-conditional-field="hasCar" hidden>
+        <div class="field">
+          <label class="field__label" for="in-carInsurance">自動車保険（月額換算）</label>
+          <input id="in-carInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+                 placeholder="7,000" autocomplete="off" enterkeyhint="done"
+                 data-model="fixedCosts.carInsurance" data-composing="0">
+        </div>
+        <div class="cost-bar" data-cost-bar="carInsurance">
+          <div class="cost-bar__track">
+            <div class="cost-bar__fill"></div>
+            <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+            <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
+          </div>
+          <div class="cost-bar__legend">
+            <span>理想 4,000円以下</span>
+            <span>全国平均 ¥7,000</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="in-parking">駐車場代（月額）</label>
+          <input id="in-parking" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+                 placeholder="8,000" autocomplete="off" enterkeyhint="done"
+                 data-model="fixedCosts.parking" data-composing="0">
+        </div>
+        <div class="cost-bar" data-cost-bar="parking">
+          <div class="cost-bar__track">
+            <div class="cost-bar__fill"></div>
+            <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+          </div>
+          <div class="cost-bar__legend">
+            <span data-cost-average-label>エリア平均 ¥8,000</span>
+            <span>※駐車場代はクエスト判定の対象外です</span>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 

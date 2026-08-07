@@ -11,7 +11,7 @@ import { selectors } from '../js/selectors.js';
 // selectors 系テスト用のヘルパ（Phase1〜4改修・2026-08-07：新Stateスキーマに対応）。
 function buildState(overrides = {}){
   return {
-    userProfile: { annualSalary: 0, age: 0, yearsOfService: 0 },
+    userProfile: { annualSalary: 0, age: 0 },
     fixedCosts: {
       smartphone: 0, internetProvider: 'none', internetMonthly: null,
       medicalInsurance: 0, fireInsurance: 0,
@@ -177,31 +177,29 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
     assert.equal(titleAt(999), 'ベテラン大賢者');
   });
 
-  test('PHASE2-04: レベルアップ抽選（5,000円ちょうど→端数0・クリティカルなし）', () => {
-    const r = calc.rollLevelUp(10, 15000, () => 0);   // rng=0でも remainder=0 なら発火しない
+  test('PHASE2-04: 現在レベルの確定的な算出（5,000円ちょうど→+3）', () => {
+    const r = calc.calcCurrentLevel(10, 15000);
     assert.equal(r.baseUp, 3);
     assert.equal(r.remainder, 0);
-    assert.equal(r.isCritical, false);
     assert.equal(r.finalLevel, 13);
   });
 
-  test('PHASE2-05: レベルアップ抽選（端数ありでrng=0→クリティカル発動）', () => {
-    const r = calc.rollLevelUp(10, 12000, () => 0);   // remainder=2000, chance=0.4, rng=0<0.4
-    assert.equal(r.baseUp, 2);
-    assert.equal(r.remainder, 2000);
-    assert.equal(r.isCritical, true);
-    assert.equal(r.finalLevel, 13);
-  });
+  test('FEEDBACK-04: 現在レベルの確定的な算出（端数ありでも抽選なしで確実に加算される）', () => {
+    // ★以前はここで乱数抽選に外れると+0のままになり「レベルが上がらないバグ」の原因になっていた。
+    //   抽選要素を排したため、5,000円未満の端数分は次のレベルまでの進捗として残るのみで、
+    //   baseUp分の加算は常に確実に反映される。
+    const r1 = calc.calcCurrentLevel(10, 12000);
+    assert.equal(r1.baseUp, 2);
+    assert.equal(r1.remainder, 2000);
+    assert.equal(r1.finalLevel, 12);
 
-  test('PHASE2-06: レベルアップ抽選（端数ありでrng=0.99→クリティカル不発）', () => {
-    const r = calc.rollLevelUp(10, 12000, () => 0.99);
-    assert.equal(r.isCritical, false);
-    assert.equal(r.finalLevel, 12);
+    const r2 = calc.calcCurrentLevel(10, 4999);   // 5,000円未満はレベルアップしない（抽選による偶然の+1もない）
+    assert.equal(r2.finalLevel, 10);
   });
 
   test('PHASE2-07: シェア文面に金額を含めない（クエスト名のみ使用）', () => {
     const state = buildState({
-      userProfile: { annualSalary: 3600000, age: 30, yearsOfService: 2 },
+      userProfile: { annualSalary: 3600000, age: 30 },
       fixedCosts: { ...buildState().fixedCosts, smartphone: 8000 },
       meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false }
     });
@@ -219,7 +217,7 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
   });
 
   test('FEEDBACK-01: 年収セレクトから月額報酬を算出する（monthlyGrossSalary）', () => {
-    const state = buildState({ userProfile: { annualSalary: 4800000, age: 30, yearsOfService: 2 } });
+    const state = buildState({ userProfile: { annualSalary: 4800000, age: 30 } });
     assert.equal(selectors.monthlyGrossSalary(state), 400000);
     assert.equal(selectors.monthlyGrossSalary(buildState()), 0);   // 未選択（0）でも例外を投げない
   });

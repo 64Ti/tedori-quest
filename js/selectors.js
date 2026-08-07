@@ -10,7 +10,7 @@ import { CREDIT_CARDS } from './creditCards.js';
 
 /**
  * @typedef {Object} State
- * @property {{grossSalary:number, age:number, yearsOfService:number}} userProfile
+ * @property {{annualSalary:number, age:number}} userProfile
  * @property {Object<string,*>} fixedCosts
  * @property {{subscriptionPlanIds:string[], otherSubscriptions:{label:string,monthly:number}[]}} selections
  * @property {{main:string|null, sub:string|null, others:string[]}} creditCards
@@ -95,7 +95,7 @@ export const selectors = {
     return calc.calcNetIncome({
       reward: selectors.monthlyGrossSalary(state),
       age: p.age,
-      yearsOfService: p.yearsOfService
+      yearsOfService: C.DEFAULT_YEARS_OF_SERVICE   // ★勤続年数の入力欄は廃止済み（固定値で計算）
     }).net;
   },
 

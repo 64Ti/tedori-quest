@@ -25,11 +25,13 @@ export const INITIAL_STATE = {
     age: null,                            // 介護保険料の年齢判定用
     prefecture: 'osaka',
     insuranceType: 'association',         // 'association' | 'kumiai'
-    yearsOfService: 1,                    // 住民税1年目非課税の判定
     isUnderOneYear: false,                // 健保加入12ヶ月未満
     isResidentTaxExempt: false,           // 高額療養費 区分オ 判定
     area: 'urban',                        // 家賃市場平均のエリア
     hourlyWage: null                      // タイパ換算用
+    // ★勤続年数はユーザーテストフィードバック改修（2026-08-07）で入力欄を廃止した。
+    //   住民税の勤続1年目非課税判定は C.DEFAULT_YEARS_OF_SERVICE（selectors.netIncome参照）で
+    //   「非課税ではない」側に固定して計算する
   },
 
   fixedCosts: {                           // 現状（Phase1.3改修：「見直し後」欄は廃止）

@@ -77,12 +77,16 @@ function buildViewModel(s){
   const avgStandardMonthly = grossHealth ? grossHealth.standard : 0;
   const isKumiai = s.userProfile.insuranceType === 'kumiai';
 
-  // ★Phase1.2：組合の平均標準報酬月額・付加給付上限はユーザー入力欄を廃止し固定値化した
+  // ★ユーザーテストフィードバック改修（2026-08-07）：健保組合の付加給付上限（固定値2.5万円）で
+  //   自己負担額を一律に上書きする方式を廃止した。付加給付は勤務先ごとに金額が異なり、
+  //   一律の金額を断定できないため、高額療養費の自己負担限度額は保険の種類によらず
+  //   年収（標準報酬月額）から動的に判定した所得区分（ア〜オ）の金額をそのまま表示する。
+  //   健保組合の場合はさらに自己負担が下がる可能性がある旨をTipsで案内するにとどめる。
   const selfPay = calc.calcFinalSelfPay({
     grossSalary: monthlyGross,
     isResidentTaxExempt: s.userProfile.isResidentTaxExempt,
     insuranceType: s.userProfile.insuranceType,
-    fukaKyufuCap: isKumiai ? C.KUMIAI_FIXED_VALUES.fukaKyufuCap : null
+    fukaKyufuCap: null
   }, ILLUSTRATIVE_MEDICAL_COST);
 
   const injuryDaily = calc.calcInjuryAllowanceDaily(avgStandardMonthly, {
@@ -119,6 +123,7 @@ function buildViewModel(s){
     selfPayCap: YEN(selfPay.amount),
     injuryDaily: YEN(injuryDaily),
     rentOverMarket: YEN(rentGap.overMarket),
+    rentAreaAverage: YEN(rentGap.marketAverage),
     rentPaybackYears: rentGap.paybackYears === null ? '—' : rentGap.paybackYears.toFixed(1),
     rentJudgeText: rentJudgeInfo.text,
     rentJudgeLevel: rentJudgeInfo.level,
@@ -127,7 +132,6 @@ function buildViewModel(s){
     rentLimitPct,
     progressPct: selectors.headerProgressPct(s),
     hasCompletedStep1: Boolean(s.meta.hasCompletedStep1),
-    isKumiai,
     otherSummary: otherSummaryText(s),
     smartphoneJudge: smartphoneJudgeText(judge),
     hasSubscription
@@ -157,6 +161,23 @@ function getCostCategoryValue(s, category){
 }
 
 /**
+ * カテゴリの「全国平均」に相当する基準値を取得する。駐車場代はエリアによって
+ * 相場が大きく異なるため、選択中のエリア（userProfile.area）に応じた値を返す
+ * （ユーザーテストフィードバック改修・2026-08-07）。それ以外は固定の全国平均値のまま。
+ * @param {object} s state
+ * @param {string} category FIXED_COST_TARGETS のキー
+ * @param {{average:number}} target FIXED_COST_TARGETS[category]
+ * @returns {number}
+ */
+function getCategoryAverage(s, category, target){
+  if (category === 'parking'){
+    const area = s.userProfile?.area;
+    return C.MARKET_AVERAGE_PARKING[area] ?? C.MARKET_AVERAGE_PARKING[C.MARKET_AVERAGE_PARKING._default];
+  }
+  return target.average;
+}
+
+/**
  * 固定費の2段階目標バー（全国平均・理想の目標値マーカー付き）を更新する。
  * @param {object} s state
  * @returns {void}
@@ -167,9 +188,10 @@ function syncCostBars(s){
     const target = C.FIXED_COST_TARGETS[category];
     if (!target) return;
     const value = getCostCategoryValue(s, category);
-    const scale = Math.max(target.average * 1.2, value, target.ideal ?? 0, 1);
+    const average = getCategoryAverage(s, category, target);
+    const scale = Math.max(average * 1.2, value, target.ideal ?? 0, 1);
     const fillPct = Math.min(100, Math.round((value / scale) * 100));
-    const avgPct  = Math.min(100, Math.round((target.average / scale) * 100));
+    const avgPct  = Math.min(100, Math.round((average / scale) * 100));
 
     const fill = bar.querySelector('.cost-bar__fill');
     if (fill){
@@ -180,6 +202,11 @@ function syncCostBars(s){
     if (avgMarker){
       const next = `${avgPct}%`;
       if (avgMarker.style.left !== next) avgMarker.style.left = next;
+    }
+    const avgLabel = bar.querySelector('[data-cost-average-label]');
+    if (avgLabel){
+      const next = `エリア平均 ¥${YEN(average)}`;
+      if (avgLabel.textContent !== next) avgLabel.textContent = next;
     }
     if (target.ideal !== null && target.ideal !== undefined){
       const idealPct = Math.min(100, Math.round((target.ideal / scale) * 100));

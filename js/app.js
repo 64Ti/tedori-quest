@@ -69,6 +69,13 @@ function bindEvents(){
   }, true);
 
   document.addEventListener('click', e => {
+    // ★Tips（？アイコン）は外側タップで閉じる。クリックしたTips自身は対象外にし、
+    //   ネイティブの<summary>トグル動作と競合しないようにする。
+    const insideTip = e.target.closest('details.tip');
+    document.querySelectorAll('details.tip[open]').forEach(tip => {
+      if (tip !== insideTip) tip.open = false;
+    });
+
     const btn = e.target.closest('[data-action]');
     if (btn) ACTIONS[btn.dataset.action]?.(btn, e);
 
@@ -122,21 +129,18 @@ function onQuestToggle(cb){
 }
 
 /**
- * レベルアップ抽選（§Phase3.2）を行い、上昇時のみ演出トーストを出す。
- * ★毎回、解呪済みクエストの月間節約可能額の合計から再計算する（累積・再抽選方式）。
+ * レベルを再計算し、上昇時のみ演出トーストを出す（確定的な計算・抽選要素なし）。
+ * ★毎回、解呪済みクエストの月間節約可能額の合計から再計算する（累積方式）。
  * @returns {void}
  */
 function handleQuestLevelUp(){
   const before = Number.isFinite(state.meta.currentLevel)
     ? state.meta.currentLevel : selectors.initialLevel(state);
   const totalSaving = selectors.completedSavingTotal(state);
-  const { isCritical, finalLevel } = calc.rollLevelUp(state.meta.initialLevel ?? 0, totalSaving);
+  const { finalLevel } = calc.calcCurrentLevel(state.meta.initialLevel ?? 0, totalSaving);
   state.meta.currentLevel = finalLevel;
   if (finalLevel !== before){
-    const msg = isCritical
-      ? `⚡クリティカル発動！ 現状 Lv.${before} ➔ Lv.${finalLevel} にUP！`
-      : `現状 Lv.${before} ➔ Lv.${finalLevel} にUP！`;
-    enqueueToast(msg, 'levelup');
+    enqueueToast(`現状 Lv.${before} ➔ Lv.${finalLevel} にUP！`, 'levelup');
   }
   syncNotifiedLevel();   // ★maybeNotifyLevelUp の遅延判定による重複通知を防ぐ
 }

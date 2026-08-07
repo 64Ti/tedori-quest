@@ -282,6 +282,17 @@ export const MARKET_AVERAGE_RENT = {
   _default: 'urban'
 };
 
+// 月極駐車場代の地域別相場目安（一般的な市場水準。法令ではなく、家賃と同じエリア区分に揃えた目安値）
+// ★ユーザーテストフィードバック改修（2026-08-07）：エリア連動の目安バー表示のために追加
+export const MARKET_AVERAGE_PARKING = {
+  tokyo:    35000,   // 東京都（都心部は月3〜5万円台が一般的）
+  osaka:    18000,   // 大阪府
+  urban:    10000,   // 地方主要都市
+  other:     6000,   // その他地域
+  nation:    8000,   // 全国平均（参考表示用）
+  _default: 'urban'
+};
+
 // 出典: 総務省統計局「家計調査（家計収支編）」2024年平均・単身世帯の移動電話通信料
 //       https://www.stat.go.jp/data/kakei/sokuhou/tsuki/pdf/fies_gaikyo2024.pdf
 //       §12.6 K-02
@@ -876,10 +887,13 @@ export const USE_SVG_ICONS = false;
 
 // ---------------------------------------------------------------------------
 // Phase1.2 公的保障の簡素化：組合の入力欄を廃止し固定値化
+//   ★ユーザーテストフィードバック改修（2026-08-07）：高額療養費の自己負担限度額は
+//     保険の種類によらず年収から動的に算出する方式に変更したため、fukaKyufuCap
+//     （付加給付の上限）はここでは使わなくなった。averageStandardMonthly は
+//     傷病手当金（健保加入12ヶ月未満・組合）の算出にのみ引き続き使用する
 // ---------------------------------------------------------------------------
 export const KUMIAI_FIXED_VALUES = {
-  averageStandardMonthly: 380000,
-  fukaKyufuCap: 25000
+  averageStandardMonthly: 380000
 };
 
 // ---------------------------------------------------------------------------
@@ -1034,6 +1048,11 @@ export function buildAnnualSalaryOptions(){
   return options;
 }
 export const ANNUAL_SALARY_OPTIONS = buildAnnualSalaryOptions();
+
+// ★勤続年数の入力欄は廃止（2026-08-07）。住民税の勤続1年目非課税判定は「非課税ではない」
+//   （＝勤続2年目以上）側に固定して計算する。単身社会人向けアプリの主要層は
+//   入社1年目のみに限らないため、より一般的なケースを既定値とする
+export const DEFAULT_YEARS_OF_SERVICE = 2;
 
 export const LEGENDARY_HERO = {
   mainTitle: '【見直す余地なし】あなたは既に伝説の勇者です',

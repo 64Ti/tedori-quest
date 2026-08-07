@@ -373,21 +373,23 @@ export function estimateCardSpend(fixedCostsTotal, netIncome){
 }
 
 /**
- * レベルアップ抽選を行う。5,000円ごとにレベル+1、端数はその割合を確率としたクリティカル抽選で+1。
+ * 解呪済みクエストの累計節約額から現在レベルを確定的に算出する。5,000円ごとにレベル+1。
+ * ★ユーザーテストフィードバック改修（2026-08-07）：以前はクリティカル抽選（確率的な+1）を
+ *   実装していたが、端数が5,000円未満のクエストを解呪しても抽選に外れると画面上
+ *   何も変化が起きず「レベルが上がらないバグ」として報告された。抽選要素を排し、
+ *   クエストを解呪すれば必ず進捗（バーの伸び、いずれレベルアップ）が確認できる
+ *   確定的な計算に変更した。
  * @param {number} initialLevel 初期レベル
  * @param {number} totalSaving 解呪済みクエストの月間節約可能額の合計
- * @param {() => number} [rng] 0以上1未満の乱数生成関数（テスト時は差し替え可能）
- * @returns {{baseUp:number, remainder:number, criticalChance:number, isCritical:boolean, finalLevel:number}}
+ * @returns {{baseUp:number, remainder:number, finalLevel:number}}
  */
-export function rollLevelUp(initialLevel, totalSaving, rng = Math.random){
+export function calcCurrentLevel(initialLevel, totalSaving){
   const base   = Math.max(0, Number(initialLevel) || 0);
   const saving = Math.max(0, Number(totalSaving) || 0);
   const baseUp = Math.floor(saving / C.LEVELUP_UNIT);
   const remainder = saving % C.LEVELUP_UNIT;
-  const criticalChance = remainder / C.LEVELUP_UNIT;
-  const isCritical = remainder > 0 && rng() < criticalChance;
-  const finalLevel = base + baseUp + (isCritical ? 1 : 0);
-  return { baseUp, remainder, criticalChance, isCritical, finalLevel };
+  const finalLevel = base + baseUp;
+  return { baseUp, remainder, finalLevel };
 }
 
 /**
