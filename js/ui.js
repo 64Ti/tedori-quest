@@ -54,14 +54,6 @@ function rentJudge(rentGap, rent){
   return { level:'appropriate', text:'📗 地域平均・上限目安のいずれの範囲内でもあり、適正な水準です' };
 }
 
-/** その他サブスクの件数・小計テキストを生成する（§4.1b otherSummary）。 */
-function otherSummaryText(state){
-  const rows = state.selections.otherSubscriptions ?? [];
-  if (!rows.length) return '未入力';
-  const total = C.sumOtherSubscriptions(rows);
-  return `${rows.length}件・${YEN(total)}円`;
-}
-
 /**
  * State から表示用の値をまとめて算出する（§4.1b バインディング契約表の text/progress/toggle 分）。
  * ★calc.js / selectors.js は DOM に触れないため、DOM 反映用の書式変換はここで行う。
@@ -131,8 +123,6 @@ function buildViewModel(s){
     rentAveragePct,
     rentLimitPct,
     progressPct: selectors.headerProgressPct(s),
-    hasCompletedStep1: Boolean(s.meta.hasCompletedStep1),
-    otherSummary: otherSummaryText(s),
     smartphoneJudge: smartphoneJudgeText(judge),
     hasSubscription
   };
@@ -148,8 +138,7 @@ function getCostCategoryValue(s, category){
   const fc = s.fixedCosts ?? {};
   switch (category){
     case 'smartphone':       return Math.max(0, Number(fc.smartphone) || 0);
-    case 'internet':         return fc.internetProvider && fc.internetProvider !== 'none'
-                                     ? Math.max(0, Number(fc.internetMonthly) || 0) : 0;
+    case 'internet':         return Math.max(0, Number(fc.internetMonthly) || 0);
     case 'medicalInsurance': return Math.max(0, Number(fc.medicalInsurance) || 0);
     case 'fireInsurance':    return Math.max(0, Number(fc.fireInsurance) || 0);
     case 'subscriptions':    return selectors.subscriptionTotal(s);
@@ -220,16 +209,13 @@ function syncCostBars(s){
 }
 
 /**
- * 条件付き表示欄（光回線の月額入力・自動車保険/駐車場代の入力群）の開閉を同期する。
+ * 条件付き表示欄（自動車保険/駐車場代の入力群）の開閉を同期する。
+ * ★光回線はウィザードUI改修（2026-08-08）でプロバイダ選択式を廃止し常時表示の
+ *   単純な数値入力に変更したため、条件付き表示の対象から外れた。
  * @param {object} s state
  * @returns {void}
  */
 function syncConditionalFields(s){
-  const internetField = document.querySelector('[data-conditional-field="internetMonthly"]');
-  if (internetField){
-    const next = !(s.fixedCosts.internetProvider && s.fixedCosts.internetProvider !== 'none');
-    if (internetField.hidden !== next) internetField.hidden = next;
-  }
   const carField = document.querySelector('[data-conditional-field="hasCar"]');
   if (carField){
     const next = !s.fixedCosts.hasCar;
@@ -299,6 +285,44 @@ function syncCreditCardUI(s){
       if (cb.checked !== next) cb.checked = next;
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// ウィザードUI改修（2026-08-08）：画面切替（1〜4）とボトムナビの同期
+// ---------------------------------------------------------------------------
+
+/**
+ * 現在の画面（state.meta.screen）に応じて .screen の表示・非表示と
+ * ボトムナビの活性状態／aria-current を同期する。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncScreens(s){
+  const current = Number(s.meta.screen) || 1;
+  document.querySelectorAll('.screen[data-screen]').forEach(el => {
+    const n = Number(el.dataset.screen);
+    const next = n !== current;
+    if (el.hidden !== next) el.hidden = next;
+  });
+  document.querySelectorAll('[data-nav-screen]').forEach(btn => {
+    const n = Number(btn.dataset.navScreen);
+    const reachable = n <= current;
+    if (btn.disabled !== !reachable) btn.disabled = !reachable;
+    const isCurrent = n === current;
+    if (btn.getAttribute('aria-current') !== (isCurrent ? 'page' : null)){
+      if (isCurrent) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    }
+  });
+}
+
+/**
+ * STEP1（画面1）の必須項目が揃っているかを判定する（「次へ」ボタンの活性制御用）。
+ * @param {object} s state
+ * @returns {boolean}
+ */
+function canStartDiagnosis(s){
+  return Number(s.userProfile.annualSalary) > 0 && Number(s.userProfile.age) > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -523,7 +547,14 @@ function render(){
     syncCostBars(state);
     syncConditionalFields(state);
     syncCreditCardUI(state);
+    syncScreens(state);
     renderQuestList(state);
+
+    const step1Btn = document.querySelector('[data-requires-step1]');
+    if (step1Btn){
+      const next = !canStartDiagnosis(state);
+      if (step1Btn.disabled !== next) step1Btn.disabled = next;
+    }
 
     // ★フォーカス中・IME変換中の入力欄には絶対に書き戻さない（CLAUDE.md 制約5）
     document.querySelectorAll('[data-model]').forEach(el => {
@@ -689,6 +720,78 @@ export function maybeNotifyLevelUp(){
 export function syncNotifiedLevel(){
   clearTimeout(levelNotifyTimer);
   lastNotifiedLevel = selectors.currentLevel(state);
+}
+
+// ---------------------------------------------------------------------------
+// ゲーミフィケーション演出（ウィザードUI改修・2026-08-08）
+// ---------------------------------------------------------------------------
+
+/**
+ * ヘッダーのレベル数字・ゲージに「光る」演出クラスを一時的に付与する。
+ * クエストを1件解呪するたびに必ず呼ぶ想定（レベルを跨いだかどうかによらない）。
+ * @returns {void}
+ */
+export function triggerLevelUpEffect(){
+  const levelEl = document.querySelector('[data-level-display]');
+  const gaugeEl = document.querySelector('[data-level-gauge]');
+  [levelEl, gaugeEl].forEach(el => {
+    if (!el) return;
+    el.classList.remove('is-leveling');
+    // ★同じクラスを連続で付け直してもアニメーションが再生されないため、
+    //   一度リフローを挟んでから再付与する
+    void el.offsetWidth;
+    el.classList.add('is-leveling');
+  });
+  setTimeout(() => {
+    levelEl?.classList.remove('is-leveling');
+    gaugeEl?.classList.remove('is-leveling');
+  }, 600);
+}
+
+/**
+ * EXPゲージ（STEP1・STEP2）の達成度を更新し、伸びたときだけパルス演出を加える。
+ * @param {1|2} screen
+ * @param {number} pct 0〜100
+ * @returns {void}
+ */
+export function updateExpGauge(screen, pct){
+  const wrap = document.querySelector(`[data-exp-gauge="${screen}"]`);
+  if (!wrap) return;
+  const fill = wrap.querySelector('.exp-gauge__fill');
+  const label = wrap.querySelector(`[data-exp-gauge-pct="${screen}"]`);
+  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  const next = `${clamped}%`;
+  if (fill && fill.style.width !== next){
+    const increased = parseFloat(fill.style.width || '0') < clamped;
+    fill.style.width = next;
+    if (increased){
+      fill.classList.remove('is-pulsing');
+      void fill.offsetWidth;
+      fill.classList.add('is-pulsing');
+      setTimeout(() => fill.classList.remove('is-pulsing'), 500);
+    }
+  }
+  if (label && label.textContent !== String(clamped)) label.textContent = String(clamped);
+}
+
+/**
+ * レベル公開演出オーバーレイを表示する（画面1→2・画面2→3の遷移前に使う）。
+ * @param {{label:string, level:number, sub?:string}} opts
+ * @returns {void}
+ */
+export function showLevelReveal({ label, level, sub = '' }){
+  const overlay = document.getElementById('level-reveal');
+  if (!overlay) return;
+  overlay.querySelector('[data-level-reveal-label]').textContent = label;
+  overlay.querySelector('[data-level-reveal-value]').textContent = String(level);
+  overlay.querySelector('[data-level-reveal-sub]').textContent = sub;
+  overlay.hidden = false;
+}
+
+/** レベル公開演出オーバーレイを閉じる。 */
+export function hideLevelReveal(){
+  const overlay = document.getElementById('level-reveal');
+  if (overlay) overlay.hidden = true;
 }
 
 // ---------------------------------------------------------------------------

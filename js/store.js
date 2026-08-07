@@ -5,19 +5,24 @@
 import * as C from './config.js';
 
 export const INITIAL_STATE = {
-  schemaVersion: 3,                       // ★必須。無いと次回更新で全ユーザーのデータが飛ぶ
+  schemaVersion: 4,                       // ★必須。無いと次回更新で全ユーザーのデータが飛ぶ
                                           //   Phase1〜4改修（2026-08-07）でv1→v2。
                                           //   ユーザーテストフィードバック改修（2026-08-07）でv2→v3
                                           //   （grossSalary→annualSalaryへ変更）。
+                                          //   ウィザードUI改修（2026-08-08）でv3→v4
+                                          //   （hasCompletedStep1→screen、hourlyWage/internetProvider廃止）。
                                           //   deepMerge が旧キー（optimized・cardReward・todoStatus・
-                                          //   grossSalary等）を自動的に無視し、新キーは初期値で補完するため
+                                          //   grossSalary・hourlyWage・internetProvider・hasCompletedStep1等）を
+                                          //   自動的に無視し、新キーは初期値で補完するため
                                           //   専用の MIGRATIONS 関数は不要（構造的に安全に移行できる）
 
   meta: {
     initialLevel: null,                   // 固定費入力を終えSTEP1完了時に一度だけ確定。以後不変
     currentLevel: null,                   // クエスト解呪ごとに再算出される現在レベル（未解呪時はnull＝initialLevelと同値扱い）
     feedbackBonusGranted: false,          // ★生涯1回。呪文にも含める
-    createdAt: null, lastOpenedAt: null, hasCompletedStep1: false
+    createdAt: null, lastOpenedAt: null,
+    screen: 1                             // ★ウィザードUI改修（2026-08-08）：表示中の画面（1〜4）。
+                                          //   旧hasCompletedStep1（真偽値）を置き換えた
   },
 
   userProfile: {
@@ -27,16 +32,18 @@ export const INITIAL_STATE = {
     insuranceType: 'association',         // 'association' | 'kumiai'
     isUnderOneYear: false,                // 健保加入12ヶ月未満
     isResidentTaxExempt: false,           // 高額療養費 区分オ 判定
-    area: 'urban',                        // 家賃市場平均のエリア
-    hourlyWage: null                      // タイパ換算用
+    area: 'urban'                         // 家賃市場平均のエリア
     // ★勤続年数はユーザーテストフィードバック改修（2026-08-07）で入力欄を廃止した。
     //   住民税の勤続1年目非課税判定は C.DEFAULT_YEARS_OF_SERVICE（selectors.netIncome参照）で
     //   「非課税ではない」側に固定して計算する
+    // ★時給（hourlyWage）はウィザードUI改修（2026-08-08）で入力欄・関連ロジックごと廃止した
   },
 
   fixedCosts: {                           // 現状（Phase1.3改修：「見直し後」欄は廃止）
     rent:null, fireInsurance:null, smartphone:null, medicalInsurance:null,
-    internetProvider: C.INTERNET_DEFAULT, internetMonthly:null,   // 光回線（契約なし時は入力欄を隠す）
+    internetMonthly:null,                                         // 光回線・通信費（月額）
+                                          // ★ウィザードUI改修（2026-08-08）：プロバイダ選択式を廃止し、
+                                          //   スマホ通信費と同様の単純な数値入力に変更した
     nhkPlan: C.NHK_DEFAULT,                                       // NHK受信料プラン
     hasCar:false, carInsurance:null, parking:null,                // 自動車保険・駐車場代（車ありの時のみ）
     bankFee:null                          // ★Phase1.4：入力欄は非表示（保留）。新方式では算入しない

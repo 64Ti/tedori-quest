@@ -45,32 +45,39 @@
 <body>
 
 <!-- ============================================================
-     常時可視ヘッダー（position:sticky で追従）
+     常時可視ヘッダー（position:sticky で追従）。画面3のクエスト解呪時の
+     レベルアップ演出（js/app.js triggerLevelUpEffect）もここに適用する。
      ============================================================ -->
 <header class="app-header">
   <div class="app-header__inner">
     <div class="app-header__row">
       <div>
-        <span class="app-header__level">Lv.<span data-bind="text:displayLevel">1</span></span>
-        <span class="app-header__rank" data-bind="text:rankTitle">手取り見習い市民</span>
+        <span class="app-header__level" data-level-display>Lv.<span data-bind="text:displayLevel">1</span></span>
+        <span class="app-header__rank" data-bind="text:rankTitle">見習い冒険者</span>
       </div>
       <div style="display:flex; align-items:center; gap:.5rem;">
         <span class="app-header__badge">β版</span>
         <button type="button" class="btn-icon" data-action="openFeedback" aria-label="ご意見・ご要望を送る">💬</button>
       </div>
     </div>
-    <div class="progress"><div class="progress__fill" data-bind="progress:progressPct"></div></div>
+    <div class="progress" data-level-gauge><div class="progress__fill" data-bind="progress:progressPct"></div></div>
   </div>
 </header>
 
 <main>
 
   <!-- ============================================================
-       1. sec-quick — STEP1 クイック診断（常時表示）
+       画面1／STEP1：プロフィール・収入入力
        ============================================================ -->
-  <section id="sec-quick">
-    <h2>STEP 1 ／ クイック診断</h2>
+  <section class="screen" data-screen="1">
+    <h2>STEP 1 ／ プロフィール・収入</h2>
     <p class="section-lead">額面と最低限の条件だけで、まず概算レベルを確認しましょう。</p>
+
+    <!-- ★入力アクション連動のEXPゲージ。入力・選択のたびに js/app.js が伸ばす -->
+    <div class="exp-gauge" data-exp-gauge="1">
+      <div class="exp-gauge__track"><div class="exp-gauge__fill"></div></div>
+      <p class="exp-gauge__label">入力達成度 <span data-exp-gauge-pct="1">0</span>%</p>
+    </div>
 
     <div class="card">
       <div class="field">
@@ -106,48 +113,32 @@
         住民税は非課税（合計所得45万円以下）
       </label>
 
-      <button type="button" class="btn btn--block" style="margin-top:1rem;" data-action="startDiagnosis">
-        診断を始める
+      <button type="button" class="btn btn--block" style="margin-top:1rem;" data-action="startDiagnosis" data-requires-step1 disabled>
+        次へ（診断を始める）
       </button>
     </div>
   </section>
 
   <!-- ============================================================
-       2. sec-result — STEP2 概算結果 ＆ Xシェア
+       画面2／STEP2：固定費入力（公的保障診断・通信・保険・サブスク・家賃・車）
        ============================================================ -->
-  <!-- ★Phase 3は静的マークアップのため hidden を付けていない。
-       実際の開閉は Phase 4 の render() が toggle:hasCompletedStep1 を見て制御する。 -->
-  <section id="sec-result" data-bind="toggle:hasCompletedStep1">
-    <h2>STEP 2 ／ 概算結果</h2>
-    <div class="card">
-      <p class="section-lead">あなたの概算手取り（月額）</p>
-      <p class="app-header__level" style="font-size:var(--fs-2xl);">
-        ¥<span data-bind="text:netIncome">0</span>
-      </p>
-      <p class="karte__disclaimer">
-        ※ 令和8年分の所得税は、毎月の給与では改正前の税額表で天引きされ、
-        12月の年末調整でまとめて精算されます。そのため本試算の月額は、
-        実際の給与明細の手取りより多めに表示される場合があります。
-      </p>
-      <p class="section-lead" style="margin-top:1rem;">🐦 Xでのシェアは最終確認画面（マイカルテ）から行えます。</p>
+  <section class="screen" data-screen="2" hidden>
+    <h2>STEP 2 ／ 固定費入力</h2>
+    <p class="section-lead">現状の金額を入力すると、全国平均・理想の目標値との差からクエストが自動生成されます。</p>
+
+    <!-- ★入力アクション連動のEXPゲージ -->
+    <div class="exp-gauge" data-exp-gauge="2">
+      <div class="exp-gauge__track"><div class="exp-gauge__fill"></div></div>
+      <p class="exp-gauge__label">入力達成度 <span data-exp-gauge-pct="2">0</span>%</p>
     </div>
-  </section>
 
-  <!-- ============================================================
-       3. sec-hoshou — 公的保障の判定カード
-       ============================================================ -->
-  <section id="sec-hoshou" data-bind="toggle:hasCompletedStep1">
-    <h2>公的保障の診断</h2>
-    <p class="section-lead">高額療養費・傷病手当金でどこまでカバーされるかを確認します。</p>
-
+    <!-- --- 公的保障の診断（STEP1の収入から自動算出） --- -->
     <div class="card">
       <p class="card__title">💊 高額療養費の自己負担上限（月額）</p>
       <p style="font-size:var(--fs-xl); font-weight:800; color:var(--c-brand);">
         ¥<span data-bind="text:selfPayCap">0</span>
       </p>
-
     </div>
-
     <div class="card">
       <p class="card__title">🛡️ 傷病手当金の日額</p>
       <p style="font-size:var(--fs-xl); font-weight:800; color:var(--c-brand);">
@@ -155,14 +146,6 @@
       </p>
       <p class="section-lead">通算1年6ヶ月まで支給されます（連続3日の待期後・4日目から）。</p>
     </div>
-  </section>
-
-  <!-- ============================================================
-       4. sec-fixed — 固定費入力（通信・保険・サブスク・火災保険）
-       ============================================================ -->
-  <section id="sec-fixed" data-bind="toggle:hasCompletedStep1">
-    <h2>固定費</h2>
-    <p class="section-lead">現状の金額を入力すると、全国平均・理想の目標値との差からクエストが自動生成されます。</p>
 
     <!-- --- 通信費（スマホ） --- -->
     <div class="card">
@@ -188,22 +171,11 @@
       </div>
     </div>
 
-    <!-- --- 光回線 --- -->
+    <!-- --- 光回線・通信費（ウィザードUI改修：プロバイダ選択式を廃止しシンプルな数値入力に） --- -->
     <div class="card">
-      <p class="card__title">🌐 光回線</p>
+      <p class="card__title">🌐 光回線・通信費（月額）</p>
       <div class="field">
-        <label class="field__label" for="in-internetProvider">契約中のプロバイダ</label>
-        <select id="in-internetProvider" class="input input--select" data-model="fixedCosts.internetProvider">
-          <option value="none" selected>契約なし・モバイルルーター</option>
-          <option value="docomo">ドコモ光</option>
-          <option value="au">auひかり</option>
-          <option value="softbank">ソフトバンク光</option>
-          <option value="rakuten">楽天ひかり</option>
-          <option value="other">その他</option>
-        </select>
-      </div>
-      <div class="field" data-conditional-field="internetMonthly" hidden>
-        <label class="field__label" for="in-internetMonthly">現状（月額）</label>
+        <label class="field__label" for="in-internetMonthly">現状（月額。契約なしの場合は0円）</label>
         <input id="in-internetMonthly" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
                placeholder="5,500" autocomplete="off" enterkeyhint="done"
                data-model="fixedCosts.internetMonthly" data-composing="0">
@@ -308,7 +280,7 @@
       </div>
     </div>
 
-    <!-- --- サブスクリプション（2階層アコーディオン） --- -->
+    <!-- --- サブスクリプション（デジタルサブスクのみ。ジム等の自由入力枠は廃止） --- -->
     <div class="card">
       <p class="card__title">🎬 サブスクリプション</p>
       <label class="audience-toggle">
@@ -317,7 +289,7 @@
       </label>
 
       <!-- 主要6サービスはデフォルトで直接表示し、選択疲れを防ぐ。
-           それ以外のマイナーなサブスク・AIプランは「▼その他のサブスクを表示」に格納する。 -->
+           それ以外のマイナーなデジタルサブスクは「▼その他のサブスクを表示」に格納する。 -->
       <div class="sub-primary-group">
         <div class="sub-service">
           <h4>Netflix</h4>
@@ -375,13 +347,15 @@
         </div>
       </div>
 
-      <!-- それ以外のマイナーなサブスク・AIプランはここに格納する -->
+      <!-- それ以外のマイナーなデジタルサブスクはここに格納する -->
       <details class="sub-more">
         <summary>▼その他のサブスクを表示</summary>
 
-      <!-- 6カテゴリ：<details name="sub-accordion"> による排他アコーディオン。
+      <!-- 5カテゴリ：<details name="sub-accordion"> による排他アコーディオン。
            カテゴリ内は開閉なしのカード一覧＋プランはラジオボタン（§3.9）。
-           各サービスの先頭に「契約なし」ラジオを配置し、選択を解除できるようにする。 -->
+           各サービスの先頭に「契約なし」ラジオを配置し、選択を解除できるようにする。
+           ★ウィザードUI改修（2026-08-08）：非デジタルの「ライフ・配送」カテゴリと
+             「その他」自由入力枠（ジム等の自己投資が紛れ込む原因）は廃止した。 -->
       <div class="sub-accordion-group">
         <details class="sub-category" name="sub-accordion" data-sub-category="video">
           <summary>
@@ -569,71 +543,9 @@
             </div>
           </div>
         </details>
-
-        <details class="sub-category" name="sub-accordion" data-sub-category="life">
-          <summary>
-            <span>ライフ・配送</span>
-            <span class="sub-badge">未選択</span>
-          </summary>
-          <div class="sub-service">
-            <h4>Amazon プライム</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Amazon プライムのプラン">
-              <label><input type="radio" name="svc-amazonprime" data-plan-group="amazonprime" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-amazonprime" data-plan-group="amazonprime" value="amazonprime_general" data-audience="single"><span>一般<br>600円</span></label>
-              <label><input type="radio" name="svc-amazonprime" data-plan-group="amazonprime" value="amazonprime_student" data-audience="student"><span>Prime Student<br>300円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Uber One</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Uber Oneのプラン">
-              <label><input type="radio" name="svc-uberone" data-plan-group="uberone" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-uberone" data-plan-group="uberone" value="uberone_standard" data-audience="single"><span>標準プラン<br>698円</span></label>
-              <label><input type="radio" name="svc-uberone" data-plan-group="uberone" value="uberone_student" data-audience="student"><span>学生プラン<br>298円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>タイムズカー</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="タイムズカーのプラン">
-              <label><input type="radio" name="svc-timescar" data-plan-group="timescar" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-timescar" data-plan-group="timescar" value="timescar_individual" data-audience="single"><span>個人プラン<br>880円</span></label>
-            </div>
-          </div>
-        </details>
-
-        <!-- その他（自由入力枠）。プルダウンでは実態と合わないため自由入力にする（§3.9） -->
-        <details class="sub-category" name="sub-accordion">
-          <summary>
-            <span>その他</span>
-            <span class="sub-badge" data-bind="text:otherSummary">未入力</span>
-          </summary>
-
-          <div class="other-sub-rows" data-other-rows>
-            <div class="other-sub-row" data-row-id="o1">
-              <input type="text" class="input input--label" maxlength="30"
-                     placeholder="ジム" aria-label="サービス名"
-                     data-other-label="o1" data-composing="0">
-              <input type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                     placeholder="8,000" aria-label="月額（円）"
-                     data-other-monthly="o1" data-composing="0">
-              <button type="button" class="btn-icon" data-action="removeOtherSub"
-                      data-row-id="o1" aria-label="この行を削除">✕</button>
-            </div>
-          </div>
-
-          <div style="padding:0 var(--sp-3) var(--sp-3);">
-            <button type="button" class="btn btn--ghost btn--block" data-action="addOtherSub">
-              ＋ 行を追加（最大5件）
-            </button>
-          </div>
-        </details>
       </div>
       </details>
 
-      <!-- ★toggle:X は render() が el.hidden = !X で制御する（真のとき表示）。
-           「未選択時に出す空状態メッセージ」は表と逆向きの真偽値が必要になり、
-           §4.1b の契約表にある唯一の hasSubscription（＝1件以上選択）の意味とは
-           逆になってしまうため、ここでは「選択済みであることの確認メッセージ」に変更した
-           （Phase 4 で ui.js を実装する際に判明した齟齬。Phase 3 時点の文言から変更）。 -->
       <p class="empty-state" data-bind="toggle:hasSubscription">
         ✅ サブスクを選択しています。上のカテゴリから内容を確認・変更できます。
       </p>
@@ -650,21 +562,14 @@
         </div>
       </div>
     </div>
-  </section>
 
-  <!-- ============================================================
-       5. sec-rent — 家賃（参考枠・レベル非算入）
-       🔴 sec-fixed とは別ブロックにすること（§3.3・§4.1a）。
-          家賃を見直してもレベルは上がらないため、視覚的にも分離し
-          「参考」と明記する。
-       ============================================================ -->
-  <section id="sec-rent" data-bind="toggle:hasCompletedStep1">
-    <h2>家賃（参考）</h2>
-    <p class="section-lead">
-      ※ 家賃はレベルの計算に含まれません（引っ越し初期費用が高いため、参考情報として分離しています）。
-    </p>
-
+    <!-- --- 家賃（参考枠・レベル非算入） ---
+         🔴 家賃を見直してもレベルは上がらないため、視覚的にも分離し「参考」と明記する。 -->
     <div class="card">
+      <p class="card__title">🏠 家賃（参考）</p>
+      <p class="section-lead">
+        ※ 家賃はレベルの計算に含まれません（引っ越し初期費用が高いため、参考情報として分離しています）。
+      </p>
       <div class="field">
         <label class="field__label" for="in-area">お住まいのエリア</label>
         <select id="in-area" class="input input--select" data-model="userProfile.area">
@@ -749,15 +654,37 @@
         </div>
       </div>
     </div>
+
+    <button type="button" class="btn btn--block" style="margin-top:1.5rem;" data-action="generateQuests">
+      クエストを生成する
+    </button>
+    <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="goToScreen1">
+      ← 戻る
+    </button>
   </section>
 
   <!-- ============================================================
-       6. sec-finance — 金融インフラ診断（銀行手数料・クレカ）
+       画面3：クエスト一覧とレベルアップ可視化
        ============================================================ -->
-  <section id="sec-finance" data-bind="toggle:hasCompletedStep1">
-    <h2>クレジットカードの診断</h2>
+  <section class="screen" data-screen="3" hidden>
+    <h2>クエスト一覧</h2>
+    <p class="section-lead">
+      発見された魔道障壁の合計節約可能額：¥<span data-bind="text:questTotalSaving">0</span> / 月
+    </p>
+    <p class="section-lead">アコーディオンの「解呪完了」をチェックするたびにレベルが上がります。上部のレベル表示に注目してください。</p>
 
-    <div class="card">
+    <!-- クエストは js/selectors.js buildQuestList() の結果から js/ui.js が動的生成する
+         （固定費クエスト＋クレジットカードクエスト。QUEST_CATALOG の静的転記ではない）。
+         0件の場合は伝説の勇者カードを表示する（data-legendary-hero）。
+         ★固定費が未入力（合計0円）の初期状態では、結果エリア全体を非表示にする
+         （toggle:hasFixedCostInput）。 -->
+    <div data-bind="toggle:hasFixedCostInput">
+      <ul class="quest-list" data-quest-list></ul>
+      <div class="card card--legendary" data-legendary-hero hidden></div>
+    </div>
+
+    <!-- --- クレジットカード診断（優先度を下げ、クエスト一覧より下に配置） --- -->
+    <div class="card" style="margin-top:2rem;">
       <p class="card__title">💳 保有カード</p>
       <details class="field-hint">
         <summary>ℹ️ なぜ入力するのですか？</summary>
@@ -784,45 +711,25 @@
         <div class="card-checklist" data-card-others></div>
       </div>
     </div>
+
+    <button type="button" class="btn btn--block" style="margin-top:1.5rem;" data-action="goToFinalResult">
+      結果を見る
+    </button>
+    <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="goToScreen2">
+      ← 固定費入力に戻る
+    </button>
   </section>
 
   <!-- ============================================================
-       7. sec-quest — クエスト一覧（QUEST_CATALOG から生成）
+       画面4：最終結果・マイカルテ・SNSシェア
        ============================================================ -->
-  <section id="sec-quest" data-bind="toggle:hasCompletedStep1">
-    <h2>クエスト一覧</h2>
-    <p class="section-lead">
-      発見された魔道障壁の合計節約可能額：¥<span data-bind="text:questTotalSaving">0</span> / 月
-    </p>
-
-    <div class="field">
-      <label class="field__label" for="in-hourlyWage">時給（タイパ換算用・任意）</label>
-      <input id="in-hourlyWage" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-             placeholder="1,500" autocomplete="off" enterkeyhint="done"
-             data-model="userProfile.hourlyWage" data-composing="0">
-    </div>
-
-    <!-- クエストは js/selectors.js buildQuestList() の結果から js/ui.js が動的生成する
-         （固定費クエスト＋クレジットカードクエスト。QUEST_CATALOG の静的転記ではない）。
-         0件の場合は伝説の勇者カードを表示する（data-legendary-hero）。
-         ★固定費が未入力（合計0円）の初期状態では、結果エリア全体を非表示にする
-         （toggle:hasFixedCostInput）。 -->
-    <div data-bind="toggle:hasFixedCostInput">
-      <ul class="quest-list" data-quest-list></ul>
-      <div class="card card--legendary" data-legendary-hero hidden></div>
-    </div>
-  </section>
-
-  <!-- ============================================================
-       8. sec-karte — マイカルテ・画像保存・魔法の呪文
-       ============================================================ -->
-  <section id="sec-karte" data-bind="toggle:hasCompletedStep1">
+  <section class="screen" data-screen="4" hidden>
     <h2>マイカルテ</h2>
 
     <!-- ★capture-safe クラスは captureCard() がキャプチャ処理中だけ動的に付与する（§4.4）。
          html2canvas非対応プロパティ(backdrop-filter/filter/box-shadow等)を無効化するため。 -->
     <div class="card karte" id="karte-capture-target">
-      <p class="karte__level">Lv.<span data-bind="text:displayLevel">10</span></p>
+      <p class="karte__level">Lv.<span data-bind="text:displayLevel">1</span></p>
       <p class="karte__rank" data-bind="text:rankTitle">見習い冒険者</p>
       <!-- ★data-capture-amount：saveKarte()がマスク設定を見て、キャプチャ処理中だけ
            テキストを「非公開」に差し替える対象。画面表示自体は常に金額のまま（マスクは画像のみ）。 -->
@@ -849,11 +756,14 @@
     </div>
 
     <div class="field spell-restore">
-      <input type="text" class="input" placeholder="TQ2-...（呪文を貼り付け）" aria-label="魔法の呪文を貼り付けて復元" id="in-spell-code">
+      <input type="text" class="input" placeholder="TQ4-...（呪文を貼り付け）" aria-label="魔法の呪文を貼り付けて復元" id="in-spell-code">
       <button type="button" class="btn btn--ghost" data-action="restoreSpell">復元</button>
     </div>
 
-    <button type="button" class="btn btn--ghost btn--block" style="margin-top:1.5rem;" data-action="resetAdventure">
+    <button type="button" class="btn btn--ghost btn--block" style="margin-top:1.5rem;" data-action="goToScreen3">
+      ← クエスト一覧に戻る
+    </button>
+    <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="resetAdventure">
       🔄 冒険を最初から始める
     </button>
   </section>
@@ -867,17 +777,32 @@
 </main>
 
 <!-- ============================================================
-     ボトムナビ（iOS セーフエリア対応・現在地に aria-current）
+     ボトムナビ（iOS セーフエリア対応）。ウィザードUI改修（2026-08-08）で
+     アンカースクロールから画面切替（data-action="goToScreenN"）に変更した。
+     まだ到達していない画面はグレーアウトし、js/ui.js が data-current 属性で
+     現在地を反映する（[disabled]はrender()側で制御する）。
      ============================================================ -->
-<nav class="bottom-nav" aria-label="セクション移動">
-  <a class="bottom-nav__item" href="#sec-quick" aria-current="page"><span aria-hidden="true">🏠</span>診断</a>
-  <a class="bottom-nav__item" href="#sec-fixed"><span aria-hidden="true">💰</span>固定費</a>
-  <a class="bottom-nav__item" href="#sec-quest"><span aria-hidden="true">🗺️</span>クエスト</a>
-  <a class="bottom-nav__item" href="#sec-karte"><span aria-hidden="true">📜</span>カルテ</a>
+<nav class="bottom-nav" aria-label="画面移動">
+  <button type="button" class="bottom-nav__item" data-action="goToScreen1" data-nav-screen="1"><span aria-hidden="true">👤</span>STEP1</button>
+  <button type="button" class="bottom-nav__item" data-action="goToScreen2" data-nav-screen="2"><span aria-hidden="true">💰</span>STEP2</button>
+  <button type="button" class="bottom-nav__item" data-action="goToScreen3" data-nav-screen="3"><span aria-hidden="true">🗺️</span>クエスト</button>
+  <button type="button" class="bottom-nav__item" data-action="goToScreen4" data-nav-screen="4"><span aria-hidden="true">📜</span>結果</button>
   <button type="button" class="bottom-nav__item" data-action="openFeedback">
     <span aria-hidden="true">💬</span>ご意見
   </button>
 </nav>
+
+<!-- ============================================================
+     レベル公開演出オーバーレイ（画面1→2・画面2→3の遷移時に使用）
+     ============================================================ -->
+<div id="level-reveal" class="level-reveal" hidden>
+  <div class="level-reveal__panel">
+    <p class="level-reveal__label" data-level-reveal-label>あなたの初期レベルは…</p>
+    <p class="level-reveal__value">Lv.<span data-level-reveal-value>1</span></p>
+    <p class="level-reveal__sub" data-level-reveal-sub></p>
+    <button type="button" class="btn btn--accent btn--block" data-action="dismissLevelReveal">次へ</button>
+  </div>
+</div>
 
 <!-- ============================================================
      9. sheet-feedback — フィードバックのボトムシート（§3.6）
@@ -941,6 +866,10 @@
 
 <!-- トースト通知（§3.6・§4.5・§6.5 が参照する showToast の表示先。ui.js が制御する） -->
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- Tips（？アイコン）用の透明バックドロップ。外側タップで確実に閉じるための土台
+     （z-index競合・:focus-within競合を避けるため、CSSトリガーは[open]属性のみに限定する）。 -->
+<div class="tip-backdrop" data-tip-backdrop hidden></div>
 
 <script type="module" src="./js/app.js"></script>
 </body>

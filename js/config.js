@@ -784,23 +784,10 @@ export const SUBSCRIPTION_PLANS = [
       { id:'xboxgamepass_ultimate', label:'Ultimate',      monthly:1550, audience:'single' },
       { id:'xboxgamepass_pc',       label:'PC Game Pass',  monthly:1300, audience:'single' }
     ]}
-  ]},
-
-  { id:'life', label:'ライフ・配送', services:[
-    { id:'amazonprime', name:'Amazon プライム', plans:[
-      { id:'amazonprime_general', label:'一般',          monthly:600, audience:'single',
-        note:'Prime Video を選択済みの場合は重複しません（同一会費）' },
-      { id:'amazonprime_student', label:'Prime Student', monthly:300, audience:'student' }
-    ]},
-    { id:'uberone', name:'Uber One', plans:[
-      { id:'uberone_standard', label:'標準プラン', monthly:698, audience:'single' },
-      { id:'uberone_student',  label:'学生プラン', monthly:298, audience:'student' }
-    ]},
-    { id:'timescar', name:'タイムズカー', plans:[
-      { id:'timescar_individual', label:'個人プラン', monthly:880, audience:'single',
-        note:'基本料金。利用料金へ充当可能' }
-    ]}
   ]}
+  // ★ユーザーテストフィードバック改修（2026-08-08）：「ライフ・配送」カテゴリ
+  //   （Amazonプライム一般会員・Uber One・タイムズカー）を削除した。
+  //   デジタルサブスク（動画/音楽/書籍/クラウドAI/ゲーム）のみに絞り込むため
 ];
 
 /** UI の既定表示対象。トグルで family / student も表示できるようにする */
@@ -906,17 +893,6 @@ export const NHK_PLANS = [
 ];
 export const NHK_DEFAULT = 'none';
 
-// 「契約なし・モバイルルーター」選択時は月額入力欄を隠す
-export const INTERNET_PROVIDERS = [
-  { value:'none',     label:'契約なし・モバイルルーター' },
-  { value:'docomo',   label:'ドコモ光' },
-  { value:'au',       label:'auひかり' },
-  { value:'softbank', label:'ソフトバンク光' },
-  { value:'rakuten',  label:'楽天ひかり' },
-  { value:'other',    label:'その他' }
-];
-export const INTERNET_DEFAULT = 'none';
-
 // ---------------------------------------------------------------------------
 // Phase2.1〜2.3 固定費カテゴリの目安（全国平均・理想の目標値）
 //   ideal:null のカテゴリ（駐車場代）はバーは表示するがクエスト判定には含めない
@@ -943,19 +919,23 @@ export const LEVELUP_UNIT = 5000;
 
 // ---------------------------------------------------------------------------
 // Phase2.1 初期レベル算出式の定数
-//   初期レベル = Math.floor((月額手取り + 現状の固定費合計) / 20000) + 10
+//   初期レベル = Math.floor((月額手取り + 現状の固定費合計) / 20000) + 1
+//   ★ユーザーテストフィードバック改修（2026-08-08）：未入力の初期状態でLv.1になるよう
+//     基準値を10→1に変更した（旧基準は10だったため、未入力でもLv.10と表示されていた）
 // ---------------------------------------------------------------------------
 export const INITIAL_LEVEL_DIVISOR = 20000;
-export const INITIAL_LEVEL_BASE = 10;
+export const INITIAL_LEVEL_BASE = 1;
 
 // ---------------------------------------------------------------------------
 // Phase3.3 役職テーブル（新仕様）。旧 RANK_TABLE とは別の新レベル方式専用
+//   ★INITIAL_LEVEL_BASE変更（2026-08-08）に伴い、各帯の幅（10Lvごと）を保ったまま
+//     Lv.1起点にシフトした
 // ---------------------------------------------------------------------------
 export const RANK_TABLE_V2 = [
-  { min:10, max:19, title:'見習い冒険者' },
-  { min:20, max:29, title:'駆け出しの騎士' },
-  { min:30, max:39, title:'中堅の魔導士' },
-  { min:40, max:Infinity, title:'ベテラン大賢者' }
+  { min:1,  max:10, title:'見習い冒険者' },
+  { min:11, max:20, title:'駆け出しの騎士' },
+  { min:21, max:30, title:'中堅の魔導士' },
+  { min:31, max:Infinity, title:'ベテラン大賢者' }
 ];
 
 // ---------------------------------------------------------------------------

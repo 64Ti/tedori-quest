@@ -316,17 +316,6 @@ export function calcNeglectLoss(monthlyWaste, years = C.NEGLECT_YEARS){
 }
 
 /**
- * 節約額を時給換算した労働時間（タイパ換算）を返す。
- * @param {number} savingAmount 節約額
- * @param {number} hourlyWage 時給
- * @returns {number} 時間（時給0の場合は0。ゼロ除算しない）
- */
-export function calcOvertimeEquivalent(savingAmount, hourlyWage){
-  const w = Number(hourlyWage) || 0;
-  return w > 0 ? Math.round((Math.max(0,Number(savingAmount)||0) / w) * 10) / 10 : 0;
-}
-
-/**
  * 積立の複利試算を行う（NISA想定・非保証）。
  * @param {number} monthly 月間積立額
  * @param {number} [annualRate] 年利

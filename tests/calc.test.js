@@ -13,7 +13,7 @@ function buildState(overrides = {}){
   return {
     userProfile: { annualSalary: 0, age: 0 },
     fixedCosts: {
-      smartphone: 0, internetProvider: 'none', internetMonthly: null,
+      smartphone: 0, internetMonthly: null,
       medicalInsurance: 0, fireInsurance: 0,
       nhkPlan: 'none', hasCar: false, carInsurance: 0, parking: 0, rent: 0
     },
@@ -155,25 +155,26 @@ describe('8.3 手取り・社会保険料', () => {
 
 describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）', () => {
   test('PHASE2-01: 初期レベル算出式 floor((手取り+固定費合計)/20000)+10', () => {
-    assert.equal(calc.calcInitialLevel(0, 0), 10);
-    assert.equal(calc.calcInitialLevel(220000, 20000), Math.floor(240000/20000)+10);
-    assert.equal(calc.calcInitialLevel(19999, 0), 10);   // 端数は切り捨て
-    assert.equal(calc.calcInitialLevel(20000, 0), 11);
+    // ★ユーザーテストフィードバック改修（2026-08-08）：未入力状態でLv.1になるよう基準値を1に変更
+    assert.equal(calc.calcInitialLevel(0, 0), 1);
+    assert.equal(calc.calcInitialLevel(220000, 20000), Math.floor(240000/20000)+1);
+    assert.equal(calc.calcInitialLevel(19999, 0), 1);   // 端数は切り捨て
+    assert.equal(calc.calcInitialLevel(20000, 0), 2);
   });
 
-  test('PHASE2-02: 初期レベルは負値入力でも下限10を下回らない', () => {
-    assert.equal(calc.calcInitialLevel(-100, -100), 10);
+  test('PHASE2-02: 初期レベルは負値入力でも下限1を下回らない', () => {
+    assert.equal(calc.calcInitialLevel(-100, -100), 1);
   });
 
-  test('PHASE2-03: 役職テーブルの境界（Lv.19/20, 29/30, 39/40）', () => {
+  test('PHASE2-03: 役職テーブルの境界（Lv.10/11, 20/21, 30/31）', () => {
     const titleAt = lv => C.RANK_TABLE_V2.find(r => lv >= r.min && lv <= r.max).title;
+    assert.equal(titleAt(1),  '見習い冒険者');
     assert.equal(titleAt(10), '見習い冒険者');
-    assert.equal(titleAt(19), '見習い冒険者');
+    assert.equal(titleAt(11), '駆け出しの騎士');
     assert.equal(titleAt(20), '駆け出しの騎士');
-    assert.equal(titleAt(29), '駆け出しの騎士');
+    assert.equal(titleAt(21), '中堅の魔導士');
     assert.equal(titleAt(30), '中堅の魔導士');
-    assert.equal(titleAt(39), '中堅の魔導士');
-    assert.equal(titleAt(40), 'ベテラン大賢者');
+    assert.equal(titleAt(31), 'ベテラン大賢者');
     assert.equal(titleAt(999), 'ベテラン大賢者');
   });
 

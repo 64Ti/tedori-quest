@@ -108,10 +108,15 @@ section:last-of-type{border-bottom:none;}
 .field-check{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
 .field-check input{width:20px; height:20px;}
 
-/* ===== Tips アイコン（？マーク。ホバー／タップの両方でツールチップ表示） ===== */
+/* ===== Tips アイコン（？マーク。タップでツールチップ表示・外側タップ/バックドロップで確実に閉じる） =====
+   ★ユーザーテストフィードバック改修（2026-08-08）：以前は :hover / :focus-within でも表示するCSSに
+     していたため、outside-clickでdetailsの[open]属性を外してもフォーカスが要約要素に残ったままだと
+     :focus-within が効き続け「閉じたはずが裏に隠れているだけ」に見えるバグがあった。
+     表示条件を[open]属性のみに一本化し、js/app.jsのbackdrop連動と組み合わせて確実に閉じるようにする。 */
 .field__label-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2);}
 .field__label-row .field__label{margin:0;}
 details.tip{position:relative; display:inline-block;}
+details.tip[open]{z-index:16;}                 /* ★backdrop(z-index:15)より確実に手前に出す */
 details.tip > summary{
   display:flex; align-items:center; justify-content:center;
   width:20px; height:20px; border-radius:50%;
@@ -122,17 +127,18 @@ details.tip > summary{
 details.tip > summary::-webkit-details-marker{display:none;}
 details.tip > summary:hover{background:var(--c-brand); color:var(--c-bg);}
 details.tip > .tip__text{display:none;}
-details.tip[open] > .tip__text,
-details.tip:hover > .tip__text,
-details.tip:focus-within > .tip__text{
+details.tip[open] > .tip__text{
   display:block;
-  position:absolute; right:0; top:calc(100% + 6px); z-index:5;
+  position:absolute; right:0; top:calc(100% + 6px); z-index:16;
   width:220px; max-width:70vw;
   background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--radius);
   padding:var(--sp-2) var(--sp-3);
   font-size:var(--fs-xs); color:var(--c-text); text-align:left; font-weight:400;
   box-shadow:0 4px 16px rgba(0,0,0,.35);
 }
+
+/* Tips用の透明バックドロップ。開いている間だけ表示し、外側タップで確実に閉じられるようにする */
+.tip-backdrop{position:fixed; inset:0; z-index:15; background:transparent;}
 
 .field-hint{margin-top:var(--sp-2);}
 .field-hint summary{
@@ -314,8 +320,6 @@ textarea.input{text-align:left; resize:vertical; min-height:88px;}
 .sub-more .sub-accordion-group{padding:0 var(--sp-3) var(--sp-3);}
 .sub-more .sub-accordion-group .sub-category:first-child{margin-top:0;}
 
-.other-sub-rows{display:flex; flex-direction:column; gap:var(--sp-2); padding:var(--sp-3);}
-.other-sub-row{display:grid; grid-template-columns:1.4fr 1fr 44px; gap:var(--sp-2); align-items:center;}
 .empty-state{color:var(--c-text-mute); font-size:var(--fs-sm); padding:var(--sp-3);}
 
 /* ===== ⑪ クエスト一覧 ===== */
@@ -461,6 +465,71 @@ textarea.input{text-align:left; resize:vertical; min-height:88px;}
 }
 .card--legendary__title{font-size:var(--fs-lg); font-weight:800; color:var(--c-accent);}
 .card--legendary__subtitle{margin-top:var(--sp-2); color:var(--c-text-mute); font-size:var(--fs-sm);}
+
+/* ===== ⑲ ウィザードUI改修（2026-08-08） ===== */
+
+/* 画面切り替え。表示制御自体は [hidden] の既存グローバルルール（① リセット）に委譲する。
+   .screen は section 要素のため section の余白・区切り線をそのまま継承する。 */
+.screen{animation:screen-in var(--dur) var(--ease);}
+@keyframes screen-in{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+
+/* --- EXPゲージ（入力アクション連動）。STEP1・STEP2の先頭に常設する --- */
+.exp-gauge{margin:var(--sp-4) 0; padding:var(--sp-3); background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--radius);}
+.exp-gauge__track{height:12px; background:var(--c-bg); border-radius:var(--radius-full); overflow:hidden; border:1px solid var(--c-border);}
+.exp-gauge__fill{
+  height:100%; width:0%; border-radius:var(--radius-full);
+  background:linear-gradient(90deg, var(--c-brand), var(--c-accent));
+  transition:width 420ms cubic-bezier(.34,1.56,.64,1);   /* ★軽くオーバーシュートさせ「伸びる」感を強調する */
+}
+.exp-gauge__fill.is-pulsing{animation:exp-pulse 500ms var(--ease);}
+@keyframes exp-pulse{
+  0%   { box-shadow:0 0 0 0 rgba(16,185,129,.7); }
+  100% { box-shadow:0 0 0 10px rgba(16,185,129,0); }
+}
+.exp-gauge__label{margin-top:var(--sp-1); font-size:var(--fs-xs); color:var(--c-text-mute); text-align:right;}
+
+/* --- レベル公開演出オーバーレイ（画面1→2・画面2→3の遷移時） --- */
+.level-reveal{
+  position:fixed; inset:0; z-index:40;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(15,23,42,.92); padding:var(--sp-4);
+}
+.level-reveal__panel{
+  width:100%; max-width:360px; text-align:center;
+  background:var(--c-surface); border:2px solid var(--c-accent); border-radius:var(--radius);
+  padding:var(--sp-8) var(--sp-6);
+  box-shadow:0 0 40px rgba(245,158,11,.35);
+  animation:level-reveal-in 480ms cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes level-reveal-in{
+  0%   { opacity:0; transform:scale(.7); }
+  60%  { opacity:1; transform:scale(1.08); }
+  100% { opacity:1; transform:scale(1); }
+}
+.level-reveal__label{color:var(--c-text-mute); font-size:var(--fs-base);}
+.level-reveal__value{
+  margin-top:var(--sp-2); font-size:clamp(3rem, 16vw, 4.5rem); font-weight:800;
+  color:var(--c-accent); text-shadow:0 0 24px rgba(245,158,11,.6);
+}
+.level-reveal__sub{margin-top:var(--sp-2); min-height:1.5em; color:var(--c-text); font-size:var(--fs-sm);}
+.level-reveal .btn{margin-top:var(--sp-6);}
+
+/* --- クエスト解呪時のレベルアップ演出（ヘッダーのレベル表示・ゲージを光らせる） --- */
+.app-header__level.is-leveling{animation:level-bump 550ms cubic-bezier(.34,1.56,.64,1);}
+@keyframes level-bump{
+  0%   { transform:scale(1); text-shadow:none; }
+  35%  { transform:scale(1.3); text-shadow:0 0 16px rgba(16,185,129,.9); }
+  100% { transform:scale(1); text-shadow:none; }
+}
+[data-level-gauge].is-leveling .progress__fill{animation:gauge-flash 550ms var(--ease);}
+@keyframes gauge-flash{
+  0%   { filter:brightness(1); box-shadow:0 0 0 0 rgba(16,185,129,.8); }
+  40%  { filter:brightness(1.6); box-shadow:0 0 12px 4px rgba(16,185,129,.6); }
+  100% { filter:brightness(1); box-shadow:0 0 0 0 rgba(16,185,129,0); }
+}
+
+/* --- ボトムナビ：まだ到達していない画面はグレーアウトする --- */
+.bottom-nav__item[disabled]{opacity:.35; cursor:not-allowed;}
 
 /* ===== ⑭ アクセシビリティ／モーション配慮 ===== */
 .visually-hidden{

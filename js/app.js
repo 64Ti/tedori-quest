@@ -5,7 +5,8 @@ import { state, subscribe, setPersistErrorHandler, parseYen,
 import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotifyLevelUp,
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
-         captureCard, saveCard, resetQuestListCache, populateAnnualSalarySelect } from './ui.js';
+         captureCard, saveCard, resetQuestListCache, populateAnnualSalarySelect,
+         triggerLevelUpEffect, updateExpGauge, showLevelReveal, hideLevelReveal } from './ui.js';
 import { selectors } from './selectors.js';
 import * as calc from './calc.js';
 import * as C from './config.js';
@@ -13,6 +14,31 @@ import { sendFeedback } from './feedback.js';
 
 let isCapturingKarte = false;      // ★saveKarte の重畳連打防止（第一防波堤はボタンのdisabled）
 let isSubmittingFeedback = false;  // ★submitFeedback の重畳連打防止（feedback.js自身のisSubmittingに加えた第二防波堤）
+let pendingScreenAfterReveal = null;   // ★レベル公開演出（dismissLevelReveal）後に遷移する画面番号
+
+/**
+ * ウィザードの画面を切り替える（ウィザードUI改修・2026-08-08）。
+ * ★画面1・2に入るときはEXPゲージを現在の入力値に追いつかせる。
+ * @param {1|2|3|4} n
+ * @returns {void}
+ */
+function goToScreen(n){
+  state.meta.screen = n;
+  if (n === 1 || n === 2) hydrateExpGauge(n);
+  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
+
+/**
+ * Tips用backdropの表示・非表示を、いずれかのTipsが開いているかどうかに同期する。
+ * 各 details.tip の 'toggle' イベント（開閉が確定した後に発火する）に紐づけて呼ぶ。
+ * @returns {void}
+ */
+function syncTipBackdrop(){
+  const backdrop = document.querySelector('[data-tip-backdrop]');
+  if (!backdrop) return;
+  const anyOpen = document.querySelectorAll('details.tip[open]').length > 0;
+  if (backdrop.hidden === anyOpen) backdrop.hidden = !anyOpen;
+}
 
 // §6.10 エラー文言（確定版）。in_flight・honeypot は表示しない。
 const FEEDBACK_MESSAGES = {
@@ -28,20 +54,18 @@ const FEEDBACK_MESSAGES = {
 // イベント委譲（§6.7）。個別 addEventListener を撒かない（動的追加時の付け忘れ防止）。
 // ---------------------------------------------------------------------------
 function bindEvents(){
+  // ★Tips（？アイコン）はすべて静的マークアップのため、起動時に一度だけ 'toggle' を
+  //   個別配線する（'toggle' イベントはバブリングしないため委譲できない）。
+  document.querySelectorAll('details.tip').forEach(tip => {
+    tip.addEventListener('toggle', syncTipBackdrop);
+  });
+
   document.addEventListener('input', e => {
-    const otherLabel = e.target.closest('[data-other-label]');
-    if (otherLabel){ upsertOtherSub(otherLabel.dataset.otherLabel, { label: otherLabel.value }); return; }
-
-    const otherMonthly = e.target.closest('[data-other-monthly]');
-    if (otherMonthly){
-      upsertOtherSub(otherMonthly.dataset.otherMonthly, { monthly: parseYen(otherMonthly.value) });
-      return;
-    }
-
     const el = e.target.closest('[data-model]');
     if (!el || el.dataset.composing === '1') return;
     if (el.type === 'checkbox' || el.tagName === 'SELECT') return;   // これらは change で処理する
     setByPath(state, el.dataset.model, parseYen(el.value));
+    markExpTouched(el.dataset.model);
   });
 
   // IME（日本語入力の中間状態で発火するのを抑止）
@@ -69,12 +93,26 @@ function bindEvents(){
   }, true);
 
   document.addEventListener('click', e => {
-    // ★Tips（？アイコン）は外側タップで閉じる。クリックしたTips自身は対象外にし、
-    //   ネイティブの<summary>トグル動作と競合しないようにする。
+    // ★Tips（？アイコン）はバックドロップ方式で確実に閉じる（ユーザーテストフィードバック改修・
+    //   2026-08-08）。以前は「クリックしたTips自身だけを対象外にする」方式だったが、
+    //   CSSの:hover/:focus-withinが[open]属性と独立して表示を維持してしまい、
+    //   「閉じたはずが裏に隠れているだけ」に見えるバグがあった。
+    //   全画面の透明backdropを開いている間だけ重ね、backdropへのクリック（＝tip外側への
+    //   タップ）でdetailsの[open]属性を外し、要約要素からフォーカスも外す。
+    //   ★backdropの表示/非表示自体は、各tipのnative 'toggle' イベント（syncTipBackdrop）に
+    //     一本化する。'click' はバブリング中に発火するがネイティブのdetails開閉は
+    //     ブラウザによってその後に適用されることがあり、ここで[open]を読んでも
+    //     タイミングが信頼できないため（実機検証で発覚）。
+    const backdrop = document.querySelector('[data-tip-backdrop]');
     const insideTip = e.target.closest('details.tip');
-    document.querySelectorAll('details.tip[open]').forEach(tip => {
-      if (tip !== insideTip) tip.open = false;
-    });
+    const clickedBackdrop = e.target === backdrop;
+    if (clickedBackdrop || !insideTip){
+      document.querySelectorAll('details.tip[open]').forEach(tip => {
+        tip.open = false;
+        tip.querySelector('summary')?.blur();
+      });
+    }
+    if (clickedBackdrop) return;   // ★backdrop自身のクリックはTipsを閉じるだけで完結させる
 
     const btn = e.target.closest('[data-action]');
     if (btn) ACTIONS[btn.dataset.action]?.(btn, e);
@@ -94,7 +132,7 @@ function bindEvents(){
     if (otherCardCb){ onCardOtherToggle(otherCardCb); return; }
 
     const planRadio = e.target.closest('[data-plan-group]');
-    if (planRadio){ onPlanGroupChange(planRadio); return; }
+    if (planRadio){ onPlanGroupChange(planRadio); markExpTouched('__subscriptions'); return; }
 
     const el = e.target.closest('[data-model]');
     if (!el) return;
@@ -107,22 +145,20 @@ function bindEvents(){
         onCreditCardSelectChange(el.dataset.model);
       }
     }
+    markExpTouched(el.dataset.model);
   });
 }
 
 /**
- * クエスト解呪チェックボックスの変更を反映し、レベルアップ抽選を行う（Phase2〜3）。
- * ★初期レベルは初回のクエスト解呪時点でその瞬間のライブ算出値に確定する
- *   （固定費入力中はまだ確定させず、header/カルテにはライブ値を表示し続ける）。
+ * クエスト解呪チェックボックスの変更を反映し、レベルを再計算する（Phase2〜3）。
+ * ★初期レベルは画面2「クエストを生成する」ボタン押下時点（ACTIONS.generateQuests）で
+ *   既に確定済みのため、ここでは確定処理を行わない（ウィザードUI改修・2026-08-08）。
  * @param {HTMLInputElement} cb
  * @returns {void}
  */
 function onQuestToggle(cb){
   const id = cb.dataset.questToggle;
   const saving = Number(cb.dataset.questSaving) || 0;
-  if (!Number.isFinite(state.meta.initialLevel)){
-    state.meta.initialLevel = selectors.initialLevel(state);
-  }
   if (cb.checked) state.quests.completed[id] = saving;
   else delete state.quests.completed[id];
   handleQuestLevelUp();
@@ -131,6 +167,9 @@ function onQuestToggle(cb){
 /**
  * レベルを再計算し、上昇時のみ演出トーストを出す（確定的な計算・抽選要素なし）。
  * ★毎回、解呪済みクエストの月間節約可能額の合計から再計算する（累積方式）。
+ * ★クエストを1件解呪するたびに、レベルが変わったかどうかによらず
+ *   ヘッダーのレベル表示・ゲージを光らせる演出を必ず発生させる
+ *   （ユーザーテストフィードバック改修・2026-08-08）。
  * @returns {void}
  */
 function handleQuestLevelUp(){
@@ -143,6 +182,7 @@ function handleQuestLevelUp(){
     enqueueToast(`現状 Lv.${before} ➔ Lv.${finalLevel} にUP！`, 'levelup');
   }
   syncNotifiedLevel();   // ★maybeNotifyLevelUp の遅延判定による重複通知を防ぐ
+  triggerLevelUpEffect();
 }
 
 /**
@@ -189,85 +229,55 @@ function onPlanGroupChange(el){
   // fixedCosts.subscriptions は selectors 側で sumSubscriptions() により算出する（直接書き込まない）
 }
 
-/**
- * その他サブスクの行データを更新する。存在しない rowId なら新規追加する。
- * @param {string} rowId
- * @param {{label?:string, monthly?:number|null}} patch
- * @returns {void}
- */
-function upsertOtherSub(rowId, patch){
-  const rows = state.selections.otherSubscriptions;
-  const row = rows.find(r => r.id === rowId);
-  if (row){
-    Object.assign(row, patch);
-  } else {
-    state.selections.otherSubscriptions = [
-      ...rows,
-      { id: rowId, label: '', monthly: null, ...patch }
-    ];
-  }
-}
-
 /** グループ内の他要素の aria-pressed を外し、対象だけ true にする（感情ボタン用）。 */
 function selectSingle(target, selector){
   document.querySelectorAll(selector).forEach(el => el.setAttribute('aria-pressed', String(el === target)));
 }
 
 // ---------------------------------------------------------------------------
-// その他サブスク行の追加・削除（DOM操作は createElement のみ。innerHTML不使用＝制約5）
+// EXPゲージ（入力アクション連動の演出。ウィザードUI改修・2026-08-08）
+//   ★state（永続化対象）には持たせない一時的なUI状態のため、モジュール内の
+//     プレーンなSetで管理する（画面をまたいでも0%に戻らないよう、画面遷移時に
+//     現在値からの「追いつき」を行う＝hydrateExpGauge）。
 // ---------------------------------------------------------------------------
-function nextOtherSubRowId(container){
-  const used = [...container.querySelectorAll('.other-sub-row')]
-    .map(r => Number(r.dataset.rowId.replace('o', '')) || 0);
-  return `o${(used.length ? Math.max(...used) : 0) + 1}`;
+const EXP_FIELDS = {
+  1: ['userProfile.annualSalary', 'userProfile.age', 'userProfile.insuranceType',
+      'userProfile.isUnderOneYear', 'userProfile.isResidentTaxExempt'],
+  2: ['fixedCosts.smartphone', 'fixedCosts.internetMonthly', 'fixedCosts.medicalInsurance',
+      'fixedCosts.fireInsurance', 'fixedCosts.nhkPlan', 'userProfile.area', 'fixedCosts.rent',
+      'fixedCosts.hasCar', '__subscriptions']
+};
+const touchedFields = { 1: new Set(), 2: new Set() };
+
+/**
+ * 入力・選択のたびにEXPゲージを伸ばす。追跡対象外のフィールドは無視する。
+ * @param {string} path data-model のパス（サブスクは特別に '__subscriptions'）
+ * @returns {void}
+ */
+function markExpTouched(path){
+  for (const screen of [1, 2]){
+    if (!EXP_FIELDS[screen].includes(path)) continue;
+    touchedFields[screen].add(path);
+    updateExpGauge(screen, (touchedFields[screen].size / EXP_FIELDS[screen].length) * 100);
+  }
 }
 
-function createOtherSubRow(id){
-  const idx = Number(id.replace('o', '')) || 1;
-  const placeholder = C.OTHER_SUBSCRIPTION.placeholders[(idx - 1) % C.OTHER_SUBSCRIPTION.placeholders.length];
-
-  const row = document.createElement('div');
-  row.className = 'other-sub-row';
-  row.dataset.rowId = id;
-
-  const labelInput = document.createElement('input');
-  labelInput.type = 'text';
-  labelInput.className = 'input input--label';
-  labelInput.maxLength = C.OTHER_SUBSCRIPTION.labelMaxLength;
-  labelInput.placeholder = placeholder;
-  labelInput.autocomplete = 'off';
-  labelInput.setAttribute('aria-label', 'サービス名');
-  labelInput.dataset.otherLabel = id;
-  labelInput.dataset.composing = '0';
-
-  const monthlyInput = document.createElement('input');
-  monthlyInput.type = 'text';
-  monthlyInput.inputMode = 'numeric';
-  monthlyInput.pattern = '[0-9,]*';
-  monthlyInput.className = 'input';
-  monthlyInput.placeholder = '8,000';
-  monthlyInput.autocomplete = 'off';
-  monthlyInput.setAttribute('aria-label', '月額（円）');
-  monthlyInput.dataset.otherMonthly = id;
-  monthlyInput.dataset.composing = '0';
-
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'btn-icon';
-  removeBtn.dataset.action = 'removeOtherSub';
-  removeBtn.dataset.rowId = id;
-  removeBtn.setAttribute('aria-label', 'この行を削除');
-  removeBtn.textContent = '✕';
-
-  row.append(labelInput, monthlyInput, removeBtn);
-  return row;
-}
-
-function refreshAddOtherSubButton(container){
-  const addBtn = document.querySelector('[data-action="addOtherSub"]');
-  if (!addBtn) return;
-  const count = container.querySelectorAll('.other-sub-row').length;
-  addBtn.disabled = count >= C.OTHER_SUBSCRIPTION.maxRows;
+/**
+ * 画面に入った時点で、既に値が入っているフィールド分をEXPゲージへ「追いつかせる」。
+ * 呪文復元・ページ再読込・「戻る」での再訪問時に0%へ戻って見えるのを防ぐ。
+ * @param {1|2} screen
+ * @returns {void}
+ */
+function hydrateExpGauge(screen){
+  const isChanged = path => {
+    if (path === '__subscriptions') return selectors.subscriptionTotal(state) > 0;
+    // ★「値が入っているか」ではなく「初期値から変更されているか」で判定する。
+    //   insuranceType等は既定値自体が空でないため、真偽値ベースの判定だと
+    //   触れる前から達成扱いになってしまう。
+    return getByPath(state, path) !== getByPath(INITIAL_STATE, path);
+  };
+  EXP_FIELDS[screen].forEach(path => { if (isChanged(path)) touchedFields[screen].add(path); });
+  updateExpGauge(screen, (touchedFields[screen].size / EXP_FIELDS[screen].length) * 100);
 }
 
 // ---------------------------------------------------------------------------
@@ -275,19 +285,56 @@ function refreshAddOtherSubButton(container){
 // ★表に無いアクション名を追加しない。ここに無いボタンは Phase 5/6 側の担当。
 // ---------------------------------------------------------------------------
 const ACTIONS = {
+  /**
+   * 画面1（STEP1）完了：収入ベースの初期レベルをレベル公開演出で見せてから画面2へ進む
+   * （ウィザードUI改修・2026-08-08）。
+   */
   startDiagnosis(){
-    if (!state.meta.hasCompletedStep1){
-      // ★initialLevel はここでは確定させない。固定費入力中はライブ算出値を表示し続け、
-      //   初回のクエスト解呪時点（onQuestToggle）でその瞬間の値に確定する（Phase2.1）。
-      state.meta.createdAt = state.meta.createdAt ?? new Date().toISOString();
-    }
+    state.meta.createdAt = state.meta.createdAt ?? new Date().toISOString();
     state.meta.lastOpenedAt = new Date().toISOString();
-    state.meta.hasCompletedStep1 = true;
-    const target = document.getElementById('sec-result');
-    target?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    const level = selectors.initialLevel(state);   // この時点では固定費未入力のため収入のみ反映
+    pendingScreenAfterReveal = 2;
+    showLevelReveal({
+      label: 'あなたの初期レベルは…',
+      level,
+      sub: '収入から算出した概算レベルです。次は固定費を入力してさらに詳しく診断します。'
+    });
   },
 
-  // ★シェアは最終確認画面（マイカルテ）専用（Phase3.4）。sec-result側のボタンは撤去済み。
+  /**
+   * 画面2（STEP2）完了：固定費の圧迫度まで反映した「本当のレベル」を確定・公開してから
+   * 画面3（クエスト一覧）へ進む。★初期レベルはここで一度だけ確定し、以後不変。
+   */
+  generateQuests(){
+    state.meta.initialLevel = selectors.initialLevel(state);
+    state.meta.currentLevel = state.meta.initialLevel;
+    syncNotifiedLevel();
+    pendingScreenAfterReveal = 3;
+    showLevelReveal({
+      label: '固定費を反映した本当のレベルは…',
+      level: state.meta.currentLevel,
+      sub: 'ここからクエストを解呪するたびにレベルが上がっていきます。'
+    });
+  },
+
+  /** レベル公開演出を閉じ、予約しておいた次の画面へ進む。 */
+  dismissLevelReveal(){
+    hideLevelReveal();
+    if (pendingScreenAfterReveal){
+      goToScreen(pendingScreenAfterReveal);
+      pendingScreenAfterReveal = null;
+    }
+  },
+
+  goToScreen1(){ goToScreen(1); },
+  goToScreen2(){ goToScreen(2); },
+  goToScreen3(){ goToScreen(3); },
+  goToScreen4(){ goToScreen(4); },
+  // ★画面3→4はクエストの解呪状況を都度確認しながら進める運用のため、演出なしで即遷移する
+  //   （公開演出は画面1→2・画面2→3の2箇所のみ、というユーザー指示に準拠）。
+  goToFinalResult(){ goToScreen(4); },
+
+  // ★シェアは最終確認画面（画面4／マイカルテ）専用（Phase3.4）。
   shareX(){
     const text = selectors.shareTextV2(state);
     const url = `https://x.com/intent/post`
@@ -359,28 +406,11 @@ const ACTIONS = {
   resetAdventure(){
     if (!window.confirm('ここまでの入力内容をすべて消去して、最初からやり直します。よろしいですか？')) return;
     const fresh = structuredClone(INITIAL_STATE);
-    applyRestoredState(fresh);
+    applyRestoredState(fresh);   // ★touchedFieldsのクリア・EXPゲージの0%表示もここで行われる
     resetQuestListCache();
     syncNotifiedLevel();   // ★リセット直後に誤ったレベル差分演出が出ないよう基準を同期する
     showToast('冒険をはじめから始めます');
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
-  },
-
-  addOtherSub(){
-    const container = document.querySelector('[data-other-rows]');
-    if (!container) return;
-    if (container.querySelectorAll('.other-sub-row').length >= C.OTHER_SUBSCRIPTION.maxRows) return;
-    const id = nextOtherSubRowId(container);
-    container.appendChild(createOtherSubRow(id));
-    refreshAddOtherSubButton(container);
-  },
-
-  removeOtherSub(btn){
-    const rowId = btn.dataset.rowId;
-    const container = document.querySelector('[data-other-rows]');
-    document.querySelector(`.other-sub-row[data-row-id="${rowId}"]`)?.remove();
-    state.selections.otherSubscriptions = state.selections.otherSubscriptions.filter(r => r.id !== rowId);
-    if (container) refreshAddOtherSubButton(container);
   },
 
   openFeedback(){
@@ -498,23 +528,10 @@ function applyRestoredState(restored){
   state.quests = restored.quests;
   state.selections = restored.selections;
   state.betaFeedback = restored.betaFeedback;
-  rebuildOtherSubRows();
-}
-
-/**
- * 復元後、その他サブスクの行DOMを selections.otherSubscriptions に合わせて作り直す。
- * ★innerHTML は使わず、既存行を削除してから createElement で作り直す（制約5）。
- * @returns {void}
- */
-function rebuildOtherSubRows(){
-  const container = document.querySelector('[data-other-rows]');
-  if (!container) return;
-  container.querySelectorAll('.other-sub-row').forEach(row => row.remove());
-  const rows = state.selections.otherSubscriptions.length
-    ? state.selections.otherSubscriptions
-    : [{ id: 'o1', label: '', monthly: null }];
-  rows.forEach(r => container.appendChild(createOtherSubRow(r.id)));
-  refreshAddOtherSubButton(container);
+  touchedFields[1].clear();
+  touchedFields[2].clear();
+  hydrateExpGauge(1);
+  hydrateExpGauge(2);
 }
 
 // ---------------------------------------------------------------------------
@@ -544,5 +561,6 @@ subscribe(maybeNotifyLevelUp);   // ★State変更のたびにレベル上昇を
 bindEvents();
 populateAnnualSalarySelect();
 loadSpellFromUrlIfPresent();
-rebuildOtherSubRows();
+hydrateExpGauge(1);
+hydrateExpGauge(2);
 scheduleRender();            // 初期描画

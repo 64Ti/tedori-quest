@@ -142,14 +142,13 @@ export const selectors = {
 
   /**
    * 現状の固定費合計を算出する。駐車場代・自動車保険料・NHK受信料・光回線料金を含む
-   * （Phase2.1）。契約なし選択時は0として扱う。
+   * （Phase2.1）。
    * @param {State} state
    * @returns {number}
    */
   fixedCostsTotal(state){
     const fc = state?.fixedCosts ?? {};
-    const internet = fc.internetProvider && fc.internetProvider !== 'none'
-      ? Math.max(0, Number(fc.internetMonthly) || 0) : 0;
+    const internet = Math.max(0, Number(fc.internetMonthly) || 0);
     const nhk = (C.NHK_PLANS.find(p => p.value === fc.nhkPlan) ?? C.NHK_PLANS[0]).monthly;
     const car = fc.hasCar
       ? Math.max(0, Number(fc.carInsurance) || 0) + Math.max(0, Number(fc.parking) || 0)
@@ -247,7 +246,7 @@ export const selectors = {
     const fc = s.fixedCosts ?? {};
     const costs = {
       smartphone: fc.smartphone,
-      internetMonthly: fc.internetProvider && fc.internetProvider !== 'none' ? fc.internetMonthly : 0,
+      internetMonthly: fc.internetMonthly,
       medicalInsurance: fc.medicalInsurance,
       fireInsurance: fc.fireInsurance,
       subscriptions: selectors.planSubscriptionTotal(s),
