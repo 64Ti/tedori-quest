@@ -60,7 +60,6 @@
       </div>
     </div>
     <div class="progress"><div class="progress__fill" data-bind="progress:progressPct"></div></div>
-    <span class="app-header__gap">次のレベルまで ¥<span data-bind="text:nextLevelGap">5,000</span></span>
   </div>
 </header>
 
@@ -75,10 +74,9 @@
 
     <div class="card">
       <div class="field">
-        <label class="field__label" for="in-grossSalary">月額報酬（額面・円）</label>
-        <input id="in-grossSalary" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="220,000" autocomplete="off" enterkeyhint="done"
-               data-model="userProfile.grossSalary" data-composing="0">
+        <label class="field__label" for="in-annualSalary">年収（額面・円）</label>
+        <select id="in-annualSalary" class="input input--select" data-model="userProfile.annualSalary"
+                data-annual-salary-select></select>
       </div>
       <div class="field">
         <label class="field__label" for="in-age">年齢</label>
@@ -166,7 +164,7 @@
        4. sec-fixed — 固定費入力（通信・保険・サブスク・火災保険）
        ============================================================ -->
   <section id="sec-fixed" data-bind="toggle:hasCompletedStep1">
-    <h2>固定費の見直し</h2>
+    <h2>固定費</h2>
     <p class="section-lead">現状の金額を入力すると、全国平均・理想の目標値との差からクエストが自動生成されます。</p>
 
     <!-- --- 通信費（スマホ） --- -->
@@ -187,8 +185,8 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>全国平均 ¥6,000</span>
           <span>理想 ¥2,000</span>
+          <span>全国平均 ¥6,000</span>
         </div>
       </div>
     </div>
@@ -221,8 +219,8 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>全国平均 ¥5,500</span>
           <span>理想 ¥3,800</span>
+          <span>全国平均 ¥5,500</span>
         </div>
       </div>
     </div>
@@ -231,7 +229,13 @@
     <div class="card">
       <p class="card__title">🏥 医療保険</p>
       <div class="field">
-        <label class="field__label" for="in-medicalInsurance">現状（月額）</label>
+        <div class="field__label-row">
+          <label class="field__label" for="in-medicalInsurance">現状（月額）</label>
+          <details class="tip">
+            <summary aria-label="ヒントを見る">？</summary>
+            <p class="tip__text">公的医療保険（高額療養費制度など）があるため、本当に民間の医療保険が必要か見直す余地があります。</p>
+          </details>
+        </div>
         <input id="in-medicalInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
                placeholder="3,000" autocomplete="off" enterkeyhint="done"
                data-model="fixedCosts.medicalInsurance" data-composing="0">
@@ -244,8 +248,8 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>全国平均 ¥4,000</span>
           <span>理想 ¥0</span>
+          <span>全国平均 ¥4,000</span>
         </div>
       </div>
     </div>
@@ -254,7 +258,13 @@
     <div class="card">
       <p class="card__title">🔥 火災保険（家財保険）</p>
       <div class="field">
-        <label class="field__label" for="in-fireInsurance">現状（月額換算）</label>
+        <div class="field__label-row">
+          <label class="field__label" for="in-fireInsurance">現状（月額換算）</label>
+          <details class="tip">
+            <summary aria-label="ヒントを見る">？</summary>
+            <p class="tip__text">賃貸の契約時に不動産屋で加入した場合、月833円（年額1万円）相当のプランに入らされていることが一般的です。</p>
+          </details>
+        </div>
         <input id="in-fireInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
                placeholder="833" autocomplete="off" enterkeyhint="done"
                data-model="fixedCosts.fireInsurance" data-composing="0">
@@ -270,8 +280,8 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>全国平均 ¥833</span>
           <span>理想 ¥400</span>
+          <span>全国平均 ¥833</span>
         </div>
       </div>
     </div>
@@ -295,8 +305,8 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>全国平均 ¥1,950</span>
           <span>理想 ¥0</span>
+          <span>全国平均 ¥1,950</span>
         </div>
       </div>
     </div>
@@ -323,8 +333,8 @@
             <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
           </div>
           <div class="cost-bar__legend">
-            <span>全国平均 ¥7,000</span>
             <span>理想 ¥4,000</span>
+            <span>全国平均 ¥7,000</span>
           </div>
         </div>
 
@@ -355,54 +365,83 @@
         ファミリー・学生プランも表示する
       </label>
 
+      <!-- 主要6サービスはデフォルトで直接表示し、選択疲れを防ぐ。
+           それ以外のマイナーなサブスク・AIプランは「▼その他のサブスクを表示」に格納する。 -->
+      <div class="sub-primary-group">
+        <div class="sub-service">
+          <h4>Netflix</h4>
+          <div class="plan-chips" role="radiogroup" aria-label="Netflixのプラン">
+            <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="" checked><span>契約なし</span></label>
+            <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_ad" data-audience="single"><span>広告つきスタンダード<br>890円</span></label>
+            <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_standard" data-audience="single"><span>スタンダード<br>1,590円</span></label>
+            <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_premium" data-audience="single"><span>プレミアム<br>2,290円</span></label>
+          </div>
+        </div>
+        <div class="sub-service">
+          <h4>Amazon Prime Video</h4>
+          <div class="plan-chips" role="radiogroup" aria-label="Amazon Prime Videoのプラン">
+            <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="" checked><span>契約なし</span></label>
+            <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="primevideo_general" data-audience="single"><span>一般（プライム会員）<br>600円</span></label>
+            <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="primevideo_student" data-audience="student"><span>Prime Student<br>300円</span></label>
+          </div>
+        </div>
+        <div class="sub-service">
+          <h4>YouTube Premium</h4>
+          <div class="plan-chips" role="radiogroup" aria-label="YouTube Premiumのプラン">
+            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="" checked><span>契約なし</span></label>
+            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_lite" data-audience="single"><span>Premium Lite<br>780円</span></label>
+            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_personal" data-audience="single"><span>個人<br>1,280円</span></label>
+            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_student" data-audience="student"><span>学生<br>780円</span></label>
+            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_family" data-audience="family"><span>ファミリー<br>2,280円</span></label>
+          </div>
+        </div>
+        <div class="sub-service">
+          <h4>Disney+</h4>
+          <div class="plan-chips" role="radiogroup" aria-label="Disney+のプラン">
+            <label><input type="radio" name="svc-disney" data-plan-group="disney" value="" checked><span>契約なし</span></label>
+            <label><input type="radio" name="svc-disney" data-plan-group="disney" value="disney_standard" data-audience="single"><span>スタンダード<br>1,250円</span></label>
+            <label><input type="radio" name="svc-disney" data-plan-group="disney" value="disney_premium" data-audience="single"><span>プレミアム<br>1,670円</span></label>
+          </div>
+        </div>
+        <div class="sub-service">
+          <h4>Hulu</h4>
+          <div class="plan-chips" role="radiogroup" aria-label="Huluのプラン">
+            <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="" checked><span>契約なし</span></label>
+            <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_single" data-audience="single"><span>単体プラン<br>1,026円</span></label>
+            <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_disney_standard" data-audience="single"><span>Hulu | Disney+ スタンダード<br>1,890円</span></label>
+            <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_disney_premium" data-audience="single"><span>Hulu | Disney+ プレミアム<br>2,150円</span></label>
+          </div>
+        </div>
+        <div class="sub-service">
+          <h4>Spotify</h4>
+          <div class="plan-chips" role="radiogroup" aria-label="Spotifyのプラン">
+            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="" checked><span>契約なし</span></label>
+            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_standard" data-audience="single"><span>Standard<br>1,080円</span></label>
+            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_student" data-audience="student"><span>Student<br>580円</span></label>
+            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_duo" data-audience="family"><span>Duo（2名）<br>1,480円</span></label>
+            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_family" data-audience="family"><span>Family<br>1,880円</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- それ以外のマイナーなサブスク・AIプランはここに格納する -->
+      <details class="sub-more">
+        <summary>▼その他のサブスクを表示</summary>
+
       <!-- 6カテゴリ：<details name="sub-accordion"> による排他アコーディオン。
            カテゴリ内は開閉なしのカード一覧＋プランはラジオボタン（§3.9）。
            各サービスの先頭に「契約なし」ラジオを配置し、選択を解除できるようにする。 -->
       <div class="sub-accordion-group">
         <details class="sub-category" name="sub-accordion" data-sub-category="video">
           <summary>
-            <span>動画配信</span>
+            <span>動画配信（その他）</span>
             <span class="sub-badge">未選択</span>
           </summary>
-          <div class="sub-service">
-            <h4>Netflix</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Netflixのプラン">
-              <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_ad" data-audience="single"><span>広告つきスタンダード<br>890円</span></label>
-              <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_standard" data-audience="single"><span>スタンダード<br>1,590円</span></label>
-              <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_premium" data-audience="single"><span>プレミアム<br>2,290円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Amazon Prime Video</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Amazon Prime Videoのプラン">
-              <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="primevideo_general" data-audience="single"><span>一般（プライム会員）<br>600円</span></label>
-              <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="primevideo_student" data-audience="student"><span>Prime Student<br>300円</span></label>
-            </div>
-          </div>
           <div class="sub-service">
             <h4>U-NEXT</h4>
             <div class="plan-chips" role="radiogroup" aria-label="U-NEXTのプラン">
               <label><input type="radio" name="svc-unext" data-plan-group="unext" value="" checked><span>契約なし</span></label>
               <label><input type="radio" name="svc-unext" data-plan-group="unext" value="unext_monthly" data-audience="single"><span>月額プラン<br>2,189円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Disney+</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Disney+のプラン">
-              <label><input type="radio" name="svc-disney" data-plan-group="disney" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-disney" data-plan-group="disney" value="disney_standard" data-audience="single"><span>スタンダード<br>1,250円</span></label>
-              <label><input type="radio" name="svc-disney" data-plan-group="disney" value="disney_premium" data-audience="single"><span>プレミアム<br>1,670円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Hulu</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Huluのプラン">
-              <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_single" data-audience="single"><span>単体プラン<br>1,026円</span></label>
-              <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_disney_standard" data-audience="single"><span>Hulu | Disney+ スタンダード<br>1,890円</span></label>
-              <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_disney_premium" data-audience="single"><span>Hulu | Disney+ プレミアム<br>2,150円</span></label>
             </div>
           </div>
           <div class="sub-service">
@@ -413,33 +452,13 @@
               <label><input type="radio" name="svc-abema" data-plan-group="abema" value="abema_premium" data-audience="single"><span>ABEMAプレミアム<br>1,180円</span></label>
             </div>
           </div>
-          <div class="sub-service">
-            <h4>YouTube Premium</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="YouTube Premiumのプラン">
-              <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_lite" data-audience="single"><span>Premium Lite<br>780円</span></label>
-              <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_personal" data-audience="single"><span>個人<br>1,280円</span></label>
-              <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_student" data-audience="student"><span>学生<br>780円</span></label>
-              <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_family" data-audience="family"><span>ファミリー<br>2,280円</span></label>
-            </div>
-          </div>
         </details>
 
         <details class="sub-category" name="sub-accordion" data-sub-category="music">
           <summary>
-            <span>音楽配信</span>
+            <span>音楽配信（その他）</span>
             <span class="sub-badge">未選択</span>
           </summary>
-          <div class="sub-service">
-            <h4>Spotify</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Spotifyのプラン">
-              <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_standard" data-audience="single"><span>Standard<br>1,080円</span></label>
-              <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_student" data-audience="student"><span>Student<br>580円</span></label>
-              <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_duo" data-audience="family"><span>Duo（2名）<br>1,480円</span></label>
-              <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_family" data-audience="family"><span>Family<br>1,880円</span></label>
-            </div>
-          </div>
           <div class="sub-service">
             <h4>Apple Music</h4>
             <div class="plan-chips" role="radiogroup" aria-label="Apple Musicのプラン">
@@ -530,6 +549,13 @@
               <label><input type="radio" name="svc-googleone" data-plan-group="googleone" value="googleone_standard" data-audience="single"><span>スタンダード (200GB)<br>440円</span></label>
               <label><input type="radio" name="svc-googleone" data-plan-group="googleone" value="googleone_aiplus" data-audience="single"><span>AI Plus (2TB)<br>1,450円</span></label>
               <label><input type="radio" name="svc-googleone" data-plan-group="googleone" value="googleone_aipro" data-audience="single"><span>AI Pro (5TB)<br>1,760円</span></label>
+            </div>
+          </div>
+          <div class="sub-service">
+            <h4>Gemini Advanced</h4>
+            <div class="plan-chips" role="radiogroup" aria-label="Gemini Advancedのプラン">
+              <label><input type="radio" name="svc-geminiadvanced" data-plan-group="geminiadvanced" value="" checked><span>契約なし</span></label>
+              <label><input type="radio" name="svc-geminiadvanced" data-plan-group="geminiadvanced" value="geminiadvanced_general" data-audience="single"><span>一般（Google One AI プレミアム）<br>2,900円</span></label>
             </div>
           </div>
           <div class="sub-service">
@@ -650,6 +676,7 @@
           </div>
         </details>
       </div>
+      </details>
 
       <!-- ★toggle:X は render() が el.hidden = !X で制御する（真のとき表示）。
            「未選択時に出す空状態メッセージ」は表と逆向きの真偽値が必要になり、
@@ -667,8 +694,8 @@
           <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
         </div>
         <div class="cost-bar__legend">
-          <span>全国平均 ¥2,500</span>
           <span>理想 ¥1,000</span>
+          <span>全国平均 ¥2,500</span>
         </div>
       </div>
     </div>
@@ -780,9 +807,13 @@
 
     <!-- クエストは js/selectors.js buildQuestList() の結果から js/ui.js が動的生成する
          （固定費クエスト＋クレジットカードクエスト。QUEST_CATALOG の静的転記ではない）。
-         0件の場合は伝説の勇者カードを表示する（data-legendary-hero）。 -->
-    <ul class="quest-list" data-quest-list></ul>
-    <div class="card card--legendary" data-legendary-hero hidden></div>
+         0件の場合は伝説の勇者カードを表示する（data-legendary-hero）。
+         ★固定費が未入力（合計0円）の初期状態では、結果エリア全体を非表示にする
+         （toggle:hasFixedCostInput）。 -->
+    <div data-bind="toggle:hasFixedCostInput">
+      <ul class="quest-list" data-quest-list></ul>
+      <div class="card card--legendary" data-legendary-hero hidden></div>
+    </div>
   </section>
 
   <!-- ============================================================

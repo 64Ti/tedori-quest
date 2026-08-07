@@ -75,6 +75,17 @@ function orphanQuestMeta(id){
 
 export const selectors = {
   /**
+   * 年収（ドロップダウン選択値）から月額報酬（額面）を算出する。
+   * ★ユーザーテストフィードバック改修（2026-08-07）：Step1の入力を年収選択式に変更した。
+   * @param {State} state
+   * @returns {number}
+   */
+  monthlyGrossSalary(state){
+    const annual = Math.max(0, Number(state?.userProfile?.annualSalary) || 0);
+    return Math.round(annual / 12);
+  },
+
+  /**
    * 手取り月額を算出する。
    * @param {State} state
    * @returns {number}
@@ -82,7 +93,7 @@ export const selectors = {
   netIncome(state){
     const p = state?.userProfile ?? {};
     return calc.calcNetIncome({
-      reward: p.grossSalary,
+      reward: selectors.monthlyGrossSalary(state),
       age: p.age,
       yearsOfService: p.yearsOfService
     }).net;
@@ -98,6 +109,19 @@ export const selectors = {
     const sel = state?.selections ?? {};
     return C.sumSubscriptions(sel.subscriptionPlanIds ?? [])
          + C.sumOtherSubscriptions(sel.otherSubscriptions ?? []);
+  },
+
+  /**
+   * プランから選択したサブスクのみの月額合計（自由入力の手動サブスクを含まない）。
+   * ★ユーザーテストフィードバック改修（2026-08-07）：手動入力サブスク（ジム・ファンクラブ等）は
+   *   固定費合計（家計圧迫度）には算入するが、システムが「ムダ」と自動判定する対象からは
+   *   除外する（＝理想の目標値＝現状の価格として扱う）ため、クエスト判定にはこちらを使う。
+   * @param {State} state
+   * @returns {number}
+   */
+  planSubscriptionTotal(state){
+    const sel = state?.selections ?? {};
+    return C.sumSubscriptions(sel.subscriptionPlanIds ?? []);
   },
 
   /**
@@ -210,17 +234,6 @@ export const selectors = {
   },
 
   /**
-   * ヘッダー表示用：次のレベルアップ単位までの残額（円）。
-   * @param {State} state
-   * @returns {number}
-   */
-  headerNextLevelGap(state){
-    const total = selectors.completedSavingTotal(state);
-    const remainder = total % C.LEVELUP_UNIT;
-    return C.LEVELUP_UNIT - remainder;
-  },
-
-  /**
    * 固定費クエスト・クレジットカードクエストを算出し、足切り（月額500円未満は除外）・
    * 節約可能額の降順ソートを行った表示用クエスト一覧を返す（Phase2〜3）。
    * ★解呪済みだが現在の入力では再生成されなくなったクエストも、確定済みの節約額のまま
@@ -237,7 +250,7 @@ export const selectors = {
       internetMonthly: fc.internetProvider && fc.internetProvider !== 'none' ? fc.internetMonthly : 0,
       medicalInsurance: fc.medicalInsurance,
       fireInsurance: fc.fireInsurance,
-      subscriptions: selectors.subscriptionTotal(s),
+      subscriptions: selectors.planSubscriptionTotal(s),
       nhkMonthly: (C.NHK_PLANS.find(p => p.value === fc.nhkPlan) ?? C.NHK_PLANS[0]).monthly,
       hasCar: fc.hasCar,
       carInsurance: fc.carInsurance

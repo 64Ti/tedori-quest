@@ -108,6 +108,32 @@ section:last-of-type{border-bottom:none;}
 .field-check{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
 .field-check input{width:20px; height:20px;}
 
+/* ===== Tips アイコン（？マーク。ホバー／タップの両方でツールチップ表示） ===== */
+.field__label-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2);}
+.field__label-row .field__label{margin:0;}
+details.tip{position:relative; display:inline-block;}
+details.tip > summary{
+  display:flex; align-items:center; justify-content:center;
+  width:20px; height:20px; border-radius:50%;
+  background:var(--c-border); color:var(--c-text-mute);
+  font-size:var(--fs-xs); font-weight:700; line-height:1;
+  cursor:pointer; list-style:none; user-select:none;
+}
+details.tip > summary::-webkit-details-marker{display:none;}
+details.tip > summary:hover{background:var(--c-brand); color:var(--c-bg);}
+details.tip > .tip__text{display:none;}
+details.tip[open] > .tip__text,
+details.tip:hover > .tip__text,
+details.tip:focus-within > .tip__text{
+  display:block;
+  position:absolute; right:0; top:calc(100% + 6px); z-index:5;
+  width:220px; max-width:70vw;
+  background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--radius);
+  padding:var(--sp-2) var(--sp-3);
+  font-size:var(--fs-xs); color:var(--c-text); text-align:left; font-weight:400;
+  box-shadow:0 4px 16px rgba(0,0,0,.35);
+}
+
 .field-hint{margin-top:var(--sp-2);}
 .field-hint summary{
   cursor:pointer; min-height:44px; display:flex; align-items:center;
@@ -263,6 +289,30 @@ textarea.input{text-align:left; resize:vertical; min-height:88px;}
 }
 
 .audience-toggle{display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-3); font-size:var(--fs-sm); color:var(--c-text-mute);}
+
+/* ★「ファミリー・学生プランも表示する」が未チェックの間は student/family 向けプランを隠す。
+   #toggle-audience はStateを持たない一時的なUI設定のため、CSSの:has()のみで完結させる
+   （JS側でrender()のたびに同期する必要が無く、チェック操作に即座に追従する）。
+   #toggle-audience は一意なIDのため、それを含む.cardが常に一意に特定できる。 */
+.card:has(#toggle-audience:not(:checked)) .plan-chips label:has(input[data-audience="student"]),
+.card:has(#toggle-audience:not(:checked)) .plan-chips label:has(input[data-audience="family"]){
+  display:none;
+}
+
+/* 主要サービスの直接表示エリア（選択疲れ対策） */
+.sub-primary-group{display:flex; flex-direction:column; gap:var(--sp-4);}
+.sub-primary-group .sub-service{padding:0;}
+.sub-primary-group .sub-service + .sub-service{margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px solid var(--c-border);}
+
+/* 「その他のサブスクを表示」アコーディオン */
+.sub-more{margin-top:var(--sp-4); border:1px solid var(--c-border); border-radius:var(--radius);}
+.sub-more > summary{
+  cursor:pointer; min-height:44px; padding:var(--sp-3); display:flex; align-items:center;
+  color:var(--c-brand); font-weight:700; list-style:none;
+}
+.sub-more > summary::-webkit-details-marker{display:none;}
+.sub-more .sub-accordion-group{padding:0 var(--sp-3) var(--sp-3);}
+.sub-more .sub-accordion-group .sub-category:first-child{margin-top:0;}
 
 .other-sub-rows{display:flex; flex-direction:column; gap:var(--sp-2); padding:var(--sp-3);}
 .other-sub-row{display:grid; grid-template-columns:1.4fr 1fr 44px; gap:var(--sp-2); align-items:center;}

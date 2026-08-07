@@ -737,6 +737,10 @@ export const SUBSCRIPTION_PLANS = [
         prices:[ { effectiveFrom:'2026-01-01', monthly:1760 },
                  { effectiveFrom:'2026-10-01', monthly:2420 } ] }
     ]},
+    { id:'geminiadvanced', name:'Gemini Advanced', plans:[
+      { id:'geminiadvanced_general', label:'一般（Google One AI プレミアム）', monthly:2900, audience:'single',
+        note:'ストレージ2TBとのバンドルプラン。為替・改定により変動する場合があります' }
+    ]},
     { id:'ms365', name:'Microsoft 365', plans:[
       { id:'ms365_personal', label:'Personal', monthly:2130, audience:'single' },
       { id:'ms365_family',   label:'Family',   monthly:2740, audience:'family' }
@@ -1010,6 +1014,27 @@ export const CARD_QUEST_TEXT = {
 // ---------------------------------------------------------------------------
 // Phase4.1「伝説の勇者」専用UI（クエストが1件も発生しない場合）
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// ユーザーテストフィードバック改修（2026-08-07）：年収ドロップダウン化
+//   ★法令ではなくUI設計上の選択肢（200万円〜1500万円・50万円刻み）
+// ---------------------------------------------------------------------------
+export const ANNUAL_SALARY_MIN  = 2000000;
+export const ANNUAL_SALARY_MAX  = 15000000;
+export const ANNUAL_SALARY_STEP =  500000;
+
+/**
+ * 年収ドロップダウンの選択肢を生成する（200万円〜1500万円・50万円刻み）。
+ * @returns {{value:number, label:string}[]}
+ */
+export function buildAnnualSalaryOptions(){
+  const options = [];
+  for (let v = ANNUAL_SALARY_MIN; v <= ANNUAL_SALARY_MAX; v += ANNUAL_SALARY_STEP){
+    options.push({ value: v, label: `年収${Math.round(v / 10000)}万円` });
+  }
+  return options;
+}
+export const ANNUAL_SALARY_OPTIONS = buildAnnualSalaryOptions();
+
 export const LEGENDARY_HERO = {
   mainTitle: '【見直す余地なし】あなたは既に伝説の勇者です',
   subTitle: '魔道障壁（固定費のムダ）は一切見当たりません。あなたの家計はすでに完璧な結界で守られています！'

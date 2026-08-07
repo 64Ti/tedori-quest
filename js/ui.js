@@ -72,13 +72,14 @@ function otherSummaryText(state){
 function buildViewModel(s){
   const rank       = selectors.rankV2(s);
   const netIncome  = selectors.netIncome(s);
-  const grossHealth = calc.lookupStandardMonthly(s.userProfile.grossSalary);
+  const monthlyGross = selectors.monthlyGrossSalary(s);
+  const grossHealth = calc.lookupStandardMonthly(monthlyGross);
   const avgStandardMonthly = grossHealth ? grossHealth.standard : 0;
   const isKumiai = s.userProfile.insuranceType === 'kumiai';
 
   // ★Phase1.2：組合の平均標準報酬月額・付加給付上限はユーザー入力欄を廃止し固定値化した
   const selfPay = calc.calcFinalSelfPay({
-    grossSalary: s.userProfile.grossSalary,
+    grossSalary: monthlyGross,
     isResidentTaxExempt: s.userProfile.isResidentTaxExempt,
     insuranceType: s.userProfile.insuranceType,
     fukaKyufuCap: isKumiai ? C.KUMIAI_FIXED_VALUES.fukaKyufuCap : null
@@ -114,7 +115,7 @@ function buildViewModel(s){
     completedSavingFormatted: YEN(selectors.completedSavingTotal(s)),
     questTotalSaving: YEN(questTotalSaving),
     netIncome: YEN(netIncome),
-    nextLevelGap: YEN(selectors.headerNextLevelGap(s)),
+    hasFixedCostInput: selectors.fixedCostsTotal(s) > 0,
     selfPayCap: YEN(selfPay.amount),
     injuryDaily: YEN(injuryDaily),
     rentOverMarket: YEN(rentGap.overMarket),
@@ -441,6 +442,25 @@ export function formatNumber(v){
   if (v === null || v === undefined || v === '') return '';
   const n = Number(v);
   return Number.isFinite(n) ? n.toLocaleString('ja-JP') : '';
+}
+
+/**
+ * 年収ドロップダウンの選択肢を組み立てる（起動時に一度だけ呼ぶ静的な一覧のため）。
+ * @returns {void}
+ */
+export function populateAnnualSalarySelect(){
+  const select = document.querySelector('[data-annual-salary-select]');
+  if (!select || select.options.length) return;   // 二重初期化を防ぐ
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '選択してください';
+  select.appendChild(placeholder);
+  C.ANNUAL_SALARY_OPTIONS.forEach(({ value, label }) => {
+    const opt = document.createElement('option');
+    opt.value = String(value);
+    opt.textContent = label;
+    select.appendChild(opt);
+  });
 }
 
 let rafId = null, isRendering = false;

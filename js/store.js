@@ -5,11 +5,13 @@
 import * as C from './config.js';
 
 export const INITIAL_STATE = {
-  schemaVersion: 2,                       // ★必須。無いと次回更新で全ユーザーのデータが飛ぶ
+  schemaVersion: 3,                       // ★必須。無いと次回更新で全ユーザーのデータが飛ぶ
                                           //   Phase1〜4改修（2026-08-07）でv1→v2。
-                                          //   deepMerge が旧キー（optimized・cardReward・todoStatus等）を
-                                          //   自動的に無視し、新キーは初期値で補完するため専用の
-                                          //   MIGRATIONS 関数は不要（構造的に安全に移行できる）
+                                          //   ユーザーテストフィードバック改修（2026-08-07）でv2→v3
+                                          //   （grossSalary→annualSalaryへ変更）。
+                                          //   deepMerge が旧キー（optimized・cardReward・todoStatus・
+                                          //   grossSalary等）を自動的に無視し、新キーは初期値で補完するため
+                                          //   専用の MIGRATIONS 関数は不要（構造的に安全に移行できる）
 
   meta: {
     initialLevel: null,                   // 固定費入力を終えSTEP1完了時に一度だけ確定。以後不変
@@ -19,7 +21,7 @@ export const INITIAL_STATE = {
   },
 
   userProfile: {
-    grossSalary: null,                    // 月額報酬（額面・円）
+    annualSalary: null,                   // 年収（額面・円）。ドロップダウン選択式
     age: null,                            // 介護保険料の年齢判定用
     prefecture: 'osaka',
     insuranceType: 'association',         // 'association' | 'kumiai'

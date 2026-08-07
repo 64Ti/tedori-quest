@@ -11,7 +11,7 @@ import { selectors } from '../js/selectors.js';
 // selectors 系テスト用のヘルパ（Phase1〜4改修・2026-08-07：新Stateスキーマに対応）。
 function buildState(overrides = {}){
   return {
-    userProfile: { grossSalary: 0, age: 0, yearsOfService: 0 },
+    userProfile: { annualSalary: 0, age: 0, yearsOfService: 0 },
     fixedCosts: {
       smartphone: 0, internetProvider: 'none', internetMonthly: null,
       medicalInsurance: 0, fireInsurance: 0,
@@ -201,7 +201,7 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
 
   test('PHASE2-07: シェア文面に金額を含めない（クエスト名のみ使用）', () => {
     const state = buildState({
-      userProfile: { grossSalary: 300000, age: 30, yearsOfService: 2 },
+      userProfile: { annualSalary: 3600000, age: 30, yearsOfService: 2 },
       fixedCosts: { ...buildState().fixedCosts, smartphone: 8000 },
       meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false }
     });
@@ -216,6 +216,12 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
     const state = buildState({ meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false } });
     const text = selectors.shareTextV2(state);
     assert.ok(text.includes(C.LEGENDARY_HERO.mainTitle));
+  });
+
+  test('FEEDBACK-01: 年収セレクトから月額報酬を算出する（monthlyGrossSalary）', () => {
+    const state = buildState({ userProfile: { annualSalary: 4800000, age: 30, yearsOfService: 2 } });
+    assert.equal(selectors.monthlyGrossSalary(state), 400000);
+    assert.equal(selectors.monthlyGrossSalary(buildState()), 0);   // 未選択（0）でも例外を投げない
   });
 });
 
@@ -312,6 +318,28 @@ describe('Phase2 固定費クエスト・クレジットカードクエストの
     for (let i = 1; i < list.length; i++){
       assert.ok(list[i-1].monthlySaving >= list[i].monthlySaving);
     }
+  });
+
+  test('FEEDBACK-02: 手動入力サブスクは固定費合計に加算されるがクエスト判定からは除外される', () => {
+    const state = buildState({
+      selections: {
+        subscriptionPlanIds: [],
+        otherSubscriptions: [{ id:'o1', label:'ジム', monthly: 8000 }]   // プラン選択は0円、手動入力のみ8,000円
+      }
+    });
+    // 固定費合計（家計圧迫度）には手動入力分が含まれる
+    assert.equal(selectors.fixedCostsTotal(state), 8000);
+    // クエスト判定（ムダの自動判定）には手動入力分を使わないため、サブスクのクエストは発生しない
+    assert.equal(selectors.buildQuestList(state).some(q => q.id === 'cancelSubscription'), false);
+  });
+
+  test('FEEDBACK-03: プラン選択分のサブスクは通常どおりクエスト判定の対象になる', () => {
+    const state = buildState({
+      selections: { subscriptionPlanIds: ['netflix_premium'], otherSubscriptions: [] }   // 2,290円（理想1,000円との差1,290円）
+    });
+    const quest = selectors.buildQuestList(state).find(q => q.id === 'cancelSubscription');
+    assert.ok(quest);
+    assert.equal(quest.monthlySaving, 1290);
   });
 });
 

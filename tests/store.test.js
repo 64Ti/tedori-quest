@@ -9,7 +9,7 @@ import * as store from '../js/store.js';
 describe('8.6 永続化・サニタイズ（呪文・移行）', () => {
   test('TEST-42: 呪文 日本語往復（エンコード→デコードで完全一致・btoa例外なし）', () => {
     const original = structuredClone(store.INITIAL_STATE);
-    original.userProfile.grossSalary = 300000;
+    original.userProfile.annualSalary = 3600000;
     original.selections.otherSubscriptions = [
       { id: 'o1', label: 'ジム月謝＆スポーツクラブ', monthly: 8000 }
     ];
@@ -41,14 +41,14 @@ describe('8.6 永続化・サニタイズ（呪文・移行）', () => {
 
   test('TEST-45: スキーマ移行（schemaVersion無しの旧データ→初期値で補完・例外なし）', () => {
     const legacyRaw = {
-      userProfile: { grossSalary: 300000 },      // schemaVersion キー自体が無い
+      userProfile: { annualSalary: 3600000 },     // schemaVersion キー自体が無い
       fixedCosts:  { rent: 70000 }
     };
 
     const migrated = store.migrate(legacyRaw);
 
     assert.equal(migrated.schemaVersion, store.INITIAL_STATE.schemaVersion);
-    assert.equal(migrated.userProfile.grossSalary, 300000);
+    assert.equal(migrated.userProfile.annualSalary, 3600000);
     assert.equal(migrated.userProfile.age, null);           // 未指定項目は初期値で補完
     assert.equal(migrated.userProfile.prefecture, 'osaka'); // 未指定項目は初期値で補完
     assert.equal(migrated.fixedCosts.rent, 70000);

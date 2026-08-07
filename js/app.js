@@ -5,7 +5,7 @@ import { state, subscribe, setPersistErrorHandler, parseYen,
 import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotifyLevelUp,
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
-         captureCard, saveCard, resetQuestListCache } from './ui.js';
+         captureCard, saveCard, resetQuestListCache, populateAnnualSalarySelect } from './ui.js';
 import { selectors } from './selectors.js';
 import * as calc from './calc.js';
 import * as C from './config.js';
@@ -93,7 +93,9 @@ function bindEvents(){
     if (!el) return;
     if (el.type === 'checkbox') setByPath(state, el.dataset.model, el.checked);
     else if (el.tagName === 'SELECT'){
-      setByPath(state, el.dataset.model, el.value);
+      // ★年収セレクトは数値として扱う（他のセレクトは文字列の列挙値のためそのまま）
+      const value = el.dataset.model === 'userProfile.annualSalary' ? parseYen(el.value) : el.value;
+      setByPath(state, el.dataset.model, value);
       if (el.dataset.model === 'creditCards.main' || el.dataset.model === 'creditCards.sub'){
         onCreditCardSelectChange(el.dataset.model);
       }
@@ -536,6 +538,7 @@ subscribe(scheduleRender);       // ★State変更のたびに requestAnimationF
 subscribe(maybeNotifyLevelUp);   // ★State変更のたびにレベル上昇を判定する（§4.3・600msデバウンス）
 
 bindEvents();
+populateAnnualSalarySelect();
 loadSpellFromUrlIfPresent();
 rebuildOtherSubRows();
 scheduleRender();            // 初期描画
