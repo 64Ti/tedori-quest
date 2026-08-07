@@ -340,3 +340,131 @@ export function calcCompound(monthly, annualRate = C.NISA_ANNUAL_RETURN, years =
   const n = y * 12;
   return r === 0 ? Math.round(m*n) : Math.round(m * ((Math.pow(1+r,n)-1)/r));
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2〜3 改修（2026-08-07）：初期レベル・固定費クエスト・クレジットカードクエスト
+// ---------------------------------------------------------------------------
+
+/**
+ * 初期レベルを算出する。
+ * 初期レベル = Math.floor((月額手取り + 現状の固定費合計) / 20000) + 10
+ * @param {number} netIncome 月額手取り
+ * @param {number} fixedCostsTotal 現状の固定費合計（駐車場代・自動車保険料・NHK受信料・光回線料金を含む）
+ * @returns {number}
+ */
+export function calcInitialLevel(netIncome, fixedCostsTotal){
+  const net = Math.max(0, Number(netIncome) || 0);
+  const fc  = Math.max(0, Number(fixedCostsTotal) || 0);
+  return Math.floor((net + fc) / C.INITIAL_LEVEL_DIVISOR) + C.INITIAL_LEVEL_BASE;
+}
+
+/**
+ * クレジットカードの推定月間・年間決済額を計算する。
+ * 推定月間決済額 = 現状の固定費合計 + Math.floor((月額手取り - 現状の固定費合計) * 0.6)
+ * @param {number} fixedCostsTotal 現状の固定費合計
+ * @param {number} netIncome 月額手取り
+ * @returns {{monthly:number, annual:number}}
+ */
+export function estimateCardSpend(fixedCostsTotal, netIncome){
+  const fc  = Math.max(0, Number(fixedCostsTotal) || 0);
+  const net = Math.max(0, Number(netIncome) || 0);
+  const monthly = fc + Math.floor(Math.max(0, net - fc) * C.CARD_SPEND_DISPOSABLE_RATIO);
+  return { monthly, annual: monthly * 12 };
+}
+
+/**
+ * レベルアップ抽選を行う。5,000円ごとにレベル+1、端数はその割合を確率としたクリティカル抽選で+1。
+ * @param {number} initialLevel 初期レベル
+ * @param {number} totalSaving 解呪済みクエストの月間節約可能額の合計
+ * @param {() => number} [rng] 0以上1未満の乱数生成関数（テスト時は差し替え可能）
+ * @returns {{baseUp:number, remainder:number, criticalChance:number, isCritical:boolean, finalLevel:number}}
+ */
+export function rollLevelUp(initialLevel, totalSaving, rng = Math.random){
+  const base   = Math.max(0, Number(initialLevel) || 0);
+  const saving = Math.max(0, Number(totalSaving) || 0);
+  const baseUp = Math.floor(saving / C.LEVELUP_UNIT);
+  const remainder = saving % C.LEVELUP_UNIT;
+  const criticalChance = remainder / C.LEVELUP_UNIT;
+  const isCritical = remainder > 0 && rng() < criticalChance;
+  const finalLevel = base + baseUp + (isCritical ? 1 : 0);
+  return { baseUp, remainder, criticalChance, isCritical, finalLevel };
+}
+
+/**
+ * 固定費クエスト（節約可能額）を判定する。節約可能額 = 現状の価格 − 理想の目標値。
+ * 理想の目標値が null のカテゴリ（駐車場代）は判定対象外とする。
+ * @param {{smartphone:number, internetMonthly:number, medicalInsurance:number,
+ *   fireInsurance:number, subscriptions:number, nhkMonthly:number,
+ *   hasCar:boolean, carInsurance:number}} costs 現状の各カテゴリ金額
+ * @returns {{category:string, monthlySaving:number}[]} 足切り前の全件（節約可能額が正のもの）
+ */
+export function evaluateFixedCostQuests(costs){
+  const c = costs ?? {};
+  const targets = C.FIXED_COST_TARGETS;
+  const results = [];
+  const push = (category, current) => {
+    const ideal = targets[category]?.ideal;
+    if (ideal === null || ideal === undefined) return;                 // クエスト判定対象外（駐車場代）
+    const cur = Math.max(0, Number(current) || 0);
+    const saving = Math.floor(cur - ideal);
+    if (saving > 0) results.push({ category, monthlySaving: saving });
+  };
+  push('smartphone', c.smartphone);
+  push('internet', c.internetMonthly);
+  push('medicalInsurance', c.medicalInsurance);
+  push('fireInsurance', c.fireInsurance);
+  push('subscriptions', c.subscriptions);
+  push('nhk', c.nhkMonthly);
+  if (c.hasCar) push('carInsurance', c.carInsurance);
+  return results;
+}
+
+/**
+ * クレジットカードのクエスト（パターンA〜D）を判定する。
+ * @param {{main:import('./creditCards.js').CreditCard|null,
+ *   sub:import('./creditCards.js').CreditCard|null,
+ *   others:import('./creditCards.js').CreditCard[]}} cards 解決済みのカードオブジェクト
+ * @param {number} estimatedAnnualSpend 推定年間決済額
+ * @returns {{pattern:'A'|'B'|'C'|'D', monthlySaving:number,
+ *   card?:object, cards?:object[]}[]} 足切り前の全件（節約可能額が正のもの）
+ */
+export function evaluateCreditCardQuests(cards, estimatedAnnualSpend){
+  const spend = Math.max(0, Number(estimatedAnnualSpend) || 0);
+  const { main = null, sub = null, others = [] } = cards ?? {};
+  const results = [];
+
+  // パターンA：メインカードが standard（基本還元率0.5%程度で特化強みなし）
+  if (main?.category === 'standard'){
+    const monthlySaving = Math.floor(Math.floor(spend * 0.01) / 12);
+    if (monthlySaving > 0) results.push({ pattern:'A', monthlySaving, card: main });
+  }
+
+  // パターンB：その他保有カードのうち、年会費が発生する休眠カード
+  const feeCards = others.filter(card => Number(card?.annualFee) > 0);
+  if (feeCards.length){
+    const totalFee = feeCards.reduce((sum, card) => sum + Number(card.annualFee), 0);
+    const monthlySaving = Math.floor(totalFee / 12);
+    if (monthlySaving > 0) results.push({ pattern:'B', monthlySaving, cards: feeCards });
+  }
+
+  const allHeld = [main, sub, ...others].filter(Boolean);
+
+  // パターンC：100万円修行カードを保有し、推定年間決済額が100万円未満
+  const challengeCard = allHeld.find(card => card.is1M_Challenge === true);
+  if (challengeCard && spend < 1000000){
+    const monthlySaving = Math.floor(
+      (Number(challengeCard.annualFee || 0) + spend * 0.005) / 12);
+    if (monthlySaving > 0) results.push({ pattern:'C', monthlySaving, card: challengeCard });
+  }
+
+  // パターンD：損益分岐点のある特化カード（聖域カードを除く）を保有し、決済額が未達
+  const breakEvenCard = allHeld.find(card =>
+    Number.isFinite(card.breakEvenAmount) && card.isStatusCard !== true
+    && spend < card.breakEvenAmount);
+  if (breakEvenCard){
+    const monthlySaving = Math.floor(Number(breakEvenCard.annualFee || 0) / 12);
+    if (monthlySaving > 0) results.push({ pattern:'D', monthlySaving, card: breakEvenCard });
+  }
+
+  return results;
+}

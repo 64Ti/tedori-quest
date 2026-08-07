@@ -5,6 +5,7 @@ import { state } from './store.js';
 import * as C from './config.js';
 import * as calc from './calc.js';
 import { selectors } from './selectors.js';
+import { CREDIT_CARDS } from './creditCards.js';
 import { loadHtml2Canvas } from './vendor.js';
 
 const YEN = n => Number(n ?? 0).toLocaleString('ja-JP');
@@ -64,26 +65,29 @@ function otherSummaryText(state){
 /**
  * State から表示用の値をまとめて算出する（§4.1b バインディング契約表の text/progress/toggle 分）。
  * ★calc.js / selectors.js は DOM に触れないため、DOM 反映用の書式変換はここで行う。
+ * ★Phase 1〜4改修（2026-08-07）：レベル表示・固定費モデルの変更に合わせて全面更新。
  * @param {object} s state（Proxyでも可）
  * @returns {Record<string, *>}
  */
 function buildViewModel(s){
-  const rank       = selectors.rank(s);
+  const rank       = selectors.rankV2(s);
   const netIncome  = selectors.netIncome(s);
   const grossHealth = calc.lookupStandardMonthly(s.userProfile.grossSalary);
   const avgStandardMonthly = grossHealth ? grossHealth.standard : 0;
+  const isKumiai = s.userProfile.insuranceType === 'kumiai';
 
+  // ★Phase1.2：組合の平均標準報酬月額・付加給付上限はユーザー入力欄を廃止し固定値化した
   const selfPay = calc.calcFinalSelfPay({
     grossSalary: s.userProfile.grossSalary,
     isResidentTaxExempt: s.userProfile.isResidentTaxExempt,
     insuranceType: s.userProfile.insuranceType,
-    fukaKyufuCap: s.userProfile.fukaKyufuCap
+    fukaKyufuCap: isKumiai ? C.KUMIAI_FIXED_VALUES.fukaKyufuCap : null
   }, ILLUSTRATIVE_MEDICAL_COST);
 
   const injuryDaily = calc.calcInjuryAllowanceDaily(avgStandardMonthly, {
     isUnderOneYear: s.userProfile.isUnderOneYear,
     insuranceType: s.userProfile.insuranceType,
-    kumiaiAverage: s.userProfile.kumiaiAverage
+    kumiaiAverage: isKumiai ? C.KUMIAI_FIXED_VALUES.averageStandardMonthly : null
   });
 
   const rentGap  = calc.calcRentGap(netIncome, s.fixedCosts.rent, s.userProfile.area);
@@ -95,27 +99,22 @@ function buildViewModel(s){
   const rentMeterPct = Math.min(100, Math.round((rentValue / rentScale) * 100));
   const rentAveragePct = Math.min(100, Math.round((rentGap.marketAverage / rentScale) * 100));
   const rentLimitPct = Math.min(100, Math.round((rentGap.limit / rentScale) * 100));
-  const bankLoss = calc.calcBankFeeLoss(s.finance?.atmCountOffHours, s.finance?.transferCount);
-
-  // ★§4.1b の data-model にはカード還元の詳細入力（annualSpend / currentRatePercent）が
-  //   無いため、fixedCosts.cardReward を「月間の機会損失額」そのものとして扱う
-  //   （calc.calcCreditCardLoss は詳細入力が無いと呼び出せないため、ここでは使用しない）。
-  const cardRewardMonthly = Math.max(0, Number(s.fixedCosts.cardReward) || 0);
 
   const judge = C.judgeSmartphoneCost(Number(s.fixedCosts.smartphone) || 0);
 
   const hasSubscription = (s.selections.subscriptionPlanIds ?? []).length > 0
     || (s.selections.otherSubscriptions ?? []).length > 0;
 
+  const questList = selectors.buildQuestList(s);
+  const questTotalSaving = questList.reduce((sum, q) => sum + q.monthlySaving, 0);
+
   return {
-    displayLevel: selectors.displayLevel(s),
-    moneyLevel: selectors.moneyLevel(s),
-    bonusLevel: selectors.bonusLevel(s),
+    displayLevel: selectors.currentLevel(s),
     rankTitle: rank.title,
-    annualGainFormatted: selectors.annualGainFormatted(s),
-    monthlyGain: YEN(selectors.monthlyGain(s)),
+    completedSavingFormatted: YEN(selectors.completedSavingTotal(s)),
+    questTotalSaving: YEN(questTotalSaving),
     netIncome: YEN(netIncome),
-    nextLevelGap: YEN(selectors.nextLevelGap(s)),
+    nextLevelGap: YEN(selectors.headerNextLevelGap(s)),
     selfPayCap: YEN(selfPay.amount),
     injuryDaily: YEN(injuryDaily),
     rentOverMarket: YEN(rentGap.overMarket),
@@ -125,17 +124,288 @@ function buildViewModel(s){
     rentMeterPct,
     rentAveragePct,
     rentLimitPct,
-    bankFeeAnnual: YEN(bankLoss.annualLoss),
-    cardLossAnnual: YEN(cardRewardMonthly * 12),
-    progressPct: selectors.progressPct(s),
+    progressPct: selectors.headerProgressPct(s),
     hasCompletedStep1: Boolean(s.meta.hasCompletedStep1),
-    isKumiai: s.userProfile.insuranceType === 'kumiai',
-    // ★isRevolving に対応する data-model が §4.1b に無いため常時 false（未結線。報告済み）
-    isRevolvingAlert: false,
+    isKumiai,
     otherSummary: otherSummaryText(s),
     smartphoneJudge: smartphoneJudgeText(judge),
     hasSubscription
   };
+}
+
+/**
+ * 固定費カテゴリの現状値を取得する（Phase2.1の2段階目標バー用）。
+ * @param {object} s state
+ * @param {string} category FIXED_COST_TARGETS のキー
+ * @returns {number}
+ */
+function getCostCategoryValue(s, category){
+  const fc = s.fixedCosts ?? {};
+  switch (category){
+    case 'smartphone':       return Math.max(0, Number(fc.smartphone) || 0);
+    case 'internet':         return fc.internetProvider && fc.internetProvider !== 'none'
+                                     ? Math.max(0, Number(fc.internetMonthly) || 0) : 0;
+    case 'medicalInsurance': return Math.max(0, Number(fc.medicalInsurance) || 0);
+    case 'fireInsurance':    return Math.max(0, Number(fc.fireInsurance) || 0);
+    case 'subscriptions':    return selectors.subscriptionTotal(s);
+    case 'nhk':               return (C.NHK_PLANS.find(p => p.value === fc.nhkPlan) ?? C.NHK_PLANS[0]).monthly;
+    case 'carInsurance':     return Math.max(0, Number(fc.carInsurance) || 0);
+    case 'parking':          return Math.max(0, Number(fc.parking) || 0);
+    default: return 0;
+  }
+}
+
+/**
+ * 固定費の2段階目標バー（全国平均・理想の目標値マーカー付き）を更新する。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncCostBars(s){
+  document.querySelectorAll('[data-cost-bar]').forEach(bar => {
+    const category = bar.dataset.costBar;
+    const target = C.FIXED_COST_TARGETS[category];
+    if (!target) return;
+    const value = getCostCategoryValue(s, category);
+    const scale = Math.max(target.average * 1.2, value, target.ideal ?? 0, 1);
+    const fillPct = Math.min(100, Math.round((value / scale) * 100));
+    const avgPct  = Math.min(100, Math.round((target.average / scale) * 100));
+
+    const fill = bar.querySelector('.cost-bar__fill');
+    if (fill){
+      const next = `${fillPct}%`;
+      if (fill.style.width !== next) fill.style.width = next;
+    }
+    const avgMarker = bar.querySelector('[data-cost-marker="average"]');
+    if (avgMarker){
+      const next = `${avgPct}%`;
+      if (avgMarker.style.left !== next) avgMarker.style.left = next;
+    }
+    if (target.ideal !== null && target.ideal !== undefined){
+      const idealPct = Math.min(100, Math.round((target.ideal / scale) * 100));
+      const idealMarker = bar.querySelector('[data-cost-marker="ideal"]');
+      if (idealMarker){
+        const next = `${idealPct}%`;
+        if (idealMarker.style.left !== next) idealMarker.style.left = next;
+      }
+    }
+  });
+}
+
+/**
+ * 条件付き表示欄（光回線の月額入力・自動車保険/駐車場代の入力群）の開閉を同期する。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncConditionalFields(s){
+  const internetField = document.querySelector('[data-conditional-field="internetMonthly"]');
+  if (internetField){
+    const next = !(s.fixedCosts.internetProvider && s.fixedCosts.internetProvider !== 'none');
+    if (internetField.hidden !== next) internetField.hidden = next;
+  }
+  const carField = document.querySelector('[data-conditional-field="hasCar"]');
+  if (carField){
+    const next = !s.fixedCosts.hasCar;
+    if (carField.hidden !== next) carField.hidden = next;
+  }
+}
+
+/**
+ * カードの <option> 一覧を、対象カード配列が変わった時だけ作り直す。
+ * @param {HTMLSelectElement} select
+ * @param {import('./creditCards.js').CreditCard[]} cards
+ * @param {string|null} selectedId
+ * @returns {void}
+ */
+function rebuildCardOptions(select, cards, selectedId){
+  const signature = cards.map(c => c.id).join(',');
+  if (select.dataset.signature !== signature){
+    select.dataset.signature = signature;
+    select.querySelectorAll('option:not([data-placeholder])').forEach(o => o.remove());
+    cards.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      select.appendChild(opt);
+    });
+  }
+  const next = selectedId ?? '';
+  if (select.value !== next && [...select.options].some(o => o.value === next)) select.value = next;
+}
+
+/**
+ * クレジットカードの選択UI（メイン・サブ・その他）を同期する。
+ * メイン／サブに選ばれたカードは、サブ／その他の選択肢から自動的に除外する。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncCreditCardUI(s){
+  const mainSel = document.getElementById('in-cardMain');
+  const subSel  = document.getElementById('in-cardSub');
+  const othersBox = document.querySelector('[data-card-others]');
+  if (!mainSel || !subSel || !othersBox) return;
+
+  const cc = s.creditCards ?? {};
+  rebuildCardOptions(mainSel, CREDIT_CARDS, cc.main);
+  const subCandidates = CREDIT_CARDS.filter(c => c.id !== cc.main);
+  rebuildCardOptions(subSel, subCandidates, cc.sub);
+
+  const otherCandidates = CREDIT_CARDS.filter(c => c.id !== cc.main && c.id !== cc.sub);
+  const signature = otherCandidates.map(c => c.id).join(',');
+  if (othersBox.dataset.signature !== signature){
+    othersBox.dataset.signature = signature;
+    othersBox.querySelectorAll('label').forEach(l => l.remove());
+    otherCandidates.forEach(c => {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.dataset.cardOtherToggle = c.id;
+      cb.checked = (cc.others ?? []).includes(c.id);
+      const span = document.createElement('span');
+      span.textContent = c.name;
+      label.append(cb, span);
+      othersBox.appendChild(label);
+    });
+  } else {
+    othersBox.querySelectorAll('[data-card-other-toggle]').forEach(cb => {
+      const next = (cc.others ?? []).includes(cb.dataset.cardOtherToggle);
+      if (cb.checked !== next) cb.checked = next;
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// クエスト一覧の動的描画（Phase2〜3改修）
+//   ★QUEST_CATALOG の静的転記ではなく、selectors.buildQuestList() の結果を
+//     createElement で組み立てる（innerHTML 不使用＝制約5）。
+// ---------------------------------------------------------------------------
+
+/**
+ * 1件分のクエストカード（アコーディオン）のDOMを組み立てる。
+ * @param {ReturnType<typeof selectors.buildQuestList>[number]} q
+ * @param {object} s state
+ * @returns {HTMLLIElement}
+ */
+function createQuestItem(q, s){
+  const li = document.createElement('li');
+  li.className = 'quest-item';
+  li.dataset.questId = q.id;
+
+  const head = document.createElement('div');
+  head.className = 'quest-item__head';
+  const title = document.createElement('h3');
+  title.className = 'quest-item__title';
+  title.textContent = q.mainTitle;
+  const saving = document.createElement('span');
+  saving.className = 'quest-item__saving';
+  saving.textContent = `¥${YEN(q.monthlySaving)}/月`;
+  head.append(title, saving);
+
+  const summary = document.createElement('p');
+  summary.className = 'quest-item__summary';
+  summary.textContent = q.subTitle ?? '';
+
+  const details = document.createElement('details');
+  details.className = 'quest-item__basis';
+  const sum = document.createElement('summary');
+  sum.textContent = '⚔️ 詳細を見る';
+  details.appendChild(sum);
+
+  if (q.detail){
+    const p = document.createElement('p');
+    p.textContent = q.detail;
+    details.appendChild(p);
+  }
+  if (q.basis){
+    const p = document.createElement('p');
+    p.textContent = q.basis;
+    details.appendChild(p);
+  }
+  if (q.talkScript?.length){
+    const ul = document.createElement('ul');
+    ul.className = 'quest-item__talkscript';
+    q.talkScript.forEach(t => {
+      const item = document.createElement('li');
+      item.textContent = t;
+      ul.appendChild(item);
+    });
+    details.appendChild(ul);
+  }
+  if (q.disclaimer){
+    const p = document.createElement('p');
+    p.className = 'quest-item__disclaimer';
+    p.textContent = q.disclaimer;
+    details.appendChild(p);
+  }
+
+  const label = document.createElement('label');
+  label.className = 'quest-item__toggle';
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.dataset.questToggle = q.id;
+  checkbox.dataset.questSaving = String(q.monthlySaving);
+  checkbox.setAttribute('aria-label', q.subTitle || q.mainTitle);
+  checkbox.checked = s.quests.completed[q.id] !== undefined;
+  const span = document.createElement('span');
+  span.textContent = '🎉 解呪完了';
+  label.append(checkbox, span);
+  details.appendChild(label);
+
+  li.append(head, summary, details);
+  return li;
+}
+
+/** チェックボックスの checked 状態だけを最新化する（クエスト一覧が変わっていない場合用）。 */
+function syncQuestCheckboxes(s){
+  document.querySelectorAll('[data-quest-toggle]').forEach(cb => {
+    const id = cb.dataset.questToggle;
+    const next = s.quests.completed[id] !== undefined;
+    if (cb.checked !== next) cb.checked = next;
+  });
+}
+
+/** 「伝説の勇者」カードの中身を（初回のみ）組み立てる。 */
+function renderLegendaryCard(el){
+  if (el.childElementCount) return;                    // 静的文言のため一度作れば十分
+  const title = document.createElement('p');
+  title.className = 'card--legendary__title';
+  title.textContent = C.LEGENDARY_HERO.mainTitle;
+  const subtitle = document.createElement('p');
+  subtitle.className = 'card--legendary__subtitle';
+  subtitle.textContent = C.LEGENDARY_HERO.subTitle;
+  el.append(title, subtitle);
+}
+
+let lastQuestSignature = null;
+
+/** クエスト一覧の再描画キャッシュを破棄する（全リセット直後など、強制再構築したい時に呼ぶ）。 */
+export function resetQuestListCache(){ lastQuestSignature = null; }
+
+/**
+ * クエスト一覧を再描画する。クエストの構成（id・節約可能額）が変わっていない場合は
+ * チェック状態の同期のみ行い、DOMの作り直しはしない。
+ * @param {object} s state
+ * @returns {void}
+ */
+function renderQuestList(s){
+  const container = document.querySelector('[data-quest-list]');
+  const legendary  = document.querySelector('[data-legendary-hero]');
+  if (!container) return;
+
+  const quests = selectors.buildQuestList(s);
+  const signature = JSON.stringify(quests.map(q => [q.id, q.monthlySaving]));
+  if (signature === lastQuestSignature){
+    syncQuestCheckboxes(s);
+  } else {
+    lastQuestSignature = signature;
+    container.querySelectorAll('.quest-item').forEach(el => el.remove());
+    quests.forEach(q => container.appendChild(createQuestItem(q, s)));
+  }
+
+  if (legendary){
+    const showLegendary = quests.length === 0;
+    if (legendary.hidden !== !showLegendary) legendary.hidden = !showLegendary;
+    if (showLegendary) renderLegendaryCard(legendary);
+  }
 }
 
 /**
@@ -203,6 +473,10 @@ function render(){
     });
 
     syncRentMeter(view);
+    syncCostBars(state);
+    syncConditionalFields(state);
+    syncCreditCardUI(state);
+    renderQuestList(state);
 
     // ★フォーカス中・IME変換中の入力欄には絶対に書き戻さない（CLAUDE.md 制約5）
     document.querySelectorAll('[data-model]').forEach(el => {
@@ -229,7 +503,6 @@ function render(){
     //   再描画のたびにラジオの checked をそこから引き直す。
     syncSubscriptionRadios(state);
     syncSubscriptionBadges(state);
-    syncRevealGroups(state);
   } finally { isRendering = false; }
 }
 
@@ -256,29 +529,6 @@ function syncRentMeter(view){
     const next = `${view.rentLimitPct}%`;
     if (limitMarker.style.left !== next) limitMarker.style.left = next;
   }
-}
-
-/**
- * 段階入力フロー：「現状」に値が入っている（＝ユーザーが入力を終えた）カードだけ
- * 「見直し後」欄を自動的に開く。呪文復元・ページ再読込で既に値がある場合も
- * ボタンを押し直させないよう、都度ここで判定し直す（一度開いたら閉じない）。
- * @param {object} s state
- * @returns {void}
- */
-function syncRevealGroups(s){
-  document.querySelectorAll('[data-reveal-group].cost-card__optimized').forEach(field => {
-    if (!field.hidden) return;                           // 既に開いていれば何もしない
-    const group = field.dataset.revealGroup;
-    const hasEnteredCurrent = group === 'subscriptions'
-      ? (s.selections.subscriptionPlanIds.length > 0 || s.selections.otherSubscriptions.length > 0)
-      : Number.isFinite(Number(s.fixedCosts[group])) && s.fixedCosts[group] !== null;
-    const hasOptimizedAlready = Number.isFinite(Number(s.optimized[group])) && s.optimized[group] !== null;
-    if (hasEnteredCurrent || hasOptimizedAlready){
-      field.hidden = false;
-      const btn = document.querySelector(`[data-action="revealOptimized"][data-reveal-group="${group}"]`);
-      if (btn) btn.hidden = true;
-    }
-  });
 }
 
 const planGroupCache = new Map();   // groupId(サービスID) → Set(そのサービスのプランID)
@@ -375,7 +625,7 @@ let lastNotifiedLevel = null, levelNotifyTimer = null;
 export function maybeNotifyLevelUp(){
   clearTimeout(levelNotifyTimer);
   levelNotifyTimer = setTimeout(() => {
-    const lv = selectors.displayLevel(state);
+    const lv = selectors.currentLevel(state);
     if (lastNotifiedLevel === null){ lastNotifiedLevel = lv; return; }   // 初回は基準を記録するのみ
     const diff = lv - lastNotifiedLevel;
     if (diff > 0) enqueueToast(`LEVEL UP! +${diff} Lv`, 'levelup');
@@ -391,7 +641,7 @@ export function maybeNotifyLevelUp(){
  */
 export function syncNotifiedLevel(){
   clearTimeout(levelNotifyTimer);
-  lastNotifiedLevel = selectors.displayLevel(state);
+  lastNotifiedLevel = selectors.currentLevel(state);
 }
 
 // ---------------------------------------------------------------------------

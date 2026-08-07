@@ -1,12 +1,13 @@
 // app.js — イベント結線（§6.7）。DOM操作は ui.js に委譲し、ここではイベントと
 // ACTIONS の対応付けのみを担う。
 import { state, subscribe, setPersistErrorHandler, parseYen,
-         encodeSpell, restoreFromSpell } from './store.js';
+         encodeSpell, restoreFromSpell, INITIAL_STATE } from './store.js';
 import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotifyLevelUp,
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
-         captureCard, saveCard } from './ui.js';
+         captureCard, saveCard, resetQuestListCache } from './ui.js';
 import { selectors } from './selectors.js';
+import * as calc from './calc.js';
 import * as C from './config.js';
 import { sendFeedback } from './feedback.js';
 
@@ -80,7 +81,10 @@ function bindEvents(){
 
   document.addEventListener('change', e => {
     const questCb = e.target.closest('[data-quest-toggle]');
-    if (questCb){ state.todoStatus[questCb.dataset.questToggle] = questCb.checked; return; }
+    if (questCb){ onQuestToggle(questCb); return; }
+
+    const otherCardCb = e.target.closest('[data-card-other-toggle]');
+    if (otherCardCb){ onCardOtherToggle(otherCardCb); return; }
 
     const planRadio = e.target.closest('[data-plan-group]');
     if (planRadio){ onPlanGroupChange(planRadio); return; }
@@ -88,8 +92,79 @@ function bindEvents(){
     const el = e.target.closest('[data-model]');
     if (!el) return;
     if (el.type === 'checkbox') setByPath(state, el.dataset.model, el.checked);
-    else if (el.tagName === 'SELECT') setByPath(state, el.dataset.model, el.value);
+    else if (el.tagName === 'SELECT'){
+      setByPath(state, el.dataset.model, el.value);
+      if (el.dataset.model === 'creditCards.main' || el.dataset.model === 'creditCards.sub'){
+        onCreditCardSelectChange(el.dataset.model);
+      }
+    }
   });
+}
+
+/**
+ * クエスト解呪チェックボックスの変更を反映し、レベルアップ抽選を行う（Phase2〜3）。
+ * ★初期レベルは初回のクエスト解呪時点でその瞬間のライブ算出値に確定する
+ *   （固定費入力中はまだ確定させず、header/カルテにはライブ値を表示し続ける）。
+ * @param {HTMLInputElement} cb
+ * @returns {void}
+ */
+function onQuestToggle(cb){
+  const id = cb.dataset.questToggle;
+  const saving = Number(cb.dataset.questSaving) || 0;
+  if (!Number.isFinite(state.meta.initialLevel)){
+    state.meta.initialLevel = selectors.initialLevel(state);
+  }
+  if (cb.checked) state.quests.completed[id] = saving;
+  else delete state.quests.completed[id];
+  handleQuestLevelUp();
+}
+
+/**
+ * レベルアップ抽選（§Phase3.2）を行い、上昇時のみ演出トーストを出す。
+ * ★毎回、解呪済みクエストの月間節約可能額の合計から再計算する（累積・再抽選方式）。
+ * @returns {void}
+ */
+function handleQuestLevelUp(){
+  const before = Number.isFinite(state.meta.currentLevel)
+    ? state.meta.currentLevel : selectors.initialLevel(state);
+  const totalSaving = selectors.completedSavingTotal(state);
+  const { isCritical, finalLevel } = calc.rollLevelUp(state.meta.initialLevel ?? 0, totalSaving);
+  state.meta.currentLevel = finalLevel;
+  if (finalLevel !== before){
+    const msg = isCritical
+      ? `⚡クリティカル発動！ 現状 Lv.${before} ➔ Lv.${finalLevel} にUP！`
+      : `現状 Lv.${before} ➔ Lv.${finalLevel} にUP！`;
+    enqueueToast(msg, 'levelup');
+  }
+  syncNotifiedLevel();   // ★maybeNotifyLevelUp の遅延判定による重複通知を防ぐ
+}
+
+/**
+ * その他保有カードのチェック状態を state.creditCards.others に反映する。
+ * @param {HTMLInputElement} cb
+ * @returns {void}
+ */
+function onCardOtherToggle(cb){
+  const id = cb.dataset.cardOtherToggle;
+  const set = new Set(state.creditCards.others);
+  if (cb.checked) set.add(id); else set.delete(id);
+  state.creditCards.others = [...set];
+}
+
+/**
+ * メイン／サブカードの選択が重複した場合に整理する（Phase1.5：重複選択の除外）。
+ * @param {'creditCards.main'|'creditCards.sub'} changedPath
+ * @returns {void}
+ */
+function onCreditCardSelectChange(changedPath){
+  const { main, sub, others } = state.creditCards;
+  if (changedPath === 'creditCards.main' && main && sub === main){
+    state.creditCards.sub = null;
+  }
+  if (main && others.includes(main)) state.creditCards.others = others.filter(id => id !== main);
+  if (sub && state.creditCards.others.includes(sub)){
+    state.creditCards.others = state.creditCards.others.filter(id => id !== sub);
+  }
 }
 
 /**
@@ -196,10 +271,8 @@ function refreshAddOtherSubButton(container){
 const ACTIONS = {
   startDiagnosis(){
     if (!state.meta.hasCompletedStep1){
-      // ★initialLevel は「STEP1完了時に一度だけ確定・以後不変」（§6.5）。
-      //   この時点では feedbackBonusGranted は必ず false のため moneyLevel と
-      //   displayLevel は一致する。shareText 側と単位を揃えるため moneyLevel を使う。
-      state.meta.initialLevel = selectors.moneyLevel(state);
+      // ★initialLevel はここでは確定させない。固定費入力中はライブ算出値を表示し続け、
+      //   初回のクエスト解呪時点（onQuestToggle）でその瞬間の値に確定する（Phase2.1）。
       state.meta.createdAt = state.meta.createdAt ?? new Date().toISOString();
     }
     state.meta.lastOpenedAt = new Date().toISOString();
@@ -208,8 +281,9 @@ const ACTIONS = {
     target?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   },
 
+  // ★シェアは最終確認画面（マイカルテ）専用（Phase3.4）。sec-result側のボタンは撤去済み。
   shareX(){
-    const text = selectors.shareText(state);
+    const text = selectors.shareTextV2(state);
     const url = `https://x.com/intent/post`
       + `?text=${encodeURIComponent(text)}`
       + `&url=${encodeURIComponent(C.SITE_URL)}`;
@@ -273,14 +347,17 @@ const ACTIONS = {
   },
 
   /**
-   * 「見直し後」の入力欄を開く（段階入力フロー）。開いたら閉じない片道操作でよい
-   * （閉じる操作を用意すると誤って入力済みの値を隠してしまう事故につながるため）。
+   * 冒険を最初から始める（Phase3.4）。全Stateを初期値に戻し、STEP1の先頭へ戻る。
+   * ★localStorage の永続化もState変更に連動して自動的に上書きされる（store.jsのsubscribe経由）。
    */
-  revealOptimized(btn){
-    const group = btn.dataset.revealGroup;
-    document.querySelectorAll(`[data-reveal-group="${group}"].field`).forEach(el => { el.hidden = false; });
-    btn.hidden = true;
-    document.querySelector(`[data-reveal-group="${group}"] input`)?.focus();
+  resetAdventure(){
+    if (!window.confirm('ここまでの入力内容をすべて消去して、最初からやり直します。よろしいですか？')) return;
+    const fresh = structuredClone(INITIAL_STATE);
+    applyRestoredState(fresh);
+    resetQuestListCache();
+    syncNotifiedLevel();   // ★リセット直後に誤ったレベル差分演出が出ないよう基準を同期する
+    showToast('冒険をはじめから始めます');
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   },
 
   addOtherSub(){
@@ -410,9 +487,9 @@ function applyRestoredState(restored){
   state.meta = restored.meta;
   state.userProfile = restored.userProfile;
   state.fixedCosts = restored.fixedCosts;
-  state.optimized = restored.optimized;
   state.finance = restored.finance;
-  state.todoStatus = restored.todoStatus;
+  state.creditCards = restored.creditCards;
+  state.quests = restored.quests;
   state.selections = restored.selections;
   state.betaFeedback = restored.betaFeedback;
   rebuildOtherSubRows();

@@ -244,29 +244,13 @@ export const RESIDENT_TAX_EXEMPT_YEARS = 1;   // 勤続1年目は住民税ゼロ
 
 // ---------------------------------------------------------------------------
 // 6.2.6 レベル・称号
-//   ★法令ではなくプロダクト設計上の定義（§3.2 レベル計算の3層構造）。
-//     外部出典は存在しないため、変更時は §3.2 を根拠とすること
+//   ★法令ではなくプロダクト設計上の定義。
+//   ★Phase1〜4改修（2026-08-07）：旧レベル方式（LEVEL_UNIT/LEVEL_MIN/LEVEL_MAX/RANK_TABLE/
+//     IMMEDIATE）は廃止し、INITIAL_LEVEL_DIVISOR/INITIAL_LEVEL_BASE/RANK_TABLE_V2に置き換えた
+//     （本ファイル末尾のPhase1〜4改修セクション参照）。
 // ---------------------------------------------------------------------------
-export const LEVEL_UNIT   = 5000;
-export const LEVEL_MIN    = 1;
-export const LEVEL_MAX    = 999;
-export const BONUS_LEVEL_MAX = 1;
+export const BONUS_LEVEL_MAX = 1;   // フィードバック送信ボーナス（生涯1回・+1Lv）。新方式でも継続使用
 
-export const RANK_TABLE = [
-  { min:  1, max:  5, title:'手取り見習い市民',     avatarKey:'rank-citizen'   },
-  { min:  6, max: 15, title:'駆け出し節約剣士',     avatarKey:'rank-swordsman' },
-  { min: 16, max: 30, title:'公的保障の騎士',       avatarKey:'rank-knight'    },
-  { min: 31, max: 49, title:'手取り防衛の大魔導士', avatarKey:'rank-mage'      },
-  { min: 50, max: Infinity, title:'伝説の手取り勇者', avatarKey:'rank-hero'    }
-];
-
-// ---------------------------------------------------------------------------
-// 6.2.7 レベル算入対象（家賃はレベル非算入）
-//   ★根拠は §3.3「家賃超過分の二階層分離」。家賃を IMMEDIATE に入れてはならない
-//     （CLAUDE.md 制約3）
-// ---------------------------------------------------------------------------
-export const IMMEDIATE = ['smartphone','subscriptions','fireInsurance',
-                          'medicalInsurance','bankFee','cardReward'];
 export const HIGH_COST = ['rent'];   // 引っ越し初期費用が高いため参考枠のみ
 export const MOVING_COST_MONTHS = 5; // 初期費用の目安（家賃の5ヶ月分）※回収年数の算出に使用
 
@@ -875,3 +859,158 @@ export function sumOtherSubscriptions(rows){
 //     §12.4 に L-09 として登録すること。
 // ---------------------------------------------------------------------------
 export const USE_SVG_ICONS = false;
+
+// ===========================================================================
+// Phase 1〜4 改修（2026-08-07）
+//   固定費モデルの再設計・クレジットカードクエスト化・レベル計算式の全面変更。
+//   ★ここに定義する数値・文言はユーザー提示の【究極完全版プロンプト】および
+//     credit_card_logic_definition.md の記載をそのまま転記したものであり、
+//     §6.2.9 等の既存の統計出典（総務省統計局等）とは別枠として扱う。
+//     例：smartphone.average(6,000円) は §6.2.9 MARKET_AVERAGE_SMARTPHONE(6,379円)
+//     と値が異なるが、今回のバー表示・クエスト判定にはユーザー指定値を使う。
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Phase1.2 公的保障の簡素化：組合の入力欄を廃止し固定値化
+// ---------------------------------------------------------------------------
+export const KUMIAI_FIXED_VALUES = {
+  averageStandardMonthly: 380000,
+  fukaKyufuCap: 25000
+};
+
+// ---------------------------------------------------------------------------
+// Phase1.3 新規固定費入力：NHK受信料・光回線
+// ---------------------------------------------------------------------------
+export const NHK_PLANS = [
+  { value:'none',        label:'支払いなし', monthly:0 },
+  { value:'terrestrial', label:'地上契約',   monthly:1100 },
+  { value:'satellite',   label:'衛星契約',   monthly:1950 }
+];
+export const NHK_DEFAULT = 'none';
+
+// 「契約なし・モバイルルーター」選択時は月額入力欄を隠す
+export const INTERNET_PROVIDERS = [
+  { value:'none',     label:'契約なし・モバイルルーター' },
+  { value:'docomo',   label:'ドコモ光' },
+  { value:'au',       label:'auひかり' },
+  { value:'softbank', label:'ソフトバンク光' },
+  { value:'rakuten',  label:'楽天ひかり' },
+  { value:'other',    label:'その他' }
+];
+export const INTERNET_DEFAULT = 'none';
+
+// ---------------------------------------------------------------------------
+// Phase2.1〜2.3 固定費カテゴリの目安（全国平均・理想の目標値）
+//   ideal:null のカテゴリ（駐車場代）はバーは表示するがクエスト判定には含めない
+// ---------------------------------------------------------------------------
+export const FIXED_COST_TARGETS = {
+  smartphone:       { label:'通信費（スマホ）', average:6000, ideal:2000 },
+  internet:         { label:'光回線',           average:5500, ideal:3800 },
+  medicalInsurance: { label:'医療保険',         average:4000, ideal:0 },
+  fireInsurance:    { label:'火災保険',         average: 833, ideal:400 },
+  subscriptions:    { label:'サブスク',         average:2500, ideal:1000 },
+  nhk:              { label:'NHK受信料',        average:1950, ideal:0 },
+  carInsurance:     { label:'自動車保険',       average:7000, ideal:4000 },
+  parking:          { label:'駐車場代',         average:8000, ideal:null }
+};
+
+// 節約可能額の足切りライン（月額）。これ未満はクエストを発生させない
+export const QUEST_MIN_SAVING = 500;
+
+// ---------------------------------------------------------------------------
+// Phase2.4 クレジットカード推定決済額・レベルアップ抽選の定数
+// ---------------------------------------------------------------------------
+export const CARD_SPEND_DISPOSABLE_RATIO = 0.6;
+export const LEVELUP_UNIT = 5000;
+
+// ---------------------------------------------------------------------------
+// Phase2.1 初期レベル算出式の定数
+//   初期レベル = Math.floor((月額手取り + 現状の固定費合計) / 20000) + 10
+// ---------------------------------------------------------------------------
+export const INITIAL_LEVEL_DIVISOR = 20000;
+export const INITIAL_LEVEL_BASE = 10;
+
+// ---------------------------------------------------------------------------
+// Phase3.3 役職テーブル（新仕様）。旧 RANK_TABLE とは別の新レベル方式専用
+// ---------------------------------------------------------------------------
+export const RANK_TABLE_V2 = [
+  { min:10, max:19, title:'見習い冒険者' },
+  { min:20, max:29, title:'駆け出しの騎士' },
+  { min:30, max:39, title:'中堅の魔導士' },
+  { min:40, max:Infinity, title:'ベテラン大賢者' }
+];
+
+// ---------------------------------------------------------------------------
+// Phase2.2 固定費クエスト：既存 QUEST_CATALOG のRPGテキストを再利用するカテゴリ
+//   ★既存の演出テキスト（questTitle/summary/description等）は変更しない。
+//     トリガー条件・節約可能額の算出方法のみ新方式（現状価格－理想の目標値）に差し替える
+// ---------------------------------------------------------------------------
+export const REUSED_QUEST_MAP = {
+  smartphone:       'changeSim',
+  medicalInsurance: 'cancelMedicalInsurance',
+  fireInsurance:    'changeFireInsurance',
+  subscriptions:    'cancelSubscription'
+};
+
+// ---------------------------------------------------------------------------
+// Phase2.2 新規固定費クエストの文言（光回線・NHK・自動車保険）
+//   ★指定文言をそのまま使用する（独自解釈をしない）
+// ---------------------------------------------------------------------------
+export const NEW_FIXED_QUESTS = {
+  internet: {
+    id: 'reviewInternet',
+    mainTitle: '【回線の魔道結界】格安光回線（GMOとくとくBB光・enひかり等）やセット割へ乗り換えよ',
+    subTitle: '光回線の月額料金を見直す'
+  },
+  nhk: {
+    id: 'sealNhk',
+    mainTitle: '【NHKの封印】テレビを手放すかチューナーレスTVへ換装し、NHK受信料を完全解呪せよ',
+    subTitle: 'NHK受信料の見直し・完全ゼロ化を検討する'
+  },
+  carInsurance: {
+    id: 'switchCarInsurance',
+    mainTitle: '【代理店型の罠】自動車保険をネット型に切り替えよ',
+    subTitle: '自動車保険をネット型へ切り替える'
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Phase2.4 クレジットカードクエストの文言（パターンA〜D）
+//   ★パターンBの detail は【究極完全版プロンプト】Phase3.1 の指定文言をそのまま使用する。
+//     A/C/D の subTitle は credit_card_logic_definition.md §1「考え方」の文をそのまま使用する
+// ---------------------------------------------------------------------------
+export const CARD_QUEST_TEXT = {
+  A: {
+    id:'cardPatternA',
+    mainTitle: '【低効率装備の換装】',
+    subTitle: '基本還元率の低いカードから、高還元カードへの乗り換えを促す。'
+  },
+  B: {
+    id:'cardPatternB',
+    mainTitle: '【呪いの装備の解除（休眠カード）】',
+    detail: '【クエスト発生】呪いの装備を外してHPの漏れを塞げ！\n'
+      + 'あなたの装備袋から、不穏な気配がします。現在保有している対象カードは、'
+      + '十分な活躍をしていないにもかかわらず、毎年『年会費』というスリップダメージを'
+      + 'あなたのHP（手取り）に与え続けています。なんとなく持っているだけの「呪いの装備」は、'
+      + '思い切って手放すのが冒険の鉄則です。今すぐカード会社のマイページや窓口に向かい、'
+      + '装備を解呪（解約・ダウングレード）して、奪われていた手取りを取り戻しましょう！'
+  },
+  C: {
+    id:'cardPatternC',
+    mainTitle: '【100万円未達の罠】',
+    subTitle: '100万円決済に届いていないため、年会費が発生し還元率も0.5%に留まっている状態を警告。'
+  },
+  D: {
+    id:'cardPatternD',
+    mainTitle: '【コスト割れ特化装備】',
+    subTitle: '無料宿泊特典などのメリットを享受できる決済ラインに届いておらず、年会費が隠れ負債になっている状態を警告。'
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Phase4.1「伝説の勇者」専用UI（クエストが1件も発生しない場合）
+// ---------------------------------------------------------------------------
+export const LEGENDARY_HERO = {
+  mainTitle: '【見直す余地なし】あなたは既に伝説の勇者です',
+  subTitle: '魔道障壁（固定費のムダ）は一切見当たりません。あなたの家計はすでに完璧な結界で守られています！'
+};

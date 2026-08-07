@@ -131,9 +131,7 @@
         12月の年末調整でまとめて精算されます。そのため本試算の月額は、
         実際の給与明細の手取りより多めに表示される場合があります。
       </p>
-      <button type="button" class="btn btn--accent btn--block" style="margin-top:1rem;" data-action="shareX">
-        🐦 Xでレベルをシェアする
-      </button>
+      <p class="section-lead" style="margin-top:1rem;">🐦 Xでのシェアは最終確認画面（マイカルテ）から行えます。</p>
     </div>
   </section>
 
@@ -150,20 +148,9 @@
         ¥<span data-bind="text:selfPayCap">0</span>
       </p>
 
-      <div data-bind="toggle:isKumiai">
-        <div class="field">
-          <label class="field__label" for="in-kumiaiAverage">組合の平均標準報酬月額</label>
-          <input id="in-kumiaiAverage" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="300,000" autocomplete="off" enterkeyhint="done"
-                 data-model="userProfile.kumiaiAverage" data-composing="0">
-        </div>
-        <div class="field">
-          <label class="field__label" for="in-fukaKyufuCap">付加給付の上限</label>
-          <input id="in-fukaKyufuCap" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="25,000" autocomplete="off" enterkeyhint="done"
-                 data-model="userProfile.fukaKyufuCap" data-composing="0">
-        </div>
-      </div>
+      <p class="section-lead" data-bind="toggle:isKumiai">
+        健康保険組合の平均的な水準（平均標準報酬月額38万円・付加給付の上限2.5万円）で自動計算しています。
+      </p>
     </div>
 
     <div class="card">
@@ -180,14 +167,11 @@
        ============================================================ -->
   <section id="sec-fixed" data-bind="toggle:hasCompletedStep1">
     <h2>固定費の見直し</h2>
-    <p class="section-lead">現状（Before）と見直し後の目標（After）を並べて入力します。</p>
+    <p class="section-lead">現状の金額を入力すると、全国平均・理想の目標値との差からクエストが自動生成されます。</p>
 
-    <!-- --- 通信費 --- -->
-    <!-- ★段階入力：まず「現状」のみ表示し、入力（またはボタン操作）後に「見直し後」を開く。
-         data-reveal-group の値は fixedCosts のキー名と一致させ、ui.js の render() が
-         その値が入力済みかどうかで自動的に開閉を判定する（js/ui.js syncRevealGroups 参照）。 -->
+    <!-- --- 通信費（スマホ） --- -->
     <div class="card">
-      <p class="card__title">📶 通信費</p>
+      <p class="card__title">📶 通信費（スマホ）</p>
       <div class="field">
         <label class="field__label" for="in-smartphone">現状（月額）</label>
         <input id="in-smartphone" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
@@ -196,15 +180,50 @@
       </div>
       <p class="section-lead" data-bind="text:smartphoneJudge">通信費を入力すると判定が表示されます</p>
 
-      <button type="button" class="btn btn--ghost btn--block cost-card__reveal-btn"
-              data-action="revealOptimized" data-reveal-group="smartphone" style="margin-top:.75rem;">
-        ▼ 見直し後の目標額を入力する
-      </button>
-      <div class="field cost-card__optimized" data-reveal-group="smartphone" hidden>
-        <label class="field__label" for="in-opt-smartphone">見直し後（目標）</label>
-        <input id="in-opt-smartphone" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="2,980" autocomplete="off" enterkeyhint="done"
-               data-model="optimized.smartphone" data-composing="0">
+      <div class="cost-bar" data-cost-bar="smartphone">
+        <div class="cost-bar__track">
+          <div class="cost-bar__fill"></div>
+          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
+        </div>
+        <div class="cost-bar__legend">
+          <span>全国平均 ¥6,000</span>
+          <span>理想 ¥2,000</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- --- 光回線 --- -->
+    <div class="card">
+      <p class="card__title">🌐 光回線</p>
+      <div class="field">
+        <label class="field__label" for="in-internetProvider">契約中のプロバイダ</label>
+        <select id="in-internetProvider" class="input input--select" data-model="fixedCosts.internetProvider">
+          <option value="none" selected>契約なし・モバイルルーター</option>
+          <option value="docomo">ドコモ光</option>
+          <option value="au">auひかり</option>
+          <option value="softbank">ソフトバンク光</option>
+          <option value="rakuten">楽天ひかり</option>
+          <option value="other">その他</option>
+        </select>
+      </div>
+      <div class="field" data-conditional-field="internetMonthly" hidden>
+        <label class="field__label" for="in-internetMonthly">現状（月額）</label>
+        <input id="in-internetMonthly" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+               placeholder="5,500" autocomplete="off" enterkeyhint="done"
+               data-model="fixedCosts.internetMonthly" data-composing="0">
+      </div>
+
+      <div class="cost-bar" data-cost-bar="internet">
+        <div class="cost-bar__track">
+          <div class="cost-bar__fill"></div>
+          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
+        </div>
+        <div class="cost-bar__legend">
+          <span>全国平均 ¥5,500</span>
+          <span>理想 ¥3,800</span>
+        </div>
       </div>
     </div>
 
@@ -218,15 +237,16 @@
                data-model="fixedCosts.medicalInsurance" data-composing="0">
       </div>
 
-      <button type="button" class="btn btn--ghost btn--block cost-card__reveal-btn"
-              data-action="revealOptimized" data-reveal-group="medicalInsurance" style="margin-top:.75rem;">
-        ▼ 見直し後の目標額を入力する
-      </button>
-      <div class="field cost-card__optimized" data-reveal-group="medicalInsurance" hidden>
-        <label class="field__label" for="in-opt-medicalInsurance">見直し後（目標）</label>
-        <input id="in-opt-medicalInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="0" autocomplete="off" enterkeyhint="done"
-               data-model="optimized.medicalInsurance" data-composing="0">
+      <div class="cost-bar" data-cost-bar="medicalInsurance">
+        <div class="cost-bar__track">
+          <div class="cost-bar__fill"></div>
+          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
+        </div>
+        <div class="cost-bar__legend">
+          <span>全国平均 ¥4,000</span>
+          <span>理想 ¥0</span>
+        </div>
       </div>
     </div>
 
@@ -243,15 +263,87 @@
         わからない場合は相場（月833円）を入力する
       </button>
 
-      <button type="button" class="btn btn--ghost btn--block cost-card__reveal-btn"
-              data-action="revealOptimized" data-reveal-group="fireInsurance" style="margin-top:.5rem;">
-        ▼ 見直し後の目標額を入力する
-      </button>
-      <div class="field cost-card__optimized" data-reveal-group="fireInsurance" hidden>
-        <label class="field__label" for="in-opt-fireInsurance">見直し後（目標）</label>
-        <input id="in-opt-fireInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="333" autocomplete="off" enterkeyhint="done"
-               data-model="optimized.fireInsurance" data-composing="0">
+      <div class="cost-bar" data-cost-bar="fireInsurance">
+        <div class="cost-bar__track">
+          <div class="cost-bar__fill"></div>
+          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
+        </div>
+        <div class="cost-bar__legend">
+          <span>全国平均 ¥833</span>
+          <span>理想 ¥400</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- --- NHK受信料 --- -->
+    <div class="card">
+      <p class="card__title">📺 NHK受信料</p>
+      <div class="field">
+        <label class="field__label" for="in-nhkPlan">契約状況</label>
+        <select id="in-nhkPlan" class="input input--select" data-model="fixedCosts.nhkPlan">
+          <option value="none" selected>支払いなし</option>
+          <option value="terrestrial">地上契約（月1,100円）</option>
+          <option value="satellite">衛星契約（月1,950円）</option>
+        </select>
+      </div>
+
+      <div class="cost-bar" data-cost-bar="nhk">
+        <div class="cost-bar__track">
+          <div class="cost-bar__fill"></div>
+          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
+        </div>
+        <div class="cost-bar__legend">
+          <span>全国平均 ¥1,950</span>
+          <span>理想 ¥0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- --- 自動車（保険・駐車場代） --- -->
+    <div class="card">
+      <p class="card__title">🚗 自動車保険・駐車場代</p>
+      <label class="field-check">
+        <input type="checkbox" data-model="fixedCosts.hasCar">
+        自動車を所有している
+      </label>
+
+      <div data-conditional-field="hasCar" hidden>
+        <div class="field">
+          <label class="field__label" for="in-carInsurance">自動車保険（月額換算）</label>
+          <input id="in-carInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+                 placeholder="7,000" autocomplete="off" enterkeyhint="done"
+                 data-model="fixedCosts.carInsurance" data-composing="0">
+        </div>
+        <div class="cost-bar" data-cost-bar="carInsurance">
+          <div class="cost-bar__track">
+            <div class="cost-bar__fill"></div>
+            <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+            <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
+          </div>
+          <div class="cost-bar__legend">
+            <span>全国平均 ¥7,000</span>
+            <span>理想 ¥4,000</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="in-parking">駐車場代（月額）</label>
+          <input id="in-parking" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
+                 placeholder="8,000" autocomplete="off" enterkeyhint="done"
+                 data-model="fixedCosts.parking" data-composing="0">
+        </div>
+        <div class="cost-bar" data-cost-bar="parking">
+          <div class="cost-bar__track">
+            <div class="cost-bar__fill"></div>
+            <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+          </div>
+          <div class="cost-bar__legend">
+            <span>全国平均 ¥8,000</span>
+            <span>※駐車場代はクエスト判定の対象外です</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -568,15 +660,16 @@
         ✅ サブスクを選択しています。上のカテゴリから内容を確認・変更できます。
       </p>
 
-      <button type="button" class="btn btn--ghost btn--block cost-card__reveal-btn"
-              data-action="revealOptimized" data-reveal-group="subscriptions" style="margin-top:1rem;">
-        ▼ 見直し後の目標額を入力する
-      </button>
-      <div class="field cost-card__optimized" data-reveal-group="subscriptions" hidden>
-        <label class="field__label" for="in-opt-subscriptions">見直し後の目標（月額合計）</label>
-        <input id="in-opt-subscriptions" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="1,500" autocomplete="off" enterkeyhint="done"
-               data-model="optimized.subscriptions" data-composing="0">
+      <div class="cost-bar" data-cost-bar="subscriptions" style="margin-top:1rem;">
+        <div class="cost-bar__track">
+          <div class="cost-bar__fill"></div>
+          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
+          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
+        </div>
+        <div class="cost-bar__legend">
+          <span>全国平均 ¥2,500</span>
+          <span>理想 ¥1,000</span>
+        </div>
       </div>
     </div>
   </section>
@@ -638,61 +731,33 @@
        6. sec-finance — 金融インフラ診断（銀行手数料・クレカ）
        ============================================================ -->
   <section id="sec-finance" data-bind="toggle:hasCompletedStep1">
-    <h2>金融インフラの診断</h2>
+    <h2>クレジットカードの診断</h2>
 
     <div class="card">
-      <p class="card__title">🏦 銀行手数料</p>
+      <p class="card__title">💳 保有カード</p>
       <details class="field-hint">
         <summary>ℹ️ なぜ入力するのですか？</summary>
         <p>
-          時間外・土日祝のATM利用や他行宛の振込には、1回ごとに手数料がかかることがあります。
-          回数を入力すると、年間でどれくらいの手数料になっているかを自動計算し、
-          手数料が無料になりやすい銀行への切り替えを検討する材料にできます。
+          メインカードの還元率、使っていないカードの年会費、
+          目標決済額に届いていないカードの有無から、
+          あなたの決済額に見合ったカード構成かどうかを自動判定します。
         </p>
       </details>
       <div class="field">
-        <label class="field__label" for="in-atmCount">時間外・土日祝のATM利用回数（月）</label>
-        <input id="in-atmCount" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="3" autocomplete="off" enterkeyhint="done"
-               data-model="finance.atmCountOffHours" data-composing="0">
+        <label class="field__label" for="in-cardMain">メインカード</label>
+        <select id="in-cardMain" class="input input--select" data-model="creditCards.main" data-card-select="main">
+          <option value="" data-placeholder>選択してください</option>
+        </select>
       </div>
       <div class="field">
-        <label class="field__label" for="in-transferCount">他行宛ネット振込の回数（月）</label>
-        <input id="in-transferCount" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="2" autocomplete="off" enterkeyhint="done"
-               data-model="finance.transferCount" data-composing="0">
+        <label class="field__label" for="in-cardSub">サブカード（任意）</label>
+        <select id="in-cardSub" class="input input--select" data-model="creditCards.sub" data-card-select="sub">
+          <option value="" data-placeholder>なし</option>
+        </select>
       </div>
       <div class="field">
-        <label class="field__label" for="in-bankFee">その他の銀行手数料（月額）</label>
-        <input id="in-bankFee" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="0" autocomplete="off" enterkeyhint="done"
-               data-model="fixedCosts.bankFee" data-composing="0">
-      </div>
-      <p class="section-lead">年間の手数料損失：¥<span data-bind="text:bankFeeAnnual">0</span></p>
-    </div>
-
-    <div class="card">
-      <p class="card__title">💳 クレジットカード</p>
-      <details class="field-hint">
-        <summary>ℹ️ なぜ入力するのですか？</summary>
-        <p>
-          クレジットカードの還元率は1%前後を目安とすることが多く、
-          還元率が低いカードを使い続けていると、同じ買い物でも受け取れるポイントに差が出ます。
-          月々の還元額（目安）を入力すると、還元率の高いカードへの集約でどれくらいの差になるかを試算できます。
-        </p>
-      </details>
-      <div class="field">
-        <label class="field__label" for="in-cardReward">還元の機会損失（月額換算）</label>
-        <input id="in-cardReward" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="0" autocomplete="off" enterkeyhint="done"
-               data-model="fixedCosts.cardReward" data-composing="0">
-      </div>
-      <p class="section-lead">年間の機会損失：¥<span data-bind="text:cardLossAnnual">0</span></p>
-
-      <!-- ★点滅させない。減衰パルス2回で停止（WCAG 2.3.1・style.css .revolving-alert） -->
-      <div class="revolving-alert" data-bind="toggle:isRevolvingAlert" role="alert">
-        <span aria-hidden="true">⚠</span>
-        <span>リボ払いの設定があります。最優先で確認してください（危険）。</span>
+        <p class="field__label">その他保有しているカード（複数選択可）</p>
+        <div class="card-checklist" data-card-others></div>
       </div>
     </div>
   </section>
@@ -703,7 +768,7 @@
   <section id="sec-quest" data-bind="toggle:hasCompletedStep1">
     <h2>クエスト一覧</h2>
     <p class="section-lead">
-      見直しで戻ってくる月額：¥<span data-bind="text:monthlyGain">0</span>
+      発見された魔道障壁の合計節約可能額：¥<span data-bind="text:questTotalSaving">0</span> / 月
     </p>
 
     <div class="field">
@@ -713,184 +778,11 @@
              data-model="userProfile.hourlyWage" data-composing="0">
     </div>
 
-    <ul class="quest-list">
-      <!-- 以下7件は js/config.js QUEST_CATALOG の内容を静的に転記したもの。
-           JS結線後は QUEST_CATALOG から動的生成する。 -->
-      <li class="quest-item" data-quest-id="changeFireInsurance">
-        <div class="quest-item__head">
-          <h3 class="quest-item__title">【魔導障壁の最適化】過剰な火災保険を解呪せよ！</h3>
-          <label class="quest-item__toggle">
-            <input type="checkbox" data-quest-toggle="changeFireInsurance" aria-label="火災保険（借家人賠償）の内容を確認する">
-            <span>🎉 解呪完了（装備変更）</span>
-          </label>
-        </div>
-        <p class="quest-item__summary">ネット型火災保険への切り替え・相場比較</p>
-        <p class="quest-item__description">指定されるがまま入った火災保険は、実は必要以上の高額装備かも？同等の防御力を持つネット型保険（2年で約8,000円〜）へ変更できるか確認し、年数千円のゴールドを守り抜こう！</p>
-        <details class="quest-item__basis">
-          <summary>⚔️ 契約内容を確認する</summary>
-          <p>賃貸契約時に不動産会社を通じて加入する火災保険は、2年で15,000〜20,000円が一般的です。ネット型の少額短期保険では2年で8,000〜12,000円という水準もあります。賃貸借契約書の多くは「加入義務」を定めるものであり、「保険会社の指定」までは求めていない場合があります。</p>
-          <ul class="quest-item__talkscript">
-            <li>賃貸借契約書に保険会社の指定条項があるか（加入義務と会社指定は別です）</li>
-            <li>大家・管理会社が求める借家人賠償責任の補償額はいくらか</li>
-            <li>個人賠償責任特約が、自動車保険やクレジットカードの付帯保険と重複していないか</li>
-            <li>現在の契約の満期日と、中途解約した場合の返戻金の有無</li>
-            <li>家財の補償額が実態に見合っているか（単身世帯では過大な場合があります）</li>
-          </ul>
-          <p class="quest-item__disclaimer">賃貸契約上、加入が条件となっている場合があります。切り替える場合も無保険期間が生じないようご注意ください。</p>
-        </details>
-      </li>
-
-      <li class="quest-item" data-quest-id="changeSim">
-        <div class="quest-item__head">
-          <h3 class="quest-item__title">【通信の呪縛を解除】ギガ浪費の幻術を打ち破れ！</h3>
-          <label class="quest-item__toggle">
-            <input type="checkbox" data-quest-toggle="changeSim" aria-label="格安SIM・オンライン専用プランを検討する">
-            <span>🎉 呪縛解除（ジョブチェンジ）</span>
-          </label>
-        </div>
-        <p class="quest-item__summary">格安SIM・セット割プランへの変更</p>
-        <p class="quest-item__description">通信コストの呪縛を解放！単身世帯の平均は月6,379円だが、オンライン専用プランやMVNOで月2,000〜3,000円台に抑えている冒険者もいる。自分の使用データ量に合ったプランへの乗り換え余地を調査し、月々の手取りゲージを回復させよう！</p>
-        <details class="quest-item__basis">
-          <summary>⚔️ プラン比較を開始する</summary>
-          <p>総務省「家計調査」によると、単身世帯の移動電話通信料の月平均は6,379円です（2024年平均）。ただしこの平均値には、大手キャリアのプランを利用している層と、オンライン専用プランやMVNOで月2,000〜3,000円台に抑えている層の両方が含まれています。平均を下回っている場合でも、データ使用量によっては選択肢が残っていることがあります。</p>
-          <ul class="quest-item__talkscript">
-            <li>契約期間の縛りと、解約時の違約金の有無</li>
-            <li>端末の分割残債。乗り換え後も支払いが続くか</li>
-            <li>家族割・光回線セット割が外れた場合、他の回線の料金がいくら上がるか</li>
-            <li>直近3ヶ月の月間データ使用量（マイページで確認できます）</li>
-            <li>MNP予約番号の有効期限（一般に発行から15日間）</li>
-            <li>キャリアメールを使い続ける場合の持ち運びサービスの料金</li>
-          </ul>
-          <p class="quest-item__disclaimer">通信品質・家族割・端末の残債状況により最適解は異なります。</p>
-        </details>
-      </li>
-
-      <li class="quest-item" data-quest-id="cancelMedicalInsurance">
-        <div class="quest-item__head">
-          <h3 class="quest-item__title">【真の聖なるバリア】公的保障のチカラを見極めよ！</h3>
-          <label class="quest-item__toggle">
-            <input type="checkbox" data-quest-toggle="cancelMedicalInsurance" aria-label="医療保険と公的保障の重複を確認する">
-            <span>🎉 点検完了（バリア発動）</span>
-          </label>
-        </div>
-        <p class="quest-item__summary">公的保障（高額療養費等）の確認と保障内容の点検</p>
-        <p class="quest-item__description">日本には「高額療養費」や「傷病手当金」という強力な公的バリアが最初から備わっている！民間の医療保険や共済に重複した特約がないか点検し、手取りの攻撃力を最適化しよう！（※公的保障は医療費や収入低下を補うものですが、差額ベッド代・食事療養費・先進医療の技術料は対象外です）</p>
-        <details class="quest-item__basis">
-          <summary>⚔️ 保障内容を点検する</summary>
-          <p>高額療養費制度により、標準報酬月額28万〜50万円の方（区分ウ）は、医療費が100万円かかった場合でも自己負担の上限は約92,940円です（2026年8月診療分から）。また傷病手当金により、療養で働けない期間は標準報酬月額の約3分の2が通算1年6ヶ月まで支給されます。これらの公的保障でカバーされる範囲を把握したうえでご判断ください。</p>
-          <ul class="quest-item__talkscript">
-            <li>解約返戻金の有無と金額</li>
-            <li>契約から何年経過しているか（短期解約控除の対象となる場合があります）</li>
-            <li>同等の保障に再加入する場合の保険料（年齢とともに上がります）</li>
-            <li>払済保険への変更や、保障額の減額が可能か</li>
-            <li>先進医療特約だけを残せるか</li>
-            <li>直近の健康状態や通院歴（再加入できない可能性があります）</li>
-            <li>差額ベッド代・食事療養費は高額療養費の対象外であることを理解しているか</li>
-            <li>医療費の一時的な立替えに耐えられる預貯金（生活費の3〜6ヶ月分）があるか</li>
-          </ul>
-          <p class="quest-item__disclaimer">健康状態により再加入できない場合があります。公的保障（高額療養費・傷病手当金）の内容を確認したうえでご判断ください。</p>
-        </details>
-      </li>
-
-      <li class="quest-item" data-quest-id="consolidateCard">
-        <div class="quest-item__head">
-          <h3 class="quest-item__title">【リボ払いの呪い浄化】高還元カードへ錬金せよ！</h3>
-          <label class="quest-item__toggle">
-            <input type="checkbox" data-quest-toggle="consolidateCard" aria-label="クレジットカードの還元率と年会費を確認する">
-            <span>🎉 浄化完了（カード錬金）</span>
-          </label>
-        </div>
-        <p class="quest-item__summary">リボ払いの確認・使っていないカードの整理・メインカード集約</p>
-        <p class="quest-item__description">知らずに損しがちなリボ払い（手数料は年15%前後になることが多い呪い）や、使っていない年会費有料カードを浄化！還元率1%以上のカードに集約し、日常の買い物を効率的なゴールド錬金に変えよう！</p>
-        <details class="quest-item__basis">
-          <summary>⚔️ 利用明細を点検する</summary>
-          <p>年間150万円の利用で還元率が0.5%の場合、還元率1%のカードとの差額は年間7,500円になります。これに使っていないカードの年会費が加わると、差はさらに広がります。なおリボ払いは手数料が年15%前後になることが多く、還元率の差より影響が大きくなります。</p>
-          <ul class="quest-item__talkscript">
-            <li>リボ払い（自動リボ設定を含む）になっていないか ※最優先で確認してください</li>
-            <li>年会費と、その無料条件（年1回の利用など）</li>
-            <li>貯まっているポイントの有効期限と、使い道があるか</li>
-            <li>公共料金・サブスクの引落先に指定していないか</li>
-            <li>解約する場合、ポイントを使い切ってから手続きしているか</li>
-            <li>長く保有しているカードを解約すると信用情報に影響する可能性があること</li>
-          </ul>
-          <p class="quest-item__disclaimer">年会費・付帯保険・ポイントの使い道により総合的な優劣は変わります。</p>
-        </details>
-      </li>
-
-      <li class="quest-item" data-quest-id="cancelSubscription">
-        <div class="quest-item__head">
-          <h3 class="quest-item__title">【潜む吸血魔素の追放】使っていないサブスクを断ち切れ！</h3>
-          <label class="quest-item__toggle">
-            <input type="checkbox" data-quest-toggle="cancelSubscription" aria-label="利用していないサブスクがないか確認する">
-            <span>🎉 追放完了（契約整理）</span>
-          </label>
-        </div>
-        <p class="quest-item__summary">未利用サブスク（動画・音楽配信等）の整理</p>
-        <p class="quest-item__description">月に数回しか使っていない動画・音楽配信は、手取りをじわじわ奪う吸血魔素！カード明細から幽霊サブスクを発見し、今の自分に必要なものだけを残して契約を整理しよう！</p>
-        <details class="quest-item__basis">
-          <summary>⚔️ サブスク一覧を洗い出す</summary>
-          <p>選択されたプランの月額合計（§6.2.12 の価格データに基づく概算）。同じカテゴリで複数契約している場合や、Amazon プライムと Prime Video のように会費が重複している場合は特に確認の余地があります。</p>
-          <ul class="quest-item__talkscript">
-            <li>最後に利用した日はいつか（各サービスの視聴履歴で確認できます）</li>
-            <li>年額プランの場合、次回更新日と中途解約時の返金の可否</li>
-            <li>App Store / Google Play 経由の課金か（その場合は各ストアから手続きが必要です）</li>
-            <li>無料体験中でないか。体験終了日はいつか</li>
-            <li>解約後、ダウンロード済みのコンテンツが視聴できなくなるか</li>
-            <li>通信キャリアのセット割やポイント還元の対象になっていないか</li>
-          </ul>
-          <p class="quest-item__disclaimer">年額プランの場合、解約時期により返金の扱いが異なります。</p>
-        </details>
-      </li>
-
-      <li class="quest-item" data-quest-id="changeBank">
-        <div class="quest-item__head">
-          <h3 class="quest-item__title">【手数料毒の無効化】ゼロフリーバンクを開放せよ！</h3>
-          <label class="quest-item__toggle">
-            <input type="checkbox" data-quest-toggle="changeBank" aria-label="銀行の手数料無料条件を確認する">
-            <span>🎉 毒無効化（エリア解放）</span>
-          </label>
-        </div>
-        <p class="quest-item__summary">ATM・他行振込手数料が無料になる銀行への切り替え</p>
-        <p class="quest-item__description">時間外ATM利用や他行振込で毎月払っている手数料は、手取りを蝕む毒ダメージ！残高や給与振込の条件に応じて一定回数まで手数料が無料になる銀行へ給与・引き落とし口座を紐付け、無駄な出費を抑えよう！</p>
-        <details class="quest-item__basis">
-          <summary>⚔️ 手数料発生状況を見る</summary>
-          <p>時間外・土日祝のATM利用が1回110〜220円、他行宛のネット振込が1回220円の場合、月にATM3回・振込2回で月額770円、年間では9,240円になります。多くのネット銀行は、残高や給与振込の有無に応じて一定回数まで無料としています。なおメガバンクでも他行宛のネット振込が一律110円の銀行があります。</p>
-          <ul class="quest-item__talkscript">
-            <li>勤務先に給与振込口座の金融機関指定があるか</li>
-            <li>現在利用中の銀行の無料回数と、その条件（ステージ制の判定基準）</li>
-            <li>家賃・クレジットカード・公共料金の引落口座を変更する手続きの手間</li>
-            <li>移行先の無料回数の条件（残高いくら以上か、給与振込が必要か）</li>
-            <li>ATMの利用時間帯による手数料の差（平日日中は原則無料の銀行が多い）</li>
-          </ul>
-          <p class="quest-item__disclaimer">給与振込口座の指定がある場合は勤務先の規定をご確認ください。</p>
-        </details>
-      </li>
-
-      <li class="quest-item" data-quest-id="startNisa">
-        <div class="quest-item__head">
-          <h3 class="quest-item__title">【未来の金貨を育てる魔法】NISAの宝箱を解放せよ！</h3>
-          <label class="quest-item__toggle">
-            <input type="checkbox" data-quest-toggle="startNisa" aria-label="NISA口座の開設を検討する">
-            <span>🎉 宝箱解放（内容を確認）</span>
-          </label>
-        </div>
-        <p class="quest-item__summary">見直しで生まれた資金の置き場としてNISAを検討する</p>
-        <p class="quest-item__description">固定費の見直しで回収した手取りゴールドの置き場として、運用益が非課税になる「NISA」という宝箱がある！制度の内容と準備手順を確認しよう。（※まずは生活防衛資金の確保が最優先。元本は保証されず、損失が出る可能性もあります）</p>
-        <details class="quest-item__basis">
-          <summary>⚔️ 制度と準備手順を見る</summary>
-          <p>通常、投資で得た利益には20.315%が課税されますが、NISA口座での運用益は非課税となります（2026年8月時点）。ただし元本は保証されず、損失が出た場合に他の口座の利益と損益通算することもできません。</p>
-          <ul class="quest-item__talkscript">
-            <li>生活防衛資金（生活費の3〜6ヶ月分）を預貯金で確保できているか ※最優先</li>
-            <li>既にNISA口座を持っていないか（1人1口座のため重複開設はできません）</li>
-            <li>勤務先に金融機関等の届出義務がないか（金融機関等にお勤めの場合）</li>
-            <li>毎月の積立額が家計を圧迫しない範囲か</li>
-            <li>当面使う予定のない資金かどうか</li>
-            <li>元本保証ではないことを理解しているか</li>
-          </ul>
-          <p class="quest-item__disclaimer">過去の市場平均に基づく仮定値であり、将来の運用成果を保証するものではありません。</p>
-        </details>
-      </li>
-    </ul>
+    <!-- クエストは js/selectors.js buildQuestList() の結果から js/ui.js が動的生成する
+         （固定費クエスト＋クレジットカードクエスト。QUEST_CATALOG の静的転記ではない）。
+         0件の場合は伝説の勇者カードを表示する（data-legendary-hero）。 -->
+    <ul class="quest-list" data-quest-list></ul>
+    <div class="card card--legendary" data-legendary-hero hidden></div>
   </section>
 
   <!-- ============================================================
@@ -902,18 +794,14 @@
     <!-- ★capture-safe クラスは captureCard() がキャプチャ処理中だけ動的に付与する（§4.4）。
          html2canvas非対応プロパティ(backdrop-filter/filter/box-shadow等)を無効化するため。 -->
     <div class="card karte" id="karte-capture-target">
-      <p class="karte__level">Lv.<span data-bind="text:moneyLevel">1</span>
-        <span style="font-size:var(--fs-sm); color:var(--c-text-mute);">
-          （+<span data-bind="text:bonusLevel">0</span> ボーナス）
-        </span>
-      </p>
-      <p class="karte__rank" data-bind="text:rankTitle">手取り見習い市民</p>
+      <p class="karte__level">Lv.<span data-bind="text:displayLevel">10</span></p>
+      <p class="karte__rank" data-bind="text:rankTitle">見習い冒険者</p>
       <!-- ★data-capture-amount：saveKarte()がマスク設定を見て、キャプチャ処理中だけ
            テキストを「非公開」に差し替える対象。画面表示自体は常に金額のまま（マスクは画像のみ）。 -->
       <p class="karte__amount" data-capture-amount>
-        年間で手取りが
-        <strong class="karte__amount-value" data-bind="text:annualGainFormatted">0</strong> 円
-        増える潜在能力があります
+        解呪済みクエストの合計で月額
+        <strong class="karte__amount-value" data-bind="text:completedSavingFormatted">0</strong> 円
+        の手取りを取り戻しました
         <small class="karte__disclaimer">
           （試算値です。実際の給付額・控除額とは異なる可能性があります）
         </small>
@@ -933,9 +821,13 @@
     </div>
 
     <div class="field spell-restore">
-      <input type="text" class="input" placeholder="TQ1-...（呪文を貼り付け）" aria-label="魔法の呪文を貼り付けて復元" id="in-spell-code">
+      <input type="text" class="input" placeholder="TQ2-...（呪文を貼り付け）" aria-label="魔法の呪文を貼り付けて復元" id="in-spell-code">
       <button type="button" class="btn btn--ghost" data-action="restoreSpell">復元</button>
     </div>
+
+    <button type="button" class="btn btn--ghost btn--block" style="margin-top:1.5rem;" data-action="resetAdventure">
+      🔄 冒険を最初から始める
+    </button>
   </section>
 
   <!-- §7.4：法定表示（privacy.html）へは全ページのフッターからリンクする -->

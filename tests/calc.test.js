@@ -8,22 +8,20 @@ import { selectors } from '../js/selectors.js';
 // このフェーズ（Phase 1b）の対象: TEST-01〜30, 52〜54, 56, 70〜78, 81〜83
 // 対象外: TEST-31〜51（feedback.js / store.js 側。Phase 2・6 で実装）
 
-// selectors 系テスト用のヘルパ。IMMEDIATE の smartphone だけに差額を持たせ、
-// 他の5項目とサブスクは差額ゼロにすることで、任意の annualGain を持つ State を作る。
-function buildGainState({ annualGain = 0, initialLevel = C.LEVEL_MIN, bonus = false } = {}){
-  const monthlyGain = annualGain / 12;
+// selectors 系テスト用のヘルパ（Phase1〜4改修・2026-08-07：新Stateスキーマに対応）。
+function buildState(overrides = {}){
   return {
     userProfile: { grossSalary: 0, age: 0, yearsOfService: 0 },
     fixedCosts: {
-      smartphone: monthlyGain, subscriptions: 0, fireInsurance: 0,
-      medicalInsurance: 0, bankFee: 0, cardReward: 0, rent: 0
+      smartphone: 0, internetProvider: 'none', internetMonthly: null,
+      medicalInsurance: 0, fireInsurance: 0,
+      nhkPlan: 'none', hasCar: false, carInsurance: 0, parking: 0, rent: 0
     },
-    optimized: {
-      smartphone: 0, subscriptions: 0, fireInsurance: 0,
-      medicalInsurance: 0, bankFee: 0, cardReward: 0
-    },
+    creditCards: { main: null, sub: null, others: [] },
+    quests: { completed: {} },
     selections: { subscriptionPlanIds: [], otherSubscriptions: [] },
-    meta: { initialLevel, feedbackBonusGranted: bonus }
+    meta: { initialLevel: null, currentLevel: null, feedbackBonusGranted: false },
+    ...overrides
   };
 }
 
@@ -155,88 +153,165 @@ describe('8.3 手取り・社会保険料', () => {
   });
 });
 
-describe('8.4 レベル・称号', () => {
-  test('TEST-22: 空入力（全項目null）→ Lv.1（NaNを返さない）', () => {
-    const nullState = {
-      userProfile: { grossSalary: null, age: null, yearsOfService: null },
-      fixedCosts: {
-        smartphone: null, subscriptions: null, fireInsurance: null,
-        medicalInsurance: null, bankFee: null, cardReward: null, rent: null
-      },
-      optimized: {
-        smartphone: null, subscriptions: null, fireInsurance: null,
-        medicalInsurance: null, bankFee: null, cardReward: null
-      },
-      selections: { subscriptionPlanIds: [], otherSubscriptions: [] },
-      meta: { initialLevel: null, feedbackBonusGranted: null }
-    };
-    assert.equal(selectors.moneyLevel(nullState), C.LEVEL_MIN);
+describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）', () => {
+  test('PHASE2-01: 初期レベル算出式 floor((手取り+固定費合計)/20000)+10', () => {
+    assert.equal(calc.calcInitialLevel(0, 0), 10);
+    assert.equal(calc.calcInitialLevel(220000, 20000), Math.floor(240000/20000)+10);
+    assert.equal(calc.calcInitialLevel(19999, 0), 10);   // 端数は切り捨て
+    assert.equal(calc.calcInitialLevel(20000, 0), 11);
   });
 
-  test('TEST-23: 負の増額でも下限クランプでLv.1を下回らない', () => {
-    // ★monthlyGain は各項目を Math.max(0, delta) でクランプするため、
-    //   State 経由では annualGain が負値になることは無い。
-    //   見直し後の額が見直し前より高い（改悪）状態を与え、
-    //   moneyLevel() の下限クランプ（Math.max(LEVEL_MIN, ...)）が
-    //   機能することを確認する。
-    const state = buildGainState({ annualGain: 0 });
-    state.optimized.smartphone = 50000;   // 見直し前(0)より高くする
-    assert.equal(selectors.moneyLevel(state), 1);
+  test('PHASE2-02: 初期レベルは負値入力でも下限10を下回らない', () => {
+    assert.equal(calc.calcInitialLevel(-100, -100), 10);
   });
 
-  test('TEST-24: 5,000円境界（4,999→Lv.1／5,000→Lv.2）', () => {
-    assert.equal(selectors.moneyLevel(buildGainState({ annualGain: 4999 })), 1);
-    assert.equal(selectors.moneyLevel(buildGainState({ annualGain: 5000 })), 2);
+  test('PHASE2-03: 役職テーブルの境界（Lv.19/20, 29/30, 39/40）', () => {
+    const titleAt = lv => C.RANK_TABLE_V2.find(r => lv >= r.min && lv <= r.max).title;
+    assert.equal(titleAt(10), '見習い冒険者');
+    assert.equal(titleAt(19), '見習い冒険者');
+    assert.equal(titleAt(20), '駆け出しの騎士');
+    assert.equal(titleAt(29), '駆け出しの騎士');
+    assert.equal(titleAt(30), '中堅の魔導士');
+    assert.equal(titleAt(39), '中堅の魔導士');
+    assert.equal(titleAt(40), 'ベテラン大賢者');
+    assert.equal(titleAt(999), 'ベテラン大賢者');
   });
 
-  test('TEST-25: 上限クランプ（年間増額99,999,999円→Lv.999）', () => {
-    assert.equal(selectors.moneyLevel(buildGainState({ annualGain: 99999999 })), 999);
+  test('PHASE2-04: レベルアップ抽選（5,000円ちょうど→端数0・クリティカルなし）', () => {
+    const r = calc.rollLevelUp(10, 15000, () => 0);   // rng=0でも remainder=0 なら発火しない
+    assert.equal(r.baseUp, 3);
+    assert.equal(r.remainder, 0);
+    assert.equal(r.isCritical, false);
+    assert.equal(r.finalLevel, 13);
   });
 
-  test('TEST-26: 称号境界（Lv.5/6, 15/16, 30/31, 49/50）', () => {
-    const titleAt = lv => selectors.rank(buildGainState({ annualGain: (lv - 1) * C.LEVEL_UNIT })).title;
-    assert.equal(titleAt(5),  '手取り見習い市民');
-    assert.equal(titleAt(6),  '駆け出し節約剣士');
-    assert.equal(titleAt(15), '駆け出し節約剣士');
-    assert.equal(titleAt(16), '公的保障の騎士');
-    assert.equal(titleAt(30), '公的保障の騎士');
-    assert.equal(titleAt(31), '手取り防衛の大魔導士');
-    assert.equal(titleAt(49), '手取り防衛の大魔導士');
-    assert.equal(titleAt(50), '伝説の手取り勇者');
+  test('PHASE2-05: レベルアップ抽選（端数ありでrng=0→クリティカル発動）', () => {
+    const r = calc.rollLevelUp(10, 12000, () => 0);   // remainder=2000, chance=0.4, rng=0<0.4
+    assert.equal(r.baseUp, 2);
+    assert.equal(r.remainder, 2000);
+    assert.equal(r.isCritical, true);
+    assert.equal(r.finalLevel, 13);
   });
 
-  test('TEST-27: 家賃のレベル除外（家賃超過のみ→annualGain=0／Lv.1）', () => {
-    const state = buildGainState({ annualGain: 0 });
-    state.fixedCosts.rent = 90000;   // rent は IMMEDIATE に含まれないため無関係
-    assert.equal(selectors.annualGain(state), 0);
-    assert.equal(selectors.moneyLevel(state), 1);
+  test('PHASE2-06: レベルアップ抽選（端数ありでrng=0.99→クリティカル不発）', () => {
+    const r = calc.rollLevelUp(10, 12000, () => 0.99);
+    assert.equal(r.isCritical, false);
+    assert.equal(r.finalLevel, 12);
   });
 
-  test('TEST-28: レベル遷移差分（前Lv.12／後Lv.15→差分+3）', () => {
-    const state = buildGainState({ annualGain: 70000, initialLevel: 12 });
-    assert.equal(selectors.moneyLevel(state), 15);
-    assert.equal(selectors.levelDelta(state), 3);
-  });
-
-  test('TEST-29: 3層の分離（moneyLevel:25 かつ displayLevel:26）', () => {
-    const state = buildGainState({ annualGain: 120000, bonus: true });
-    assert.equal(selectors.moneyLevel(state), 25);
-    assert.equal(selectors.bonusLevel(state), 1);
-    assert.equal(selectors.displayLevel(state), 26);
-  });
-
-  test('TEST-56: シェア文面に金額を含めない（moneyLevelのみ使用）', () => {
-    const state = buildGainState({ annualGain: 600000 });
-    const text = selectors.shareText(state);
-    assert.ok(!text.includes('600,000'));
-    assert.ok(!text.includes('600000'));
+  test('PHASE2-07: シェア文面に金額を含めない（クエスト名のみ使用）', () => {
+    const state = buildState({
+      userProfile: { grossSalary: 300000, age: 30, yearsOfService: 2 },
+      fixedCosts: { ...buildState().fixedCosts, smartphone: 8000 },
+      meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false }
+    });
+    const text = selectors.shareTextV2(state);
+    assert.ok(!/[0-9],[0-9]{3}/.test(text));   // 3桁区切りの金額表記が含まれない
     assert.ok(!text.includes('円'));
-    assert.match(text, /Lv\.121/);
-    assert.match(text, /伝説の手取り勇者/);
+    assert.match(text, /Lv\.10/);
+    assert.match(text, /見習い冒険者/);
   });
 
-  test('TEST-30: 次レベルまでの残額（年間増額12,300円→2,700円）', () => {
-    assert.equal(selectors.nextLevelGap(buildGainState({ annualGain: 12300 })), 2700);
+  test('PHASE2-08: クエスト0件時は伝説の勇者用のシェア文面になる', () => {
+    const state = buildState({ meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false } });
+    const text = selectors.shareTextV2(state);
+    assert.ok(text.includes(C.LEGENDARY_HERO.mainTitle));
+  });
+});
+
+describe('Phase2 固定費クエスト・クレジットカードクエストの自動判定', () => {
+  test('PHASE2-09: 固定費クエスト（現状価格－理想の目標値、正のみ採用）', () => {
+    const results = calc.evaluateFixedCostQuests({
+      smartphone: 8000,          // 理想2,000 → 差6,000
+      internetMonthly: 0,        // 契約なし扱い → 差0（採用されない）
+      medicalInsurance: 0,       // 理想0 → 差0
+      fireInsurance: 833,        // 理想400 → 差433
+      subscriptions: 0,
+      nhkMonthly: 1100,          // 理想0 → 差1,100
+      hasCar: false, carInsurance: 0
+    });
+    const byCat = Object.fromEntries(results.map(r => [r.category, r.monthlySaving]));
+    assert.equal(byCat.smartphone, 6000);
+    assert.equal(byCat.fireInsurance, 433);
+    assert.equal(byCat.nhk, 1100);
+    assert.equal(byCat.internet, undefined);
+    assert.equal(byCat.parking, undefined);   // 駐車場代は判定対象外
+  });
+
+  test('PHASE2-10: 自動車保険は hasCar=false の場合クエスト化されない', () => {
+    const results = calc.evaluateFixedCostQuests({
+      smartphone: 0, internetMonthly: 0, medicalInsurance: 0, fireInsurance: 0,
+      subscriptions: 0, nhkMonthly: 0, hasCar: false, carInsurance: 9000
+    });
+    assert.equal(results.find(r => r.category === 'carInsurance'), undefined);
+  });
+
+  test('PHASE2-11: 推定カード決済額（固定費合計＋(手取り-固定費)×0.6）', () => {
+    const r = calc.estimateCardSpend(50000, 200000);
+    assert.equal(r.monthly, 50000 + Math.floor((200000-50000)*0.6));
+    assert.equal(r.annual, r.monthly * 12);
+  });
+
+  test('PHASE2-12: パターンA（メインがstandard）→ 節約可能額 = floor(floor(年間決済額×0.01)/12)', () => {
+    const main = { id:'x', category:'standard' };
+    const results = calc.evaluateCreditCardQuests({ main, sub:null, others:[] }, 1200000);
+    const a = results.find(r => r.pattern === 'A');
+    assert.equal(a.monthlySaving, Math.floor(Math.floor(1200000*0.01)/12));
+  });
+
+  test('PHASE2-13: パターンB（その他保有カードの年会費合計）', () => {
+    const others = [{ id:'a', annualFee:5000 }, { id:'b', annualFee:0 }, { id:'c', annualFee:3000 }];
+    const results = calc.evaluateCreditCardQuests({ main:null, sub:null, others }, 0);
+    const b = results.find(r => r.pattern === 'B');
+    assert.equal(b.monthlySaving, Math.floor(8000/12));
+    assert.equal(b.cards.length, 2);   // 年会費0円のカードは対象外
+  });
+
+  test('PHASE2-14: パターンC（100万円未達）→ 節約可能額 = floor((年会費+年間決済額×0.005)/12)', () => {
+    const main = { id:'x', category:'specialty', is1M_Challenge:true, annualFee:5500, breakEvenAmount:1000000 };
+    const results = calc.evaluateCreditCardQuests({ main, sub:null, others:[] }, 800000);
+    const c = results.find(r => r.pattern === 'C');
+    assert.equal(c.monthlySaving, Math.floor((5500 + 800000*0.005)/12));
+  });
+
+  test('PHASE2-15: パターンC不発（100万円以上決済済み）', () => {
+    const main = { id:'x', category:'specialty', is1M_Challenge:true, annualFee:5500, breakEvenAmount:1000000 };
+    const results = calc.evaluateCreditCardQuests({ main, sub:null, others:[] }, 1000000);
+    assert.equal(results.find(r => r.pattern === 'C'), undefined);
+  });
+
+  test('PHASE2-16: パターンD（損益分岐点未達）→ 節約可能額 = floor(年会費/12)', () => {
+    const sub = { id:'y', category:'specialty', annualFee:16500, breakEvenAmount:1500000, isStatusCard:false };
+    const results = calc.evaluateCreditCardQuests({ main:null, sub, others:[] }, 1000000);
+    const d = results.find(r => r.pattern === 'D');
+    assert.equal(d.monthlySaving, Math.floor(16500/12));
+  });
+
+  test('PHASE2-17: パターンD不発（聖域カード isStatusCard:true は除外）', () => {
+    const sub = { id:'z', category:'specialty', annualFee:16500, breakEvenAmount:1000000, isStatusCard:true };
+    const results = calc.evaluateCreditCardQuests({ main:null, sub, others:[] }, 0);
+    assert.equal(results.find(r => r.pattern === 'D'), undefined);
+  });
+
+  test('PHASE2-18: 足切りルール（500円未満のクエストはbuildQuestListから除外）', () => {
+    const state = buildState({
+      fixedCosts: { ...buildState().fixedCosts, medicalInsurance: 4300 } // 理想0→差4,300円は採用
+    });
+    const withSmall = buildState({
+      fixedCosts: { ...buildState().fixedCosts, medicalInsurance: 400 } // 差400円は足切り対象
+    });
+    assert.ok(selectors.buildQuestList(state).some(q => q.monthlySaving === 4300));
+    assert.equal(selectors.buildQuestList(withSmall).length, 0);
+  });
+
+  test('PHASE2-19: buildQuestListは節約可能額の降順でソートされる', () => {
+    const state = buildState({
+      fixedCosts: { ...buildState().fixedCosts, smartphone: 8000, fireInsurance: 5000 }
+    });
+    const list = selectors.buildQuestList(state);
+    for (let i = 1; i < list.length; i++){
+      assert.ok(list[i-1].monthlySaving >= list[i].monthlySaving);
+    }
   });
 });
 
@@ -332,7 +407,7 @@ describe('8.7 追加ロジック', () => {
   });
 
   test('TEST-83: サブスク総額の統合（プラン2件＋その他1件）', () => {
-    const state = buildGainState({ annualGain: 0 });
+    const state = buildState();
     state.selections.subscriptionPlanIds = ['netflix_standard', 'primevideo_general'];
     state.selections.otherSubscriptions  = [{ label: 'x', monthly: 8000 }];
     assert.equal(selectors.subscriptionTotal(state), 10190);

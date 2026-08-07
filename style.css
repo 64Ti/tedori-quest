@@ -372,6 +372,46 @@ textarea.input{text-align:left; resize:vertical; min-height:88px;}
 }
 .policy-updated{color:var(--c-text-mute); font-size:var(--fs-xs); margin-top:var(--sp-1);}
 
+/* ===== ⑮ 固定費の2段階目標バー（Phase2.1改修） ===== */
+.cost-bar{margin-top:var(--sp-3);}
+.cost-bar__track{
+  position:relative; height:10px; background:var(--c-border);
+  border-radius:var(--radius-full); overflow:hidden;
+}
+.cost-bar__fill{
+  height:100%; background:var(--c-brand);
+  width:var(--progress, 0%);
+  transition:width var(--dur) var(--ease);
+}
+.cost-bar__marker{
+  position:absolute; top:0; bottom:0; width:2px;
+  background:rgba(226,232,240,.7); transform:translateX(-50%);
+}
+.cost-bar__marker--ideal{background:var(--c-accent);}
+.cost-bar__legend{
+  display:flex; justify-content:space-between; margin-top:var(--sp-1);
+  font-size:var(--fs-xs); color:var(--c-text-mute);
+}
+
+/* ===== ⑯ クレジットカード選択UI（Phase1.5改修） ===== */
+.card-checklist{display:flex; flex-direction:column; gap:var(--sp-2); margin-top:var(--sp-2);}
+.card-checklist label{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
+.card-checklist input{width:20px; height:20px; flex-shrink:0;}
+
+/* ===== ⑰ クエスト一覧の追加要素（Phase2〜3改修） ===== */
+.quest-item__saving{
+  font-size:var(--fs-base); font-weight:800; color:var(--c-accent); white-space:nowrap;
+}
+.quest-item__toggle{margin-top:var(--sp-3);}
+
+/* ===== ⑱「伝説の勇者」専用カード（Phase4.1） ===== */
+.card--legendary{
+  border:2px solid var(--c-accent); text-align:center; margin-top:var(--sp-3);
+  box-shadow:0 0 24px rgba(245,158,11,.25);
+}
+.card--legendary__title{font-size:var(--fs-lg); font-weight:800; color:var(--c-accent);}
+.card--legendary__subtitle{margin-top:var(--sp-2); color:var(--c-text-mute); font-size:var(--fs-sm);}
+
 /* ===== ⑭ アクセシビリティ／モーション配慮 ===== */
 .visually-hidden{
   position:absolute; width:1px; height:1px; padding:0; margin:-1px;

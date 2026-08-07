@@ -5,10 +5,15 @@
 import * as C from './config.js';
 
 export const INITIAL_STATE = {
-  schemaVersion: 1,                       // ★必須。無いと次回更新で全ユーザーのデータが飛ぶ
+  schemaVersion: 2,                       // ★必須。無いと次回更新で全ユーザーのデータが飛ぶ
+                                          //   Phase1〜4改修（2026-08-07）でv1→v2。
+                                          //   deepMerge が旧キー（optimized・cardReward・todoStatus等）を
+                                          //   自動的に無視し、新キーは初期値で補完するため専用の
+                                          //   MIGRATIONS 関数は不要（構造的に安全に移行できる）
 
   meta: {
-    initialLevel: null,                   // STEP1完了時に一度だけ確定。以後不変
+    initialLevel: null,                   // 固定費入力を終えSTEP1完了時に一度だけ確定。以後不変
+    currentLevel: null,                   // クエスト解呪ごとに再算出される現在レベル（未解呪時はnull＝initialLevelと同値扱い）
     feedbackBonusGranted: false,          // ★生涯1回。呪文にも含める
     createdAt: null, lastOpenedAt: null, hasCompletedStep1: false
   },
@@ -18,8 +23,6 @@ export const INITIAL_STATE = {
     age: null,                            // 介護保険料の年齢判定用
     prefecture: 'osaka',
     insuranceType: 'association',         // 'association' | 'kumiai'
-    kumiaiAverage: null,                  // 組合の平均標準報酬月額（傷病手当金用）
-    fukaKyufuCap: null,                   // 付加給付。組合かつユーザー入力時のみ有効
     yearsOfService: 1,                    // 住民税1年目非課税の判定
     isUnderOneYear: false,                // 健保加入12ヶ月未満
     isResidentTaxExempt: false,           // 高額療養費 区分オ 判定
@@ -27,27 +30,31 @@ export const INITIAL_STATE = {
     hourlyWage: null                      // タイパ換算用
   },
 
-  fixedCosts: {                           // 現状（Before）
-    rent:null, fireInsurance:null, smartphone:null,
-    medicalInsurance:null, subscriptions:null, bankFee:null, cardReward:null
-  },
-
-  optimized: {                            // 見直し後（After）
-    fireInsurance:null, smartphone:null,
-    medicalInsurance:null, subscriptions:null, bankFee:null, cardReward:null
+  fixedCosts: {                           // 現状（Phase1.3改修：「見直し後」欄は廃止）
+    rent:null, fireInsurance:null, smartphone:null, medicalInsurance:null,
+    internetProvider: C.INTERNET_DEFAULT, internetMonthly:null,   // 光回線（契約なし時は入力欄を隠す）
+    nhkPlan: C.NHK_DEFAULT,                                       // NHK受信料プラン
+    hasCar:false, carInsurance:null, parking:null,                // 自動車保険・駐車場代（車ありの時のみ）
+    bankFee:null                          // ★Phase1.4：入力欄は非表示（保留）。新方式では算入しない
   },
 
   // ★§4.1b の data-model 契約表には finance.atmCountOffHours / finance.transferCount が
   //   定義されているが、§6.5 の INITIAL_STATE 例には finance 名前空間が無かった（Phase 3 で
-  //   報告済みの齟齬）。銀行手数料の損失計算（calcBankFeeLoss）の入力として必要なため追加する。
+  //   報告済みの齟齬）。Phase1.4により銀行手数料カードは非表示（保留）となったため現在は未使用。
   finance: {
     atmCountOffHours: null,               // 時間外・土日祝のATM利用回数（月）
     transferCount: null                   // 他行宛ネット振込の回数（月）
   },
 
-  todoStatus: {
-    changeFireInsurance:false, changeSim:false, cancelMedicalInsurance:false,
-    consolidateCard:false, cancelSubscription:false, startNisa:false, changeBank:false
+  // クレジットカード（Phase1.5：メイン1枚必須・サブ1枚任意・その他複数任意）
+  creditCards: {
+    main: null, sub: null, others: []     // js/creditCards.js の CreditCard.id
+  },
+
+  // クエスト解呪状態（Phase2〜3）。key=クエストid、value=解呪した瞬間の月間節約可能額（円）。
+  // ★金額を固定して保存することで、解呪後に入力を変更してもレベル計算が遡って変わらないようにする
+  quests: {
+    completed: {}
   },
 
   selections: {
@@ -60,7 +67,7 @@ export const INITIAL_STATE = {
   betaFeedback: { ratingSubmitted:false, lastRating:null }
 
   // ★以下は絶対に保存しない（selectors.js で都度算出）
-  //   currentLevel / moneyLevel / displayLevel / title / avatarKey / annualGain
+  //   currentLevel / rank / fixedCostsTotal 等の派生値
   //   fixedCosts.subscriptions の合計額（選択IDのみを保持し、金額は都度算出する）
 };
 
@@ -221,8 +228,8 @@ export const state = deepReactive(migrate(loadRaw()), (p, v) => { notify(p, v); 
 export function encodeSpell(s){
   const payload = {
     v: s.schemaVersion,
-    m: { il: s.meta.initialLevel, fb: s.meta.feedbackBonusGranted },
-    u: s.userProfile, f: s.fixedCosts, o: s.optimized, t: s.todoStatus,
+    m: { il: s.meta.initialLevel, cl: s.meta.currentLevel, fb: s.meta.feedbackBonusGranted },
+    u: s.userProfile, f: s.fixedCosts, cc: s.creditCards, q: s.quests,
     s: s.selections,                   // ★サブスク選択も復元対象（§3.9）
     fn: s.finance                      // ATM・振込回数も復元対象に含める
   };
@@ -257,8 +264,9 @@ export function restoreFromSpell(code){
   const { data } = decodeSpell(code);   // 形式不正等はここで例外を投げる
   const raw = {
     schemaVersion: data.v,
-    meta: { initialLevel: data.m?.il ?? null, feedbackBonusGranted: Boolean(data.m?.fb) },
-    userProfile: data.u, fixedCosts: data.f, optimized: data.o, todoStatus: data.t,
+    meta: { initialLevel: data.m?.il ?? null, currentLevel: data.m?.cl ?? null,
+            feedbackBonusGranted: Boolean(data.m?.fb) },
+    userProfile: data.u, fixedCosts: data.f, creditCards: data.cc, quests: data.q,
     selections: data.s, finance: data.fn
   };
   return migrate(raw);                  // 呪文に無い項目（betaFeedback等）は初期値で補完される
