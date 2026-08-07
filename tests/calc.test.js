@@ -217,6 +217,57 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
     assert.ok(text.includes(C.LEGENDARY_HERO.mainTitle));
   });
 
+  // ★固定費入力済み（fixedCostsTotal>0）かつクエスト0件＝「見直す余地のない完璧な家計」を作るための
+  //   ヘルパ。全項目を理想の目標値ちょうどに設定し、ギャップ（節約可能額）を0にする。
+  function buildLegendaryState(overrides = {}){
+    return buildState({
+      userProfile: { annualSalary: 3600000, age: 30 },
+      fixedCosts: {
+        smartphone: 2000, internetMonthly: 0,
+        medicalInsurance: 0, fireInsurance: 400,
+        nhkPlan: 'none', hasCar: false, carInsurance: 0, parking: 0, rent: 0
+      },
+      meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false },
+      ...overrides
+    });
+  }
+
+  test('LEGENDARY-01: 固定費入力済みでクエスト0件はisLegendaryHeroがtrueになる', () => {
+    const state = buildLegendaryState();
+    assert.equal(selectors.buildQuestList(state).length, 0);
+    assert.ok(selectors.isLegendaryHero(state));
+  });
+
+  test('LEGENDARY-02: 何も入力していない初期状態（fixedCostsTotal=0）はisLegendaryHeroがfalseのまま', () => {
+    const state = buildState({ meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false } });
+    assert.equal(selectors.buildQuestList(state).length, 0);
+    assert.ok(!selectors.isLegendaryHero(state));
+  });
+
+  test('LEGENDARY-03: 伝説の勇者状態ではcurrentLevelが通常の計算式によらずLv.99に固定される', () => {
+    const state = buildLegendaryState({ meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false } });
+    assert.equal(selectors.currentLevel(state), C.LEGENDARY_LEVEL);
+    assert.equal(C.LEGENDARY_LEVEL, 99);
+  });
+
+  test('LEGENDARY-04: 伝説の勇者状態では役職が「伝説の勇者」に上書きされる', () => {
+    const state = buildLegendaryState();
+    assert.equal(selectors.rankV2(state).title, C.LEGENDARY_RANK_TITLE);
+    assert.equal(C.LEGENDARY_RANK_TITLE, '伝説の勇者');
+  });
+
+  test('LEGENDARY-05: 伝説の勇者状態ではヘッダーゲージが常にMAX（100%）になる', () => {
+    const state = buildLegendaryState();
+    assert.equal(selectors.headerProgressPct(state), 100);
+  });
+
+  test('LEGENDARY-06: 伝説の勇者状態のシェア文面は「Lv.99 の 伝説の勇者」で統一される', () => {
+    const state = buildLegendaryState();
+    const text = selectors.shareTextV2(state);
+    assert.ok(text.includes('Lv.99'));
+    assert.ok(text.includes('伝説の勇者'));
+  });
+
   test('FEEDBACK-01: 年収セレクトから月額報酬を算出する（monthlyGrossSalary）', () => {
     const state = buildState({ userProfile: { annualSalary: 4800000, age: 30 } });
     assert.equal(selectors.monthlyGrossSalary(state), 400000);

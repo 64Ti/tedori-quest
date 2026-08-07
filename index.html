@@ -60,7 +60,10 @@
         <button type="button" class="btn-icon" data-action="openFeedback" aria-label="ご意見・ご要望を送る">💬</button>
       </div>
     </div>
-    <div class="progress" data-level-gauge><div class="progress__fill" data-bind="progress:progressPct"></div></div>
+    <!-- ★EXPゲージ（画面1・2）とレベル進捗ゲージ（画面3・4）を統合した単一のゲージ（js/ui.js が管理）。
+         data-bind は使わず、updateExpGauge / syncHeaderGauge が state.meta.screen に応じて排他的に書き込む。 -->
+    <div class="progress" data-level-gauge><div class="progress__fill"></div></div>
+    <p class="app-header__gauge-label" data-header-gauge-label hidden></p>
   </div>
 </header>
 
@@ -73,12 +76,6 @@
     <h2>STEP 1 ／ プロフィール・収入</h2>
     <p class="section-lead">額面と最低限の条件だけで、まず概算レベルを確認しましょう。</p>
 
-    <!-- ★入力アクション連動のEXPゲージ。入力・選択のたびに js/app.js が伸ばす -->
-    <div class="exp-gauge" data-exp-gauge="1">
-      <div class="exp-gauge__track"><div class="exp-gauge__fill"></div></div>
-      <p class="exp-gauge__label">入力達成度 <span data-exp-gauge-pct="1">0</span>%</p>
-    </div>
-
     <div class="card">
       <div class="field">
         <label class="field__label" for="in-annualSalary">年収（額面・円）</label>
@@ -90,6 +87,15 @@
         <input id="in-age" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
                placeholder="28" autocomplete="off" enterkeyhint="done"
                data-model="userProfile.age" data-composing="0">
+      </div>
+      <div class="field">
+        <label class="field__label" for="in-area">お住まいのエリア</label>
+        <select id="in-area" class="input input--select" data-model="userProfile.area">
+          <option value="tokyo">東京都</option>
+          <option value="osaka">大阪府</option>
+          <option value="urban" selected>地方主要都市</option>
+          <option value="other">その他地域</option>
+        </select>
       </div>
       <div class="field">
         <div class="field__label-row">
@@ -125,12 +131,6 @@
   <section class="screen" data-screen="2" hidden>
     <h2>STEP 2 ／ 固定費入力</h2>
     <p class="section-lead">現状の金額を入力すると、全国平均・理想の目標値との差からクエストが自動生成されます。</p>
-
-    <!-- ★入力アクション連動のEXPゲージ -->
-    <div class="exp-gauge" data-exp-gauge="2">
-      <div class="exp-gauge__track"><div class="exp-gauge__fill"></div></div>
-      <p class="exp-gauge__label">入力達成度 <span data-exp-gauge-pct="2">0</span>%</p>
-    </div>
 
     <!-- --- 公的保障の診断（STEP1の収入から自動算出） --- -->
     <div class="card">
@@ -571,15 +571,6 @@
         ※ 家賃はレベルの計算に含まれません（引っ越し初期費用が高いため、参考情報として分離しています）。
       </p>
       <div class="field">
-        <label class="field__label" for="in-area">お住まいのエリア</label>
-        <select id="in-area" class="input input--select" data-model="userProfile.area">
-          <option value="tokyo">東京都</option>
-          <option value="osaka">大阪府</option>
-          <option value="urban" selected>地方主要都市</option>
-          <option value="other">その他地域</option>
-        </select>
-      </div>
-      <div class="field">
         <label class="field__label" for="in-rent">家賃（円）</label>
         <input id="in-rent" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
                placeholder="59,000" autocomplete="off" enterkeyhint="done"
@@ -656,7 +647,7 @@
     </div>
 
     <button type="button" class="btn btn--block" style="margin-top:1.5rem;" data-action="generateQuests">
-      クエストを生成する
+      クエストを見る
     </button>
     <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="goToScreen1">
       ← 戻る

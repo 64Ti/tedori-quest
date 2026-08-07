@@ -122,7 +122,6 @@ function buildViewModel(s){
     rentMeterPct,
     rentAveragePct,
     rentLimitPct,
-    progressPct: selectors.headerProgressPct(s),
     smartphoneJudge: smartphoneJudgeText(judge),
     hasSubscription
   };
@@ -294,11 +293,16 @@ function syncCreditCardUI(s){
 /**
  * 現在の画面（state.meta.screen）に応じて .screen の表示・非表示と
  * ボトムナビの活性状態／aria-current を同期する。
+ * ★ナビゲーションバグ修正（2026-08-08）：ボトムナビの活性判定は「今表示中の画面」
+ *   （state.meta.screen）ではなく「これまでに到達した最大の画面」（state.meta.maxScreen）で行う。
+ *   前者を使うと、一度結果画面まで進んでからSTEP1へ戻った瞬間に他タブが再びロックされ、
+ *   タブでの行き来ができなくなるバグがあった。
  * @param {object} s state
  * @returns {void}
  */
 function syncScreens(s){
   const current = Number(s.meta.screen) || 1;
+  const maxReached = Math.max(Number(s.meta.maxScreen) || 1, current);
   document.querySelectorAll('.screen[data-screen]').forEach(el => {
     const n = Number(el.dataset.screen);
     const next = n !== current;
@@ -306,7 +310,7 @@ function syncScreens(s){
   });
   document.querySelectorAll('[data-nav-screen]').forEach(btn => {
     const n = Number(btn.dataset.navScreen);
-    const reachable = n <= current;
+    const reachable = n <= maxReached;
     if (btn.disabled !== !reachable) btn.disabled = !reachable;
     const isCurrent = n === current;
     if (btn.getAttribute('aria-current') !== (isCurrent ? 'page' : null)){
@@ -548,6 +552,7 @@ function render(){
     syncConditionalFields(state);
     syncCreditCardUI(state);
     syncScreens(state);
+    syncHeaderGauge(state);
     renderQuestList(state);
 
     const step1Btn = document.querySelector('[data-requires-step1]');
@@ -748,30 +753,105 @@ export function triggerLevelUpEffect(){
   }, 600);
 }
 
+// ★ウィザードUI改修フォローアップ（2026-08-08）：STEP1・STEP2個別だったEXPゲージを
+//   ヘッダーの常時ゲージ（[data-level-gauge]）に統合した。画面3・4では同じ要素が
+//   レベル進捗ゲージとして機能する（syncHeaderGauge参照）。両者は「今どの画面にいるか」で
+//   排他的に持ち場を分ける。
+let lastLevelGaugePct = null;   // レベル進捗ゲージの巻き戻り（レベルアップ）検知用
+let gaugeAnimToken = 0;         // ★短時間に連続でレベルが変化した場合、古い巻き戻りアニメーションの
+                                //   完了処理（finish）が後から表示を巻き戻して上書きしてしまわないよう、
+                                //   同期のたびにトークンを更新し、自分のトークンが古くなっていたら何もしない
+
+/**
+ * ヘッダー統合ゲージの幅を設定する。animated:false の場合は一時的にtransitionを
+ * 無効化する（レベルアップ時の「右から左へ縮んで見える」バグ対策で使う）。
+ * @param {HTMLElement} fill
+ * @param {number} pct
+ * @param {boolean} animated
+ * @returns {void}
+ */
+function setGaugeWidth(fill, pct, animated){
+  fill.classList.toggle('no-transition', !animated);
+  fill.style.setProperty('--progress', `${pct}%`);
+}
+
 /**
  * EXPゲージ（STEP1・STEP2）の達成度を更新し、伸びたときだけパルス演出を加える。
+ * ★ヘッダーのゲージ（[data-level-gauge]）を間借りする。現在表示中の画面と異なる場合は
+ *   何もしない（別画面のEXP計算がもう一方の画面の表示に混線しないようにする）。
  * @param {1|2} screen
  * @param {number} pct 0〜100
  * @returns {void}
  */
 export function updateExpGauge(screen, pct){
-  const wrap = document.querySelector(`[data-exp-gauge="${screen}"]`);
-  if (!wrap) return;
-  const fill = wrap.querySelector('.exp-gauge__fill');
-  const label = wrap.querySelector(`[data-exp-gauge-pct="${screen}"]`);
+  if ((Number(state.meta.screen) || 1) !== screen) return;
+  const fill = document.querySelector('[data-level-gauge] .progress__fill');
+  const label = document.querySelector('[data-header-gauge-label]');
+  if (!fill) return;
   const clamped = Math.max(0, Math.min(100, Math.round(pct)));
-  const next = `${clamped}%`;
-  if (fill && fill.style.width !== next){
-    const increased = parseFloat(fill.style.width || '0') < clamped;
-    fill.style.width = next;
-    if (increased){
+  const current = parseFloat(fill.style.getPropertyValue('--progress')) || 0;
+  if (current !== clamped){
+    setGaugeWidth(fill, clamped, true);
+    if (clamped > current){
       fill.classList.remove('is-pulsing');
       void fill.offsetWidth;
       fill.classList.add('is-pulsing');
       setTimeout(() => fill.classList.remove('is-pulsing'), 500);
     }
   }
-  if (label && label.textContent !== String(clamped)) label.textContent = String(clamped);
+  if (label){
+    const text = `入力達成度 ${clamped}%`;
+    if (label.hidden) label.hidden = false;
+    if (label.textContent !== text) label.textContent = text;
+  }
+  lastLevelGaugePct = null;   // ★画面3以降へ移った直後に誤って巻き戻りアニメーションが走らないよう毎回リセット
+}
+
+/**
+ * ヘッダー統合ゲージ（画面3・4ではレベル進捗ゲージとして機能する）を同期する。
+ * ★5,000円単位でレベルが上がり端数が0%へ巻き戻る瞬間、CSSのtransitionがそのまま
+ *   適用されると「バーが右から左へ縮む」ように見えてしまう不具合があった
+ *   （ユーザーテストフィードバック改修・2026-08-08）。
+ *   巻き戻り（新しい値が前回より小さい）を検知した場合のみ「100%まで伸ばす→
+ *   transitionを切って0%へ瞬間リセット→再度transitionを有効にして新しい端数まで伸ばす」
+ *   の3段階処理を行い、常に左から右へ伸びる動きだけが見えるようにする。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncHeaderGauge(s){
+  const screen = Number(s.meta.screen) || 1;
+  const fill = document.querySelector('[data-level-gauge] .progress__fill');
+  const label = document.querySelector('[data-header-gauge-label]');
+  if (!fill) return;
+
+  if (screen <= 2){
+    lastLevelGaugePct = null;   // ★次に画面3以降へ入った時の基準をリセットしておく
+    return;                      // ★この画面ではupdateExpGauge側が管理するため触らない
+  }
+  if (label && !label.hidden) label.hidden = true;
+
+  const pct = selectors.headerProgressPct(s);
+  const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+  if (lastLevelGaugePct !== null && pct < lastLevelGaugePct && !prefersReduced){
+    const myToken = ++gaugeAnimToken;
+    setGaugeWidth(fill, 100, true);
+    let done = false;
+    const finish = () => {
+      if (done || myToken !== gaugeAnimToken) return;   // ★このアニメーションより後に別の同期が走っていたら何もしない
+      done = true;
+      fill.removeEventListener('transitionend', finish);
+      setGaugeWidth(fill, 0, false);
+      void fill.offsetWidth;        // リフローを挟んでから再度アニメーションさせる
+      setGaugeWidth(fill, pct, true);
+    };
+    fill.addEventListener('transitionend', finish, { once: true });
+    setTimeout(finish, 500);        // ★transitionendが発火しない環境（reduced-motion等）向けの保険
+  } else {
+    gaugeAnimToken++;               // ★進行中の巻き戻りアニメーションがあれば無効化する
+    setGaugeWidth(fill, pct, true);
+  }
+  lastLevelGaugePct = pct;
 }
 
 /**

@@ -197,15 +197,32 @@ export const selectors = {
   },
 
   /**
+   * 「伝説の勇者」状態（＝足切りルールによりクエストが1件も生成されない、
+   * 見直す余地のない完璧な家計）かどうかを判定する。
+   * ★fixedCostsTotal>0 を条件に加えるのは、固定費を何も入力していない初期状態
+   *   （当然クエストも0件になる）を誤って「伝説の勇者」と判定しないため。
+   *   画面3の伝説の勇者カード表示条件（toggle:hasFixedCostInput と quests.length===0 の組み合わせ）
+   *   と同じ判定基準に揃えてある。
+   * @param {State} state
+   * @returns {boolean}
+   */
+  isLegendaryHero(state){
+    return selectors.fixedCostsTotal(state) > 0 && selectors.buildQuestList(state).length === 0;
+  },
+
+  /**
    * 現在レベル（初期レベル＋クエスト解呪による加算分＋開発協力ボーナス）を算出する。
    * ★クリティカル抽選の乱数結果は state.meta.currentLevel に確定値として保存される
    *   （app.js のクエスト解呪ハンドラ参照）。未解呪時は initialLevel と同じ値を返す。
    * ★フィードバック送信ボーナス（生涯1回・+1Lv）は今回の改修対象外の既存機能のため、
    *   新レベル方式にもそのまま引き継ぐ。
+   * ★伝説の勇者状態の場合は、通常の算出結果によらず Lv.99（カンスト）で固定する
+   *   （ユーザーテストフィードバック改修・2026-08-08）。
    * @param {State} state
    * @returns {number}
    */
   currentLevel(state){
+    if (selectors.isLegendaryHero(state)) return C.LEGENDARY_LEVEL;
     const base = Number.isFinite(state?.meta?.currentLevel)
       ? state.meta.currentLevel
       : selectors.initialLevel(state);
@@ -214,20 +231,27 @@ export const selectors = {
 
   /**
    * 現在レベルに対応する役職を引く（新レベル方式・Phase3.3）。
+   * ★伝説の勇者状態の場合は通常の役職テーブルによらず専用の役職名を返す
+   *   （ユーザーテストフィードバック改修・2026-08-08）。
    * @param {State} state
    * @returns {{min:number, max:number, title:string}}
    */
   rankV2(state){
+    if (selectors.isLegendaryHero(state)){
+      return { min: C.LEGENDARY_LEVEL, max: C.LEGENDARY_LEVEL, title: C.LEGENDARY_RANK_TITLE };
+    }
     const lv = selectors.currentLevel(state);
     return C.RANK_TABLE_V2.find(r => lv >= r.min && lv <= r.max) ?? C.RANK_TABLE_V2[0];
   },
 
   /**
    * ヘッダーの常時プログレスバー用：次のレベルアップ単位（5,000円）に対する到達率（%）。
+   * ★伝説の勇者状態（Lv.99カンスト）の場合はゲージも常にMAX（100%）で固定する。
    * @param {State} state
    * @returns {number}
    */
   headerProgressPct(state){
+    if (selectors.isLegendaryHero(state)) return 100;
     const total = selectors.completedSavingTotal(state);
     return Math.round((total % C.LEVELUP_UNIT) / C.LEVELUP_UNIT * 100);
   },
@@ -285,13 +309,18 @@ export const selectors = {
   /**
    * Xシェア用の文面を生成する（Phase3.3／Phase4.1）。
    * ★金額は一切含めず、レベル・役職・最大の成果のクエスト名（中立的な subTitle）のみを含める
-   *   （CLAUDE.md 制約8の精神を踏襲）。クエストが0件（伝説の勇者）の場合は専用文面を返す。
+   *   （CLAUDE.md 制約8の精神を踏襲）。伝説の勇者（Lv.99カンスト）の場合は専用文面で統一する
+   *   （ユーザーテストフィードバック改修・2026-08-08）。
    * @param {State} state
    * @returns {string}
    */
   shareTextV2(state){
     const lv   = selectors.currentLevel(state);
     const rank = selectors.rankV2(state).title;
+    if (selectors.isLegendaryHero(state)){
+      return `【てどりクエスト】Lv.${lv} の ${rank} に到達！${C.LEGENDARY_HERO.mainTitle}`
+           + ` #てどりクエスト #手取り最大化`;
+    }
     const quests = selectors.buildQuestList(state);
     if (!quests.length){
       return `【てどりクエスト】${C.LEGENDARY_HERO.mainTitle} Lv.${lv}【${rank}】に到達！`

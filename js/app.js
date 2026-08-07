@@ -19,11 +19,16 @@ let pendingScreenAfterReveal = null;   // ★レベル公開演出（dismissLeve
 /**
  * ウィザードの画面を切り替える（ウィザードUI改修・2026-08-08）。
  * ★画面1・2に入るときはEXPゲージを現在の入力値に追いつかせる。
+ * ★ナビゲーションバグ修正（2026-08-08）：state.meta.screen（今表示中の画面）とは別に
+ *   state.meta.maxScreen（これまでに到達した最大の画面）を単調増加でのみ更新する。
+ *   これにより、一度結果画面まで進んだ後に任意のタブで前の画面へ戻っても、
+ *   ボトムナビの他タブが再びロックされず自由に行き来できる。
  * @param {1|2|3|4} n
  * @returns {void}
  */
 function goToScreen(n){
   state.meta.screen = n;
+  state.meta.maxScreen = Math.max(Number(state.meta.maxScreen) || 1, n);
   if (n === 1 || n === 2) hydrateExpGauge(n);
   window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
 }
@@ -242,9 +247,9 @@ function selectSingle(target, selector){
 // ---------------------------------------------------------------------------
 const EXP_FIELDS = {
   1: ['userProfile.annualSalary', 'userProfile.age', 'userProfile.insuranceType',
-      'userProfile.isUnderOneYear', 'userProfile.isResidentTaxExempt'],
+      'userProfile.isUnderOneYear', 'userProfile.isResidentTaxExempt', 'userProfile.area'],
   2: ['fixedCosts.smartphone', 'fixedCosts.internetMonthly', 'fixedCosts.medicalInsurance',
-      'fixedCosts.fireInsurance', 'fixedCosts.nhkPlan', 'userProfile.area', 'fixedCosts.rent',
+      'fixedCosts.fireInsurance', 'fixedCosts.nhkPlan', 'fixedCosts.rent',
       'fixedCosts.hasCar', '__subscriptions']
 };
 const touchedFields = { 1: new Set(), 2: new Set() };
@@ -310,9 +315,11 @@ const ACTIONS = {
     state.meta.currentLevel = state.meta.initialLevel;
     syncNotifiedLevel();
     pendingScreenAfterReveal = 3;
+    // ★表示は selectors.currentLevel() 経由にする。これにより、この時点で既に
+    //   クエストが0件（伝説の勇者）であれば、確定演出でもLv.99が正しく表示される。
     showLevelReveal({
       label: '固定費を反映した本当のレベルは…',
-      level: state.meta.currentLevel,
+      level: selectors.currentLevel(state),
       sub: 'ここからクエストを解呪するたびにレベルが上がっていきます。'
     });
   },

@@ -21,8 +21,12 @@ export const INITIAL_STATE = {
     currentLevel: null,                   // クエスト解呪ごとに再算出される現在レベル（未解呪時はnull＝initialLevelと同値扱い）
     feedbackBonusGranted: false,          // ★生涯1回。呪文にも含める
     createdAt: null, lastOpenedAt: null,
-    screen: 1                             // ★ウィザードUI改修（2026-08-08）：表示中の画面（1〜4）。
+    screen: 1,                            // ★ウィザードUI改修（2026-08-08）：表示中の画面（1〜4）。
                                           //   旧hasCompletedStep1（真偽値）を置き換えた
+    maxScreen: 1                          // ★ナビゲーションバグ修正（2026-08-08）：これまでに到達した
+                                          //   最大の画面番号。ボトムナビの活性判定はこちらを使う。
+                                          //   screen（今表示中の画面）と分離することで、戻った後も
+                                          //   タブから自由に前後へ移動できるようにする
   },
 
   userProfile: {
