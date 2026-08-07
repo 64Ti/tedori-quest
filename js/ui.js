@@ -402,7 +402,9 @@ function createQuestItem(q, s){
   checkbox.setAttribute('aria-label', q.subTitle || q.mainTitle);
   checkbox.checked = s.quests.completed[q.id] !== undefined;
   const span = document.createElement('span');
-  span.textContent = '🎉 解呪完了';
+  // ★クエストごとの具体的な行動完了文言を表示する（例：「格安SIMに乗り換えた！」）。
+  //   個別の文言が無いクエストのみ汎用文言にフォールバックする。
+  span.textContent = q.completeLabel ?? '🎉 解呪完了';
   label.append(checkbox, span);
   details.appendChild(label);
 
@@ -753,10 +755,10 @@ export function triggerLevelUpEffect(){
   }, 600);
 }
 
-// ★ウィザードUI改修フォローアップ（2026-08-08）：STEP1・STEP2個別だったEXPゲージを
-//   ヘッダーの常時ゲージ（[data-level-gauge]）に統合した。画面3・4では同じ要素が
-//   レベル進捗ゲージとして機能する（syncHeaderGauge参照）。両者は「今どの画面にいるか」で
-//   排他的に持ち場を分ける。
+// ★ゲーミフィケーション改修（2026-08-08）：STEP1・STEP2で入力するたびにゲージが動く
+//   EXPゲージ演出は廃止した。画面上のレベル・ゲージは「STEP1→2」「STEP2→3」の
+//   ボタン押下時（レベル公開演出）のみ動く仕様のため、ヘッダーのゲージは
+//   画面3・4のレベル進捗表示専用とし、画面1・2では非表示にする。
 let lastLevelGaugePct = null;   // レベル進捗ゲージの巻き戻り（レベルアップ）検知用
 let gaugeAnimToken = 0;         // ★短時間に連続でレベルが変化した場合、古い巻き戻りアニメーションの
                                 //   完了処理（finish）が後から表示を巻き戻して上書きしてしまわないよう、
@@ -776,39 +778,7 @@ function setGaugeWidth(fill, pct, animated){
 }
 
 /**
- * EXPゲージ（STEP1・STEP2）の達成度を更新し、伸びたときだけパルス演出を加える。
- * ★ヘッダーのゲージ（[data-level-gauge]）を間借りする。現在表示中の画面と異なる場合は
- *   何もしない（別画面のEXP計算がもう一方の画面の表示に混線しないようにする）。
- * @param {1|2} screen
- * @param {number} pct 0〜100
- * @returns {void}
- */
-export function updateExpGauge(screen, pct){
-  if ((Number(state.meta.screen) || 1) !== screen) return;
-  const fill = document.querySelector('[data-level-gauge] .progress__fill');
-  const label = document.querySelector('[data-header-gauge-label]');
-  if (!fill) return;
-  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
-  const current = parseFloat(fill.style.getPropertyValue('--progress')) || 0;
-  if (current !== clamped){
-    setGaugeWidth(fill, clamped, true);
-    if (clamped > current){
-      fill.classList.remove('is-pulsing');
-      void fill.offsetWidth;
-      fill.classList.add('is-pulsing');
-      setTimeout(() => fill.classList.remove('is-pulsing'), 500);
-    }
-  }
-  if (label){
-    const text = `入力達成度 ${clamped}%`;
-    if (label.hidden) label.hidden = false;
-    if (label.textContent !== text) label.textContent = text;
-  }
-  lastLevelGaugePct = null;   // ★画面3以降へ移った直後に誤って巻き戻りアニメーションが走らないよう毎回リセット
-}
-
-/**
- * ヘッダー統合ゲージ（画面3・4ではレベル進捗ゲージとして機能する）を同期する。
+ * ヘッダーのレベル進捗ゲージ（画面3・4専用）を同期する。画面1・2では非表示にする。
  * ★5,000円単位でレベルが上がり端数が0%へ巻き戻る瞬間、CSSのtransitionがそのまま
  *   適用されると「バーが右から左へ縮む」ように見えてしまう不具合があった
  *   （ユーザーテストフィードバック改修・2026-08-08）。
@@ -820,15 +790,16 @@ export function updateExpGauge(screen, pct){
  */
 function syncHeaderGauge(s){
   const screen = Number(s.meta.screen) || 1;
-  const fill = document.querySelector('[data-level-gauge] .progress__fill');
-  const label = document.querySelector('[data-header-gauge-label]');
-  if (!fill) return;
+  const gauge = document.querySelector('[data-level-gauge]');
+  const fill = gauge?.querySelector('.progress__fill');
+  if (!gauge || !fill) return;
 
   if (screen <= 2){
-    lastLevelGaugePct = null;   // ★次に画面3以降へ入った時の基準をリセットしておく
-    return;                      // ★この画面ではupdateExpGauge側が管理するため触らない
+    if (!gauge.hidden) gauge.hidden = true;   // ★入力中はゲージ自体を隠す（レベルはボタン押下時のみ動く）
+    lastLevelGaugePct = null;                 // ★次に画面3以降へ入った時の基準をリセットしておく
+    return;
   }
-  if (label && !label.hidden) label.hidden = true;
+  if (gauge.hidden) gauge.hidden = false;
 
   const pct = selectors.headerProgressPct(s);
   const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;

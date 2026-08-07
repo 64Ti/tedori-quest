@@ -6,7 +6,7 @@ import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotify
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
          captureCard, saveCard, resetQuestListCache, populateAnnualSalarySelect,
-         triggerLevelUpEffect, updateExpGauge, showLevelReveal, hideLevelReveal } from './ui.js';
+         triggerLevelUpEffect, showLevelReveal, hideLevelReveal } from './ui.js';
 import { selectors } from './selectors.js';
 import * as calc from './calc.js';
 import * as C from './config.js';
@@ -18,7 +18,6 @@ let pendingScreenAfterReveal = null;   // ★レベル公開演出（dismissLeve
 
 /**
  * ウィザードの画面を切り替える（ウィザードUI改修・2026-08-08）。
- * ★画面1・2に入るときはEXPゲージを現在の入力値に追いつかせる。
  * ★ナビゲーションバグ修正（2026-08-08）：state.meta.screen（今表示中の画面）とは別に
  *   state.meta.maxScreen（これまでに到達した最大の画面）を単調増加でのみ更新する。
  *   これにより、一度結果画面まで進んだ後に任意のタブで前の画面へ戻っても、
@@ -29,7 +28,6 @@ let pendingScreenAfterReveal = null;   // ★レベル公開演出（dismissLeve
 function goToScreen(n){
   state.meta.screen = n;
   state.meta.maxScreen = Math.max(Number(state.meta.maxScreen) || 1, n);
-  if (n === 1 || n === 2) hydrateExpGauge(n);
   window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
 }
 
@@ -70,7 +68,6 @@ function bindEvents(){
     if (!el || el.dataset.composing === '1') return;
     if (el.type === 'checkbox' || el.tagName === 'SELECT') return;   // これらは change で処理する
     setByPath(state, el.dataset.model, parseYen(el.value));
-    markExpTouched(el.dataset.model);
   });
 
   // IME（日本語入力の中間状態で発火するのを抑止）
@@ -86,6 +83,10 @@ function bindEvents(){
     const el = e.target.closest('[data-model]');
     if (el && el.type !== 'checkbox' && el.tagName !== 'SELECT'){
       el.value = formatNumber(getByPath(state, el.dataset.model));
+    }
+    // ★隠しボーナスEXP③：自由記述欄に数文字以上入力してフォーカスが外れた時（生涯1回のみ）
+    if (e.target.id === 'in-feedback-comment' && e.target.value.trim().length >= 2){
+      grantHiddenFeedbackBonus('feedbackCommentBonusGranted', 5, 10);
     }
   }, true);
 
@@ -122,11 +123,19 @@ function bindEvents(){
     const btn = e.target.closest('[data-action]');
     if (btn) ACTIONS[btn.dataset.action]?.(btn, e);
 
+    // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回のみ）
     const emo = e.target.closest('[data-feedback-emotion]');
-    if (emo) selectSingle(emo, '[data-feedback-emotion]');
+    if (emo){
+      selectSingle(emo, '[data-feedback-emotion]');
+      grantHiddenFeedbackBonus('feedbackEmotionBonusGranted', 1, 2);
+    }
 
+    // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回のみ）
     const chip = e.target.closest('[data-feedback-category]');
-    if (chip) chip.setAttribute('aria-pressed', chip.getAttribute('aria-pressed') !== 'true');
+    if (chip){
+      chip.setAttribute('aria-pressed', chip.getAttribute('aria-pressed') !== 'true');
+      grantHiddenFeedbackBonus('feedbackCategoryBonusGranted', 2, 3);
+    }
   });
 
   document.addEventListener('change', e => {
@@ -137,7 +146,7 @@ function bindEvents(){
     if (otherCardCb){ onCardOtherToggle(otherCardCb); return; }
 
     const planRadio = e.target.closest('[data-plan-group]');
-    if (planRadio){ onPlanGroupChange(planRadio); markExpTouched('__subscriptions'); return; }
+    if (planRadio){ onPlanGroupChange(planRadio); return; }
 
     const el = e.target.closest('[data-model]');
     if (!el) return;
@@ -150,7 +159,6 @@ function bindEvents(){
         onCreditCardSelectChange(el.dataset.model);
       }
     }
-    markExpTouched(el.dataset.model);
   });
 }
 
@@ -178,13 +186,13 @@ function onQuestToggle(cb){
  * @returns {void}
  */
 function handleQuestLevelUp(){
-  const before = Number.isFinite(state.meta.currentLevel)
-    ? state.meta.currentLevel : selectors.initialLevel(state);
+  const before = selectors.currentLevel(state);
   const totalSaving = selectors.completedSavingTotal(state);
   const { finalLevel } = calc.calcCurrentLevel(state.meta.initialLevel ?? 0, totalSaving);
   state.meta.currentLevel = finalLevel;
-  if (finalLevel !== before){
-    enqueueToast(`現状 Lv.${before} ➔ Lv.${finalLevel} にUP！`, 'levelup');
+  const after = selectors.currentLevel(state);
+  if (after !== before){
+    enqueueToast(`現状 Lv.${before} ➔ Lv.${after} にUP！`, 'levelup');
   }
   syncNotifiedLevel();   // ★maybeNotifyLevelUp の遅延判定による重複通知を防ぐ
   triggerLevelUpEffect();
@@ -240,49 +248,30 @@ function selectSingle(target, selector){
 }
 
 // ---------------------------------------------------------------------------
-// EXPゲージ（入力アクション連動の演出。ウィザードUI改修・2026-08-08）
-//   ★state（永続化対象）には持たせない一時的なUI状態のため、モジュール内の
-//     プレーンなSetで管理する（画面をまたいでも0%に戻らないよう、画面遷移時に
-//     現在値からの「追いつき」を行う＝hydrateExpGauge）。
+// フィードバック隠しボーナスEXP（ゲーミフィケーション改修・2026-08-08）
+//   ★感情選択・気になった点選択・自由記述入力の各操作に連動し、初回のみ
+//     ランダムなレベルアップが即座に発生する隠し要素。各トリガーは生涯1回のみ発動する。
+//   ★フラグは state.meta に持たせ、リロードしても再発動しないようにする。
+//     既存の「送信完了ボーナス」（feedbackBonusGranted・+1Lv固定・サーバー確認必須）とは別枠。
 // ---------------------------------------------------------------------------
-const EXP_FIELDS = {
-  1: ['userProfile.annualSalary', 'userProfile.age', 'userProfile.insuranceType',
-      'userProfile.isUnderOneYear', 'userProfile.isResidentTaxExempt', 'userProfile.area'],
-  2: ['fixedCosts.smartphone', 'fixedCosts.internetMonthly', 'fixedCosts.medicalInsurance',
-      'fixedCosts.fireInsurance', 'fixedCosts.nhkPlan', 'fixedCosts.rent',
-      'fixedCosts.hasCar', '__subscriptions']
-};
-const touchedFields = { 1: new Set(), 2: new Set() };
 
 /**
- * 入力・選択のたびにEXPゲージを伸ばす。追跡対象外のフィールドは無視する。
- * @param {string} path data-model のパス（サブスクは特別に '__subscriptions'）
+ * フィードバック操作に連動した隠しボーナスEXPを付与する（各トリガー生涯1回のみ）。
+ * @param {'feedbackEmotionBonusGranted'|'feedbackCategoryBonusGranted'|'feedbackCommentBonusGranted'} flagKey
+ * @param {number} minDelta 加算量の下限（両端含む）
+ * @param {number} maxDelta 加算量の上限（両端含む）
  * @returns {void}
  */
-function markExpTouched(path){
-  for (const screen of [1, 2]){
-    if (!EXP_FIELDS[screen].includes(path)) continue;
-    touchedFields[screen].add(path);
-    updateExpGauge(screen, (touchedFields[screen].size / EXP_FIELDS[screen].length) * 100);
-  }
-}
-
-/**
- * 画面に入った時点で、既に値が入っているフィールド分をEXPゲージへ「追いつかせる」。
- * 呪文復元・ページ再読込・「戻る」での再訪問時に0%へ戻って見えるのを防ぐ。
- * @param {1|2} screen
- * @returns {void}
- */
-function hydrateExpGauge(screen){
-  const isChanged = path => {
-    if (path === '__subscriptions') return selectors.subscriptionTotal(state) > 0;
-    // ★「値が入っているか」ではなく「初期値から変更されているか」で判定する。
-    //   insuranceType等は既定値自体が空でないため、真偽値ベースの判定だと
-    //   触れる前から達成扱いになってしまう。
-    return getByPath(state, path) !== getByPath(INITIAL_STATE, path);
-  };
-  EXP_FIELDS[screen].forEach(path => { if (isChanged(path)) touchedFields[screen].add(path); });
-  updateExpGauge(screen, (touchedFields[screen].size / EXP_FIELDS[screen].length) * 100);
+function grantHiddenFeedbackBonus(flagKey, minDelta, maxDelta){
+  if (state.meta[flagKey]) return;                     // ★同じトリガーは生涯1回のみ
+  state.meta[flagKey] = true;
+  const delta = minDelta + Math.floor(Math.random() * (maxDelta - minDelta + 1));
+  const before = selectors.currentLevel(state);
+  if (!Number.isFinite(state.meta.initialLevel)) state.meta.initialLevel = C.INITIAL_LEVEL_BASE;
+  state.meta.currentLevel = before + delta;
+  syncNotifiedLevel();   // ★maybeNotifyLevelUp の遅延判定による重複通知を防ぐ
+  enqueueToast(`✨ Lv.${before} ➔ Lv.${selectors.currentLevel(state)} にUP！`, 'levelup');
+  triggerLevelUpEffect();
 }
 
 // ---------------------------------------------------------------------------
@@ -294,10 +283,22 @@ const ACTIONS = {
    * 画面1（STEP1）完了：収入ベースの初期レベルをレベル公開演出で見せてから画面2へ進む
    * （ウィザードUI改修・2026-08-08）。
    */
+  /**
+   * ★ゲーミフィケーション改修（2026-08-08）：画面上のレベル・ゲージは
+   *   「STEP1→2」「STEP2→3」のボタン押下時のみ動く仕様にした（入力中はリアルタイムに動かさない）。
+   *   ここで state.meta.initialLevel を確定（フリーズ）することで、
+   *   selectors.currentLevel() が画面2の入力に反応しなくなる。
+   *   ★同じ年収でも初期レベルが毎回同じにならないよう、-3〜+3のランダムな端数を加える。
+   */
   startDiagnosis(){
     state.meta.createdAt = state.meta.createdAt ?? new Date().toISOString();
     state.meta.lastOpenedAt = new Date().toISOString();
-    const level = selectors.initialLevel(state);   // この時点では固定費未入力のため収入のみ反映
+    // ★固定費はこの時点で未入力のため収入のみ反映される（selectors.initialLevel()と等価）
+    const base = calc.calcInitialLevel(selectors.netIncome(state), selectors.fixedCostsTotal(state));
+    const jitter = Math.floor(Math.random() * (C.INITIAL_LEVEL_JITTER * 2 + 1)) - C.INITIAL_LEVEL_JITTER;
+    const level = Math.max(C.INITIAL_LEVEL_BASE, base + jitter);
+    state.meta.initialLevel = level;
+    syncNotifiedLevel();
     pendingScreenAfterReveal = 2;
     showLevelReveal({
       label: 'あなたの初期レベルは…',
@@ -308,11 +309,13 @@ const ACTIONS = {
 
   /**
    * 画面2（STEP2）完了：固定費の圧迫度まで反映した「本当のレベル」を確定・公開してから
-   * 画面3（クエスト一覧）へ進む。★初期レベルはここで一度だけ確定し、以後不変。
+   * 画面3（クエスト一覧）へ進む。★ここでは画面1のランダム端数は加えない（年収からの
+   *   概算＝初期レベルのバラつきという位置づけのため、固定費反映後の再計算は決定的に行う）。
    */
   generateQuests(){
-    state.meta.initialLevel = selectors.initialLevel(state);
-    state.meta.currentLevel = state.meta.initialLevel;
+    const trueLevel = calc.calcInitialLevel(selectors.netIncome(state), selectors.fixedCostsTotal(state));
+    state.meta.initialLevel = trueLevel;
+    state.meta.currentLevel = trueLevel;
     syncNotifiedLevel();
     pendingScreenAfterReveal = 3;
     // ★表示は selectors.currentLevel() 経由にする。これにより、この時点で既に
@@ -407,17 +410,35 @@ const ACTIONS = {
   },
 
   /**
-   * 冒険を最初から始める（Phase3.4）。全Stateを初期値に戻し、STEP1の先頭へ戻る。
-   * ★localStorage の永続化もState変更に連動して自動的に上書きされる（store.jsのsubscribe経由）。
+   * 「冒険を最初から始める」の確認モーダルを開く。
+   * ★ブラウザ標準の window.confirm は、URLバー付近に表示され「今後表示しない」チェックが
+   *   出ることがあり体験を損なうため、自作のカスタムモーダル（#sheet-reset-confirm）に置き換えた
+   *   （ユーザーテストフィードバック改修・2026-08-08）。
    */
   resetAdventure(){
-    if (!window.confirm('ここまでの入力内容をすべて消去して、最初からやり直します。よろしいですか？')) return;
+    const sheet = document.getElementById('sheet-reset-confirm');
+    if (sheet) openSheet(sheet);
+  },
+
+  /**
+   * リセット確認モーダルの「はい」。全Stateを初期値に戻し、STEP1の先頭へ戻る。
+   * ★localStorage の永続化もState変更に連動して自動的に上書きされる（store.jsのsubscribe経由）。
+   */
+  confirmResetAdventure(){
+    const sheet = document.getElementById('sheet-reset-confirm');
+    if (sheet) closeSheet(sheet);
     const fresh = structuredClone(INITIAL_STATE);
-    applyRestoredState(fresh);   // ★touchedFieldsのクリア・EXPゲージの0%表示もここで行われる
+    applyRestoredState(fresh);
     resetQuestListCache();
     syncNotifiedLevel();   // ★リセット直後に誤ったレベル差分演出が出ないよう基準を同期する
     showToast('冒険をはじめから始めます');
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  },
+
+  /** リセット確認モーダルの「キャンセル」。何もせず閉じる。 */
+  closeResetConfirm(){
+    const sheet = document.getElementById('sheet-reset-confirm');
+    if (sheet) closeSheet(sheet);
   },
 
   openFeedback(){
@@ -535,10 +556,6 @@ function applyRestoredState(restored){
   state.quests = restored.quests;
   state.selections = restored.selections;
   state.betaFeedback = restored.betaFeedback;
-  touchedFields[1].clear();
-  touchedFields[2].clear();
-  hydrateExpGauge(1);
-  hydrateExpGauge(2);
 }
 
 // ---------------------------------------------------------------------------
@@ -568,6 +585,4 @@ subscribe(maybeNotifyLevelUp);   // ★State変更のたびにレベル上昇を
 bindEvents();
 populateAnnualSalarySelect();
 loadSpellFromUrlIfPresent();
-hydrateExpGauge(1);
-hydrateExpGauge(2);
 scheduleRender();            // 初期描画

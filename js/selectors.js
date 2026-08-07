@@ -31,17 +31,20 @@ function fixedQuestMeta(category){
   if (reusedId){
     const q = C.QUEST_CATALOG.find(x => x.id === reusedId);
     return { id: reusedId, mainTitle: q.questTitle, subTitle: q.summary,
-      detail: q.description, basis: q.basis, talkScript: q.talkScript, disclaimer: q.disclaimer };
+      detail: q.description, basis: q.basis, talkScript: q.talkScript, disclaimer: q.disclaimer,
+      completeLabel: q.completeLabel };
   }
   const nf = C.NEW_FIXED_QUESTS[category];
-  return { id: nf.id, mainTitle: nf.mainTitle, subTitle: nf.subTitle };
+  return { id: nf.id, mainTitle: nf.mainTitle, subTitle: nf.subTitle,
+    detail: nf.detail, basis: nf.basis, talkScript: nf.talkScript, disclaimer: nf.disclaimer,
+    completeLabel: nf.completeLabel };
 }
 
 /**
  * クレジットカードクエストの表示メタ情報を引く。
  * @param {'A'|'B'|'C'|'D'} pattern
  * @param {{card?:object, cards?:object[]}} extra evaluateCreditCardQuests() の1件分
- * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string}}
+ * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string, completeLabel?:string}}
  */
 function cardQuestMeta(pattern, extra){
   const t = C.CARD_QUEST_TEXT[pattern];
@@ -50,26 +53,32 @@ function cardQuestMeta(pattern, extra){
     const fee = (extra.cards ?? []).reduce((sum, c) => sum + Number(c.annualFee || 0), 0);
     return { id: t.id, mainTitle: t.mainTitle,
       subTitle: `対象：${names}（年会費合計 ¥${fee.toLocaleString('ja-JP')}）`,
-      detail: t.detail };
+      detail: t.detail, completeLabel: t.completeLabel };
   }
   const cardName = extra.card?.name ?? '';
-  return { id: t.id, mainTitle: t.mainTitle, subTitle: t.subTitle,
-    detail: cardName ? `対象カード：${cardName}` : undefined };
+  return { id: t.id, mainTitle: t.mainTitle,
+    subTitle: cardName ? `対象カード：${cardName}` : t.subTitle,
+    detail: t.detail, completeLabel: t.completeLabel };
 }
 
 /**
  * クエストID単体から表示メタ情報を復元する（完了済みだが現在のギャップ計算では
  * 再生成されなくなったクエストを一覧から消さないためのフォールバック）。
  * @param {string} id
- * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string}|null}
+ * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string, completeLabel?:string}|null}
  */
 function orphanQuestMeta(id){
   const reused = C.QUEST_CATALOG.find(q => q.id === id);
-  if (reused) return { id, mainTitle: reused.questTitle, subTitle: reused.summary, detail: reused.description };
+  if (reused) return { id, mainTitle: reused.questTitle, subTitle: reused.summary,
+    detail: reused.description, basis: reused.basis, talkScript: reused.talkScript,
+    disclaimer: reused.disclaimer, completeLabel: reused.completeLabel };
   const nf = Object.values(C.NEW_FIXED_QUESTS).find(q => q.id === id);
-  if (nf) return { id, mainTitle: nf.mainTitle, subTitle: nf.subTitle };
+  if (nf) return { id, mainTitle: nf.mainTitle, subTitle: nf.subTitle,
+    detail: nf.detail, basis: nf.basis, talkScript: nf.talkScript, disclaimer: nf.disclaimer,
+    completeLabel: nf.completeLabel };
   const cq = Object.values(C.CARD_QUEST_TEXT).find(q => q.id === id);
-  if (cq) return { id, mainTitle: cq.mainTitle, subTitle: cq.subTitle, detail: cq.detail };
+  if (cq) return { id, mainTitle: cq.mainTitle, subTitle: cq.subTitle, detail: cq.detail,
+    completeLabel: cq.completeLabel };
   return null;
 }
 
@@ -218,14 +227,19 @@ export const selectors = {
    *   新レベル方式にもそのまま引き継ぐ。
    * ★伝説の勇者状態の場合は、通常の算出結果によらず Lv.99（カンスト）で固定する
    *   （ユーザーテストフィードバック改修・2026-08-08）。
+   * ★画面上のレベル表示は「STEP1→2」「STEP2→3」のボタン押下時のみ動く仕様
+   *   （ゲーミフィケーション改修・2026-08-08）。state.meta.initialLevel が未確定
+   *   （＝まだ一度もボタンを押していない）間は、固定費や年収の入力に反応して
+   *   レベルがリアルタイムに動かないよう、常に基準レベルを返す。
    * @param {State} state
    * @returns {number}
    */
   currentLevel(state){
     if (selectors.isLegendaryHero(state)) return C.LEGENDARY_LEVEL;
+    if (!Number.isFinite(state?.meta?.initialLevel)) return C.INITIAL_LEVEL_BASE;
     const base = Number.isFinite(state?.meta?.currentLevel)
       ? state.meta.currentLevel
-      : selectors.initialLevel(state);
+      : state.meta.initialLevel;
     return base + (state?.meta?.feedbackBonusGranted ? C.BONUS_LEVEL_MAX : 0);
   },
 
@@ -280,19 +294,23 @@ export const selectors = {
     };
     const fixedResults = calc.evaluateFixedCostQuests(costs);
 
-    const cards = selectors.resolvedCards(s);
-    const { annual } = calc.estimateCardSpend(selectors.fixedCostsTotal(s), selectors.netIncome(s));
-    const cardResults = calc.evaluateCreditCardQuests(cards, annual);
+    // ★クレジットカード・サブスクリプション機能は一時凍結中（非表示。2026-08-08）。
+    //   入力UIを隠しただけでなく、クエスト判定からも除外する。
+    //   ロジック自体（calc.evaluateCreditCardQuests等）は将来の再開に備えて削除せず残してある。
+    // const cards = selectors.resolvedCards(s);
+    // const { annual } = calc.estimateCardSpend(selectors.fixedCostsTotal(s), selectors.netIncome(s));
+    // const cardResults = calc.evaluateCreditCardQuests(cards, annual);
 
     const active = [];
     fixedResults.forEach(r => {
+      if (r.category === 'subscriptions') return;   // ★サブスク機能一時凍結中のため除外
       if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
       active.push({ ...fixedQuestMeta(r.category), monthlySaving: r.monthlySaving });
     });
-    cardResults.forEach(r => {
-      if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
-      active.push({ ...cardQuestMeta(r.pattern, r), monthlySaving: r.monthlySaving });
-    });
+    // cardResults.forEach(r => {
+    //   if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
+    //   active.push({ ...cardQuestMeta(r.pattern, r), monthlySaving: r.monthlySaving });
+    // });
 
     const completed = s.quests?.completed ?? {};
     const activeIds = new Set(active.map(q => q.id));

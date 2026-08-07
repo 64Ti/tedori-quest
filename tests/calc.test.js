@@ -232,6 +232,17 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
     });
   }
 
+  // ★ゲーミフィケーション改修（2026-08-08）：画面上のレベルは「STEP1→2」「STEP2→3」の
+  //   ボタン押下時（state.meta.initialLevel確定）のみ動く。それまでは年収・固定費の
+  //   入力内容によらず常に基準レベルを返すことを確認する。
+  test('LEVEL-FREEZE-01: state.meta.initialLevel確定前は入力内容によらずレベル表示が基準値に固定される', () => {
+    const state = buildState({
+      userProfile: { annualSalary: 12000000, age: 30 },
+      fixedCosts: { ...buildState().fixedCosts, smartphone: 50000 }
+    });
+    assert.equal(selectors.currentLevel(state), C.INITIAL_LEVEL_BASE);
+  });
+
   test('LEGENDARY-01: 固定費入力済みでクエスト0件はisLegendaryHeroがtrueになる', () => {
     const state = buildLegendaryState();
     assert.equal(selectors.buildQuestList(state).length, 0);
@@ -383,13 +394,16 @@ describe('Phase2 固定費クエスト・クレジットカードクエストの
     assert.equal(selectors.buildQuestList(state).some(q => q.id === 'cancelSubscription'), false);
   });
 
-  test('FEEDBACK-03: プラン選択分のサブスクは通常どおりクエスト判定の対象になる', () => {
+  // ★ゲーミフィケーション改修（2026-08-08）：サブスクリプション機能は一時凍結（非表示）した。
+  //   選択済みプランがあっても、fixedCostsTotal（家計圧迫度）には引き続き算入されるが、
+  //   クエスト判定からは除外される（FEEDBACK-02と同じ扱いに統一）。
+  test('FEEDBACK-03: サブスク機能凍結中はプラン選択分があってもクエスト判定の対象にならない', () => {
     const state = buildState({
       selections: { subscriptionPlanIds: ['netflix_premium'], otherSubscriptions: [] }   // 2,290円（理想1,000円との差1,290円）
     });
+    assert.equal(selectors.fixedCostsTotal(state), 2290);
     const quest = selectors.buildQuestList(state).find(q => q.id === 'cancelSubscription');
-    assert.ok(quest);
-    assert.equal(quest.monthlySaving, 1290);
+    assert.equal(quest, undefined);
   });
 });
 

@@ -473,18 +473,11 @@ textarea.input{text-align:left; resize:vertical; min-height:88px;}
 .screen{animation:screen-in var(--dur) var(--ease);}
 @keyframes screen-in{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
 
-/* --- ヘッダー統合ゲージ（入力アクション連動EXP／レベル進捗の兼用）---
-   ★ウィザードUI改修フォローアップ（2026-08-08）：STEP1・STEP2に個別配置していた
-     EXPゲージを廃止し、ヘッダーの [data-level-gauge] .progress__fill を間借りする形に統合した。
-     アニメーション自体は既存の .progress__fill の transition をそのまま使う。 */
-.progress__fill.is-pulsing{animation:exp-pulse 500ms var(--ease);}
-@keyframes exp-pulse{
-  0%   { box-shadow:0 0 0 0 rgba(16,185,129,.7); }
-  100% { box-shadow:0 0 0 10px rgba(16,185,129,0); }
-}
+/* --- ヘッダーのレベル進捗ゲージ（画面3・4専用）---
+   ★ゲーミフィケーション改修（2026-08-08）：STEP1・STEP2で入力するたびに動くEXPゲージ演出は
+     廃止した。画面1・2では [data-level-gauge] 自体を hidden にする（js/ui.js 側で制御）。 */
 /* ★レベルアップ時の巻き戻り（右から左へ縮んで見える）対策。0%へ瞬間リセットする間だけ付与する */
 .progress__fill.no-transition{transition:none !important;}
-.app-header__gauge-label{margin:0; font-size:var(--fs-xs); color:var(--c-text-mute); text-align:right;}
 
 /* --- レベル公開演出オーバーレイ（画面1→2・画面2→3の遷移時） --- */
 .level-reveal{

@@ -17,9 +17,13 @@ export const INITIAL_STATE = {
                                           //   専用の MIGRATIONS 関数は不要（構造的に安全に移行できる）
 
   meta: {
-    initialLevel: null,                   // 固定費入力を終えSTEP1完了時に一度だけ確定。以後不変
+    initialLevel: null,                   // ★STEP1「冒険を始める」押下時に一度だけ確定（ランダム端数込み）。以後不変。
+                                          //   画面上のレベル表示は、これが確定するまでリアルタイムに動かない
     currentLevel: null,                   // クエスト解呪ごとに再算出される現在レベル（未解呪時はnull＝initialLevelと同値扱い）
-    feedbackBonusGranted: false,          // ★生涯1回。呪文にも含める
+    feedbackBonusGranted: false,          // ★生涯1回。呪文にも含める（送信完了ボーナス・+1Lv固定）
+    feedbackEmotionBonusGranted: false,   // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回・+1〜+2Lv）
+    feedbackCategoryBonusGranted: false,  // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回・+2〜+3Lv）
+    feedbackCommentBonusGranted: false,   // ★隠しボーナスEXP③：自由記述入力時（生涯1回・+5〜+10Lv）
     createdAt: null, lastOpenedAt: null,
     screen: 1,                            // ★ウィザードUI改修（2026-08-08）：表示中の画面（1〜4）。
                                           //   旧hasCompletedStep1（真偽値）を置き換えた
@@ -33,10 +37,13 @@ export const INITIAL_STATE = {
     annualSalary: null,                   // 年収（額面・円）。ドロップダウン選択式
     age: null,                            // 介護保険料の年齢判定用
     prefecture: 'osaka',
-    insuranceType: 'association',         // 'association' | 'kumiai'
+    insuranceType: null,                  // 'association' | 'kumiai'。★プレースホルダー化（2026-08-08）：
+                                          //   有効な選択肢を初期値にせず、必ずユーザーに選ばせる
     isUnderOneYear: false,                // 健保加入12ヶ月未満
     isResidentTaxExempt: false,           // 高額療養費 区分オ 判定
-    area: 'urban'                         // 家賃市場平均のエリア
+    area: null                            // 家賃市場平均のエリア。★プレースホルダー化（2026-08-08）。
+                                          //   未選択時、家賃・駐車場代の平均表示は calc.js 側の
+                                          //   _default フォールバック（urban相当）で安全に計算される
     // ★勤続年数はユーザーテストフィードバック改修（2026-08-07）で入力欄を廃止した。
     //   住民税の勤続1年目非課税判定は C.DEFAULT_YEARS_OF_SERVICE（selectors.netIncome参照）で
     //   「非課税ではない」側に固定して計算する

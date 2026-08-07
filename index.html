@@ -60,10 +60,9 @@
         <button type="button" class="btn-icon" data-action="openFeedback" aria-label="ご意見・ご要望を送る">💬</button>
       </div>
     </div>
-    <!-- ★EXPゲージ（画面1・2）とレベル進捗ゲージ（画面3・4）を統合した単一のゲージ（js/ui.js が管理）。
-         data-bind は使わず、updateExpGauge / syncHeaderGauge が state.meta.screen に応じて排他的に書き込む。 -->
+    <!-- ★レベル進捗ゲージ（画面3・4専用。js/ui.js の syncHeaderGauge が管理）。
+         画面1・2では入力中にレベルが動かない仕様のため、ここは非表示になる（hidden属性で制御）。 -->
     <div class="progress" data-level-gauge><div class="progress__fill"></div></div>
-    <p class="app-header__gauge-label" data-header-gauge-label hidden></p>
   </div>
 </header>
 
@@ -91,9 +90,10 @@
       <div class="field">
         <label class="field__label" for="in-area">お住まいのエリア</label>
         <select id="in-area" class="input input--select" data-model="userProfile.area">
+          <option value="" disabled selected>選択してください</option>
           <option value="tokyo">東京都</option>
           <option value="osaka">大阪府</option>
-          <option value="urban" selected>地方主要都市</option>
+          <option value="urban">地方主要都市</option>
           <option value="other">その他地域</option>
         </select>
       </div>
@@ -106,7 +106,8 @@
           </details>
         </div>
         <select id="in-insuranceType" class="input input--select" data-model="userProfile.insuranceType">
-          <option value="association" selected>協会けんぽ</option>
+          <option value="" disabled selected>選択してください</option>
+          <option value="association">協会けんぽ</option>
           <option value="kumiai">健康保険組合</option>
         </select>
       </div>
@@ -120,8 +121,19 @@
       </label>
 
       <button type="button" class="btn btn--block" style="margin-top:1rem;" data-action="startDiagnosis" data-requires-step1 disabled>
-        次へ（診断を始める）
+        冒険を始める
       </button>
+    </div>
+
+    <!-- ★最終結果画面（旧画面4）から移動（ユーザーテストフィードバック改修・2026-08-08）：
+         データ復元はプロフィール入力の近くにある方が発見しやすいため。 -->
+    <div class="card">
+      <p class="card__title">📜 復活の呪文（データ復元）</p>
+      <p class="section-lead">以前発行した「魔法の呪文」があれば、貼り付けて入力内容を復元できます。</p>
+      <div class="field spell-restore">
+        <input type="text" class="input" placeholder="TQ4-...（呪文を貼り付け）" aria-label="魔法の呪文を貼り付けて復元" id="in-spell-code">
+        <button type="button" class="btn btn--ghost" data-action="restoreSpell">復元</button>
+      </div>
     </div>
   </section>
 
@@ -280,8 +292,10 @@
       </div>
     </div>
 
-    <!-- --- サブスクリプション（デジタルサブスクのみ。ジム等の自由入力枠は廃止） --- -->
-    <div class="card">
+    <!-- --- サブスクリプション（デジタルサブスクのみ。ジム等の自由入力枠は廃止） ---
+         ★機能一時凍結中（2026-08-08）：入力UI・クエスト判定ともに非表示にする。
+           今後の改修に備え、マークアップ・ロジックは削除せず hidden 属性で隠すだけに留める。 -->
+    <div class="card" hidden>
       <p class="card__title">🎬 サブスクリプション</p>
       <label class="audience-toggle">
         <input type="checkbox" id="toggle-audience">
@@ -647,7 +661,7 @@
     </div>
 
     <button type="button" class="btn btn--block" style="margin-top:1.5rem;" data-action="generateQuests">
-      クエストを見る
+      クエストへ行く
     </button>
     <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="goToScreen1">
       ← 戻る
@@ -674,8 +688,10 @@
       <div class="card card--legendary" data-legendary-hero hidden></div>
     </div>
 
-    <!-- --- クレジットカード診断（優先度を下げ、クエスト一覧より下に配置） --- -->
-    <div class="card" style="margin-top:2rem;">
+    <!-- --- クレジットカード診断（優先度を下げ、クエスト一覧より下に配置） ---
+         ★機能一時凍結中（2026-08-08）：入力UI・クエスト判定ともに非表示にする。
+           今後の改修に備え、マークアップ・ロジックは削除せず hidden 属性で隠すだけに留める。 -->
+    <div class="card" style="margin-top:2rem;" hidden>
       <p class="card__title">💳 保有カード</p>
       <details class="field-hint">
         <summary>ℹ️ なぜ入力するのですか？</summary>
@@ -735,7 +751,7 @@
     </div>
 
     <label class="field-check">
-      <input type="checkbox" id="in-mask-amount-on-save">
+      <input type="checkbox" id="in-mask-amount-on-save" checked>
       画像保存・SNS共有時は金額を隠す（レベル・称号のみ表示）
     </label>
 
@@ -744,11 +760,6 @@
       <button type="button" class="btn" data-action="saveKarte">🖼️ 画像で保存</button>
       <button type="button" class="btn btn--ghost btn-copy-spell" data-action="copySpell">📜 魔法の呪文をコピー</button>
       <button type="button" class="btn btn--ghost btn-copy-spell" data-action="copySpellLink">🔗 共有リンクをコピー</button>
-    </div>
-
-    <div class="field spell-restore">
-      <input type="text" class="input" placeholder="TQ4-...（呪文を貼り付け）" aria-label="魔法の呪文を貼り付けて復元" id="in-spell-code">
-      <button type="button" class="btn btn--ghost" data-action="restoreSpell">復元</button>
     </div>
 
     <button type="button" class="btn btn--ghost btn--block" style="margin-top:1.5rem;" data-action="goToScreen3">
@@ -852,6 +863,24 @@
     </div>
     <p class="image-modal__message section-lead">画像を長押しして保存してください</p>
     <img alt="てどりクエスト マイカルテ" class="image-modal__img">
+  </div>
+</div>
+
+<!-- ============================================================
+     冒険リセット確認モーダル（ユーザーテストフィードバック改修・2026-08-08）
+     ★ブラウザ標準の window.confirm を廃止し、自作のカスタムモーダルに置き換えた。
+     ============================================================ -->
+<div id="sheet-reset-confirm" class="bottom-sheet" hidden>
+  <div class="bottom-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="reset-confirm-heading">
+    <div class="bottom-sheet__head">
+      <h2 id="reset-confirm-heading">確認</h2>
+      <button type="button" class="btn-icon" data-action="closeResetConfirm" aria-label="閉じる">✕</button>
+    </div>
+    <p class="section-lead">これまでの冒険をやめて最初からやり直しますか？</p>
+    <div class="karte-actions">
+      <button type="button" class="btn btn--accent" data-action="confirmResetAdventure">はい</button>
+      <button type="button" class="btn btn--ghost" data-action="closeResetConfirm">キャンセル</button>
+    </div>
   </div>
 </div>
 
