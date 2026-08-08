@@ -127,14 +127,14 @@ function bindEvents(){
     const emo = e.target.closest('[data-feedback-emotion]');
     if (emo){
       selectSingle(emo, '[data-feedback-emotion]');
-      grantHiddenFeedbackBonus('feedbackEmotionBonusGranted', 1, 2);
+      grantHiddenFeedbackBonus('feedbackEmotionBonusGranted', 1, 3);
     }
 
     // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回のみ）
     const chip = e.target.closest('[data-feedback-category]');
     if (chip){
       chip.setAttribute('aria-pressed', chip.getAttribute('aria-pressed') !== 'true');
-      grantHiddenFeedbackBonus('feedbackCategoryBonusGranted', 2, 3);
+      grantHiddenFeedbackBonus('feedbackCategoryBonusGranted', 1, 3);
     }
   });
 

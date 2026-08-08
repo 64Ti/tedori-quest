@@ -29,7 +29,7 @@
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <link rel="apple-touch-icon" href="./favicon.svg">
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0F172A">
+<meta name="theme-color" content="#111114">
 
 <link rel="stylesheet" href="./style.css">
 
@@ -147,13 +147,13 @@
     <!-- --- 公的保障の診断（STEP1の収入から自動算出） --- -->
     <div class="card">
       <p class="card__title">💊 高額療養費の自己負担上限（月額）</p>
-      <p style="font-size:var(--fs-xl); font-weight:800; color:var(--c-brand);">
+      <p class="data-value">
         ¥<span data-bind="text:selfPayCap">0</span>
       </p>
     </div>
     <div class="card">
       <p class="card__title">🛡️ 傷病手当金の日額</p>
-      <p style="font-size:var(--fs-xl); font-weight:800; color:var(--c-brand);">
+      <p class="data-value">
         ¥<span data-bind="text:injuryDaily">0</span> / 日
       </p>
       <p class="section-lead">通算1年6ヶ月まで支給されます（連続3日の待期後・4日目から）。</p>
@@ -728,10 +728,10 @@
   </section>
 
   <!-- ============================================================
-       画面4：最終結果・マイカルテ・SNSシェア
+       画面4：最終結果・あなたの称号・SNSシェア
        ============================================================ -->
   <section class="screen" data-screen="4" hidden>
-    <h2>マイカルテ</h2>
+    <h2>あなたの称号</h2>
 
     <!-- ★capture-safe クラスは captureCard() がキャプチャ処理中だけ動的に付与する（§4.4）。
          html2canvas非対応プロパティ(backdrop-filter/filter/box-shadow等)を無効化するため。 -->
@@ -858,11 +858,11 @@
 <div id="image-modal" class="bottom-sheet" hidden>
   <div class="bottom-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="image-modal-heading">
     <div class="bottom-sheet__head">
-      <h2 id="image-modal-heading">マイカルテ画像</h2>
+      <h2 id="image-modal-heading">あなたの称号カード画像</h2>
       <button type="button" class="btn-icon" data-action="closeImageModal" aria-label="閉じる">✕</button>
     </div>
     <p class="image-modal__message section-lead">画像を長押しして保存してください</p>
-    <img alt="てどりクエスト マイカルテ" class="image-modal__img">
+    <img alt="てどりクエスト あなたの称号" class="image-modal__img">
   </div>
 </div>
 

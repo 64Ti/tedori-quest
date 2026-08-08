@@ -255,6 +255,22 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
     assert.ok(!selectors.isLegendaryHero(state));
   });
 
+  // ★致命的バグ修正（2026-08-08）：STEP2で最初の1項目だけ入力した瞬間（他は0円のまま）は
+  //   買QuestListがたまたま0件になり得るが、まだ「クエストへ行く」ボタン（state.meta.currentLevel
+  //   確定）を押していないため、Lv.99（伝説の勇者）が暴発してはならない。
+  test('LEGENDARY-BUGFIX-01: STEP2確定前（currentLevel未確定）は1項目入力だけでLv.99が暴発しない', () => {
+    const state = buildState({
+      // ideal通りの1項目だけ入力＝一見「クエスト0件」に見える状態
+      fixedCosts: { ...buildState().fixedCosts, smartphone: 2000 },
+      meta: { initialLevel: 15, currentLevel: null, feedbackBonusGranted: false }
+    });
+    assert.equal(selectors.buildQuestList(state).length, 0);      // クエストは確かに0件
+    assert.ok(!selectors.hasConfirmedQuests(state));               // だが未確定
+    assert.equal(selectors.currentLevel(state), 15);               // Lv.99にならず、確定済みの初期レベルのまま
+    assert.notEqual(selectors.rankV2(state).title, C.LEGENDARY_RANK_TITLE);
+    assert.notEqual(selectors.headerProgressPct(state), 100);
+  });
+
   test('LEGENDARY-03: 伝説の勇者状態ではcurrentLevelが通常の計算式によらずLv.99に固定される', () => {
     const state = buildLegendaryState({ meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false } });
     assert.equal(selectors.currentLevel(state), C.LEGENDARY_LEVEL);

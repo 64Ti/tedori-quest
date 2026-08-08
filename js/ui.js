@@ -1033,7 +1033,7 @@ export async function captureCard(el, opts = {}){
     while (rect.width*scale * rect.height*scale > MAX_AREA && scale > 1) scale -= 0.25;
 
     const canvas = await html2canvas(el, {
-      scale, backgroundColor:'#0F172A', useCORS:true, logging:false,
+      scale, backgroundColor:'#FFFFFF', useCORS:true, logging:false,
       windowWidth: document.documentElement.clientWidth,
       scrollX:0, scrollY:-window.scrollY                // 無いとスクロール量分ずれる
     });
@@ -1060,7 +1060,7 @@ export async function saveCard(canvas){
   const file = new File([blob], 'tedori-quest-karte.png', { type:'image/png' });
 
   if (navigator.canShare?.({ files:[file] })){          // ① 共有シート（iOS/Android）
-    try{ await navigator.share({ files:[file], title:'てどりクエスト マイカルテ' }); return; }
+    try{ await navigator.share({ files:[file], title:'てどりクエスト あなたの称号' }); return; }
     catch(e){ if (e.name === 'AbortError') return; }
   }
   if (!isIOS()){                                        // ② 通常ダウンロード（デスクトップ）

@@ -4,8 +4,8 @@
   "description": "20〜30代単身会社員向けの手取り最大化シミュレーター（β版）",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0F172A",
-  "theme_color": "#0F172A",
+  "background_color": "#FFFFFF",
+  "theme_color": "#111114",
   "lang": "ja",
   "icons": [
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }

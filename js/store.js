@@ -21,8 +21,8 @@ export const INITIAL_STATE = {
                                           //   画面上のレベル表示は、これが確定するまでリアルタイムに動かない
     currentLevel: null,                   // クエスト解呪ごとに再算出される現在レベル（未解呪時はnull＝initialLevelと同値扱い）
     feedbackBonusGranted: false,          // ★生涯1回。呪文にも含める（送信完了ボーナス・+1Lv固定）
-    feedbackEmotionBonusGranted: false,   // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回・+1〜+2Lv）
-    feedbackCategoryBonusGranted: false,  // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回・+2〜+3Lv）
+    feedbackEmotionBonusGranted: false,   // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回・+1〜+3Lv）
+    feedbackCategoryBonusGranted: false,  // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回・+1〜+3Lv）
     feedbackCommentBonusGranted: false,   // ★隠しボーナスEXP③：自由記述入力時（生涯1回・+5〜+10Lv）
     createdAt: null, lastOpenedAt: null,
     screen: 1,                            // ★ウィザードUI改修（2026-08-08）：表示中の画面（1〜4）。

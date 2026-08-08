@@ -220,13 +220,29 @@ export const selectors = {
   },
 
   /**
+   * クエストが確定済み（＝STEP2「クエストへ行く」を押し、state.meta.currentLevel が
+   * 一度でも確定した）かどうかを判定する。
+   * ★致命的バグ修正（2026-08-08）：伝説の勇者判定（isLegendaryHero）は、STEP2の入力欄の
+   *   うち1項目だけ埋めた瞬間（他の項目はまだ0円）にも「クエスト0件」を満たしてしまい、
+   *   ボタンを押す前から一時的にLv.99が暴発するバグがあった。
+   *   伝説の勇者判定は「ボタンで確定した後」にのみ適用し、画面2で入力中の暫定値には
+   *   適用しないようにするためのゲートとして使う。
+   * @param {State} state
+   * @returns {boolean}
+   */
+  hasConfirmedQuests(state){
+    return Number.isFinite(state?.meta?.currentLevel);
+  },
+
+  /**
    * 現在レベル（初期レベル＋クエスト解呪による加算分＋開発協力ボーナス）を算出する。
    * ★クリティカル抽選の乱数結果は state.meta.currentLevel に確定値として保存される
    *   （app.js のクエスト解呪ハンドラ参照）。未解呪時は initialLevel と同じ値を返す。
    * ★フィードバック送信ボーナス（生涯1回・+1Lv）は今回の改修対象外の既存機能のため、
    *   新レベル方式にもそのまま引き継ぐ。
    * ★伝説の勇者状態の場合は、通常の算出結果によらず Lv.99（カンスト）で固定する
-   *   （ユーザーテストフィードバック改修・2026-08-08）。
+   *   （ユーザーテストフィードバック改修・2026-08-08）。ただし hasConfirmedQuests()が
+   *   falseの間（STEP2「クエストへ行く」を押す前）は判定しない（致命的バグ修正・2026-08-08）。
    * ★画面上のレベル表示は「STEP1→2」「STEP2→3」のボタン押下時のみ動く仕様
    *   （ゲーミフィケーション改修・2026-08-08）。state.meta.initialLevel が未確定
    *   （＝まだ一度もボタンを押していない）間は、固定費や年収の入力に反応して
@@ -235,23 +251,23 @@ export const selectors = {
    * @returns {number}
    */
   currentLevel(state){
-    if (selectors.isLegendaryHero(state)) return C.LEGENDARY_LEVEL;
     if (!Number.isFinite(state?.meta?.initialLevel)) return C.INITIAL_LEVEL_BASE;
-    const base = Number.isFinite(state?.meta?.currentLevel)
-      ? state.meta.currentLevel
-      : state.meta.initialLevel;
-    return base + (state?.meta?.feedbackBonusGranted ? C.BONUS_LEVEL_MAX : 0);
+    if (!selectors.hasConfirmedQuests(state)) return state.meta.initialLevel;
+    if (selectors.isLegendaryHero(state)) return C.LEGENDARY_LEVEL;
+    return state.meta.currentLevel + (state?.meta?.feedbackBonusGranted ? C.BONUS_LEVEL_MAX : 0);
   },
 
   /**
    * 現在レベルに対応する役職を引く（新レベル方式・Phase3.3）。
    * ★伝説の勇者状態の場合は通常の役職テーブルによらず専用の役職名を返す
    *   （ユーザーテストフィードバック改修・2026-08-08）。
+   * ★致命的バグ修正（2026-08-08）：hasConfirmedQuests()がfalseの間は判定しない
+   *   （currentLevel()と同じゲート。理由はそちらのコメント参照）。
    * @param {State} state
    * @returns {{min:number, max:number, title:string}}
    */
   rankV2(state){
-    if (selectors.isLegendaryHero(state)){
+    if (selectors.hasConfirmedQuests(state) && selectors.isLegendaryHero(state)){
       return { min: C.LEGENDARY_LEVEL, max: C.LEGENDARY_LEVEL, title: C.LEGENDARY_RANK_TITLE };
     }
     const lv = selectors.currentLevel(state);
@@ -261,11 +277,13 @@ export const selectors = {
   /**
    * ヘッダーの常時プログレスバー用：次のレベルアップ単位（5,000円）に対する到達率（%）。
    * ★伝説の勇者状態（Lv.99カンスト）の場合はゲージも常にMAX（100%）で固定する。
+   * ★致命的バグ修正（2026-08-08）：hasConfirmedQuests()がfalseの間は判定しない
+   *   （currentLevel()と同じゲート。理由はそちらのコメント参照）。
    * @param {State} state
    * @returns {number}
    */
   headerProgressPct(state){
-    if (selectors.isLegendaryHero(state)) return 100;
+    if (selectors.hasConfirmedQuests(state) && selectors.isLegendaryHero(state)) return 100;
     const total = selectors.completedSavingTotal(state);
     return Math.round((total % C.LEVELUP_UNIT) / C.LEVELUP_UNIT * 100);
   },
