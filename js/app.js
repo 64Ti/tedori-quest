@@ -6,7 +6,7 @@ import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotify
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
          captureCard, saveCard, resetQuestListCache, resetOtherSubscriptionsCache, populateAnnualSalarySelect,
-         triggerLevelUpEffect, showLevelReveal, hideLevelReveal } from './ui.js';
+         triggerLevelUpEffect, showLevelReveal, hideLevelReveal, exportFullReportPdf } from './ui.js';
 import { selectors } from './selectors.js';
 import * as calc from './calc.js';
 import * as C from './config.js';
@@ -14,6 +14,7 @@ import { sendFeedback } from './feedback.js';
 
 let isCapturingKarte = false;      // ★saveKarte の重畳連打防止（第一防波堤はボタンのdisabled）
 let isSubmittingFeedback = false;  // ★submitFeedback の重畳連打防止（feedback.js自身のisSubmittingに加えた第二防波堤）
+let isExportingPdf = false;        // ★exportPdf の重畳連打防止（第一防波堤はボタンのdisabled）
 let pendingScreenAfterReveal = null;   // ★レベル公開演出（dismissLevelReveal）後に遷移する画面番号
 
 /**
@@ -28,7 +29,18 @@ let pendingScreenAfterReveal = null;   // ★レベル公開演出（dismissLeve
 function goToScreen(n){
   state.meta.screen = n;
   state.meta.maxScreen = Math.max(Number(state.meta.maxScreen) || 1, n);
-  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  // ★致命的バグ修正（画面が一番下から始まるバグ）：ここで即座にscrollTo(top:0)を呼ぶと、
+  //   まだ旧画面が表示されたまま（＝旧画面の高さ基準）でスクロールが始まってしまう。
+  //   直後のrequestAnimationFrameでrender()が画面のhidden切替（DOM差し替え）を行うと、
+  //   新しい画面の方が短い場合にブラウザがscrollYを新しい最大値へクランプし、
+  //   結果的に新画面の下端に着地して見えることがあった。
+  //   state.meta.screen の代入（→subscribe(scheduleRender)）で render() 用の
+  //   requestAnimationFrame が既に登録されているため、ここでもう1つ登録すれば
+  //   同じフレーム内で render() の後に実行され、DOM差し替え後の正しい高さを基準に
+  //   スクロールできる。
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  });
 }
 
 /**
@@ -193,23 +205,25 @@ function onQuestToggle(cb){
 
 /**
  * レベルを再計算し、上昇時のみ演出トーストを出す（確定的な計算・抽選要素なし）。
- * ★毎回、解呪済みクエストの月間節約可能額の合計から再計算する（累積方式）。
- * ★クエストを1件解呪するたびに、レベルが変わったかどうかによらず
- *   ヘッダーのレベル表示・ゲージを光らせる演出を必ず発生させる
- *   （ユーザーテストフィードバック改修・2026-08-08）。
+ * ★ゲーミフィケーション改修v2（2026-08-08）：毎回、解呪済みクエストの「件数」から
+ *   算出した疑似EXP（selectors.questExpTotal）で再計算する（累積方式）。実際の
+ *   節約額（円）はマイカルテ・Xシェア側でのみ使い続けるため、ここでは使わない。
+ * ★致命的バグ修正（2026-08-08）：チェックを外してレベルが下がった（または変化しない）
+ *   場合にも「レベルアップ！」のトーストや光る演出が出てしまうバグがあった。
+ *   レベルが実際に上昇した場合（after > before）のみ演出を発生させる。
  * @returns {void}
  */
 function handleQuestLevelUp(){
   const before = selectors.currentLevel(state);
-  const totalSaving = selectors.completedSavingTotal(state);
-  const { finalLevel } = calc.calcCurrentLevel(state.meta.initialLevel ?? 0, totalSaving);
+  const expTotal = selectors.questExpTotal(state);
+  const { finalLevel } = calc.calcCurrentLevel(state.meta.initialLevel ?? 0, expTotal);
   state.meta.currentLevel = finalLevel;
   const after = selectors.currentLevel(state);
-  if (after !== before){
-    enqueueToast(`現状 Lv.${before} ➔ Lv.${after} にUP！`, 'levelup');
-  }
   syncNotifiedLevel();   // ★maybeNotifyLevelUp の遅延判定による重複通知を防ぐ
-  triggerLevelUpEffect();
+  if (after > before){
+    enqueueToast(`現状 Lv.${before} ➔ Lv.${after} にUP！`, 'levelup');
+    triggerLevelUpEffect();
+  }
 }
 
 /**
@@ -423,8 +437,7 @@ const ACTIONS = {
     try{
       const target = document.getElementById('karte-capture-target');
       if (!target) return;
-      const maskAmount = document.getElementById('in-mask-amount-on-save')?.checked ?? false;
-      const canvas = await captureCard(target, { maskAmount });
+      const canvas = await captureCard(target);
       if (canvas) await saveCard(canvas);
     } finally {
       isCapturingKarte = false;
@@ -440,13 +453,21 @@ const ACTIONS = {
     else showToast('コピーできませんでした。呪文欄を長押しして手動でコピーしてください', 'warn');
   },
 
-  async copySpellLink(btn){
-    // ★共有リンク：?s=<呪文> を付けたURL。app.js起動時の loadSpellFromUrlIfPresent が
-    //   このURLを開いたときに自動で復元する。
-    const url = `${C.SITE_URL}/?s=${encodeURIComponent(encodeSpell(state))}`;
-    const ok = await copyToClipboard(url);
-    if (ok) flashButton(btn, 'リンクをコピーしました！');
-    else showToast('コピーできませんでした。しばらくしてからもう一度お試しください', 'warn');
+  async exportPdf(btn){
+    if (isExportingPdf) return;
+    isExportingPdf = true;
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    showToast('PDFを作成しています…');
+    try{
+      await exportFullReportPdf();
+    } catch {
+      showToast('PDFを作成できませんでした。時間をおいてお試しください', 'warn');
+    } finally {
+      isExportingPdf = false;
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+    }
   },
 
   restoreSpell(){

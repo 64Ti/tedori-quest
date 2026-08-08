@@ -6,7 +6,7 @@ import * as C from './config.js';
 import * as calc from './calc.js';
 import { selectors } from './selectors.js';
 import { CREDIT_CARDS } from './creditCards.js';
-import { loadHtml2Canvas } from './vendor.js';
+import { loadHtml2Canvas, loadHtml2Pdf } from './vendor.js';
 
 const YEN = n => Number(n ?? 0).toLocaleString('ja-JP');
 
@@ -107,6 +107,11 @@ function buildViewModel(s){
 
   return {
     displayLevel: selectors.currentLevel(s),
+    // ★「あなたの称号」の成長可視化（ユーザーテストフィードバック改修）：STEP2完了時点
+    //   （クエスト開始前）に確定したレベル。state.meta.initialLevelはSTEP2「クエストへ行く」
+    //   （ACTIONS.generateQuests）でのみ再計算され、以降クエストの解呪では変化しないため、
+    //   そのまま「開始時レベル」として使える（未確定時は現在レベルにフォールバック）。
+    startLevel: Number.isFinite(s.meta.initialLevel) ? s.meta.initialLevel : selectors.currentLevel(s),
     rankTitle: rank.title,
     completedSavingFormatted: YEN(selectors.completedSavingTotal(s)),
     questTotalSaving: YEN(questTotalSaving),
@@ -1093,32 +1098,8 @@ function hasVisiblePixels(canvas){
  * @param {HTMLElement} el
  * @returns {Promise<HTMLCanvasElement|null>}
  */
-/**
- * キャプチャ対象内の [data-capture-amount] 要素のテキストを一時的に伏せ字へ差し替える。
- * ★CSSの filter/opacity は capture-safe が無効化してしまう（html2canvas非対応のため）ので、
- *   テキスト自体を直接差し替える方式にする。restore() で必ず元に戻すこと。
- * @param {HTMLElement} el キャプチャ対象のルート要素
- * @returns {() => void} 元のテキストへ戻す関数
- */
-function maskAmounts(el){
-  const targets = [...el.querySelectorAll('[data-capture-amount]')];
-  const originals = targets.map(t => t.innerHTML);
-  targets.forEach(t => {
-    t.innerHTML = '<span aria-hidden="true">🔒 金額は非公開に設定されています</span>';
-  });
-  return () => targets.forEach((t, i) => { t.innerHTML = originals[i]; });
-}
-
-/**
- * マイカルテ要素をキャプチャして Canvas を返す。失敗時は印刷機能へフォールバックし null を返す。
- * @param {HTMLElement} el
- * @param {{maskAmount?:boolean}} [opts] maskAmount:true の場合、[data-capture-amount] 要素の
- *   金額表示を画像上でのみ伏せ字にする（画面上の表示自体は変更しない）
- * @returns {Promise<HTMLCanvasElement|null>}
- */
-export async function captureCard(el, opts = {}){
+export async function captureCard(el){
   el.classList.add('capture-safe');                     // oklch()等キャプチャ非対応プロパティを無効化
-  const restoreAmounts = opts.maskAmount ? maskAmounts(el) : null;
   try{
     // ★CDNへの到達失敗（オフライン・ブロック等）も「キャプチャできない」の一種として
     //   同じフォールバックに合流させるため、動的import自体も try に含める。
@@ -1143,7 +1124,6 @@ export async function captureCard(el, opts = {}){
     return null;
   } finally {
     el.classList.remove('capture-safe');
-    restoreAmounts?.();
   }
 }
 
@@ -1189,4 +1169,47 @@ export function showImageModal(dataUrl, message){
   img.src = dataUrl;
   if (msg) msg.textContent = message;
   openSheet(modal);
+}
+
+// ---------------------------------------------------------------------------
+// PDF出力（§4.4追加・2026-08-08）
+// ★html2pdf.js は vendor.js 経由（Node-Ready N-1）。CDN URLをここに直書きしない。
+// ---------------------------------------------------------------------------
+
+/**
+ * STEP1・STEP2・クエスト一覧・結果画面のすべての内容を1つのPDFとして出力する。
+ * ★通常は state.meta.screen に応じて1画面ずつしか表示しない（[hidden]属性）ため、
+ *   PDF生成中だけ一時的にすべての .screen の hidden を解除して縦に並べてキャプチャし、
+ *   完了後に元のhidden状態へ戻す（restoreで必ず戻す。例外時もfinallyで保証する）。
+ *   sticky/fixedのヘッダー・ボトムナビや画面遷移アニメーションも、キャプチャ中だけ
+ *   body.pdf-export-mode（style.css）で無効化する。
+ * @returns {Promise<void>}
+ */
+export async function exportFullReportPdf(){
+  const target = document.querySelector('main');
+  if (!target) return;
+
+  const screens = [...document.querySelectorAll('.screen[data-screen]')];
+  const originalHidden = screens.map(el => el.hidden);
+  document.body.classList.add('pdf-export-mode');
+  screens.forEach(el => { el.hidden = false; });
+
+  try{
+    const html2pdf = await loadHtml2Pdf();
+    await document.fonts.ready;   // フォント未ロードによる文字化け防止（captureCardと同様の理由）
+
+    await html2pdf().set({
+      margin: 10,
+      filename: 'tedori-quest-report.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2, backgroundColor: '#000000', useCORS: true, logging: false,
+        windowWidth: document.documentElement.clientWidth
+      },
+      jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
+    }).from(target).save();
+  } finally {
+    document.body.classList.remove('pdf-export-mode');
+    screens.forEach((el, i) => { el.hidden = originalHidden[i]; });
+  }
 }

@@ -440,8 +440,16 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
 /* ===== ⑬ 最終結果（あなたの称号）画面 ===== */
 .karte{text-align:center;}
 .karte__level{font-size:var(--fs-h1); font-weight:400; letter-spacing:var(--ls-base); color:var(--text-gold);}
+.karte__level-growth{font-size:var(--fs-sm); font-weight:400; letter-spacing:var(--ls-base); margin-top:var(--sp-2); color:var(--text-main);}
 .karte__rank{font-size:var(--fs-h3); font-weight:400; letter-spacing:var(--ls-base); margin-top:var(--sp-1); color:var(--text-main);}
-.karte__amount{font-size:var(--fs-body); font-weight:400; color:var(--text-main); margin-top:var(--sp-3);}
+/* ★節約金額は二重枠ウィンドウ（.card.karte）の外に配置し、下部で目立たせる
+   （ユーザーテストフィードバック改修）。#karte-capture-target内の兄弟要素のため
+   画像保存・PDF出力の対象には引き続き含まれる。 */
+.karte__amount-outside{
+  font-size:var(--fs-h3); font-weight:400; color:var(--text-main);
+  text-align:center; margin-top:var(--sp-6); padding-top:var(--sp-4);
+  border-top:var(--win-border-w) double var(--window-border);
+}
 .karte__amount-value{font-size:var(--fs-data); font-weight:400; color:var(--text-gold);}
 .karte__disclaimer{display:block; font-size:var(--fs-xs); color:var(--text-muted); margin-top:var(--sp-2);}
 .karte-actions{display:flex; flex-wrap:wrap; gap:var(--sp-2); margin-top:var(--sp-4); justify-content:center;}
@@ -473,7 +481,15 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
   @page{margin:12mm;}
 }
 
-/* ===== ⑬d フッター（§7.4：法定表示への導線。全ページ共通） ===== */
+/* ===== ⑬d PDF出力（§4.4追加）：全STEPを縦に並べてキャプチャするための一時レイアウト =====
+   ★js/ui.js exportFullReportPdf() がキャプチャ中だけ body に付与する。sticky/fixed要素の
+     解除・画面遷移アニメーションの無効化のみを行い、配色（黒背景）は capture-safe と同様
+     そのまま活かす（PDFでも王道クラシックRPGの見た目を保つ）。 */
+.pdf-export-mode .app-header{position:static;}
+.pdf-export-mode .bottom-nav{display:none;}
+.pdf-export-mode .screen{animation:none;}
+
+/* ===== ⑬e フッター（§7.4：法定表示への導線。全ページ共通） ===== */
 .app-footer{
   margin-top:var(--sp-8); padding-top:var(--sp-6);
   border-top:1px solid var(--text-muted);

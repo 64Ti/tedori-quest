@@ -209,6 +209,19 @@ export const selectors = {
   },
 
   /**
+   * レベル計算専用の疑似EXP合計を算出する（ゲーミフィケーション改修v2）。
+   * ★実際の節約額（円）ではなく、解呪済みクエストの件数×C.QUEST_EXP_PER_COMPLETIONで
+   *   算出する。マイカルテの金額表示・Xシェア文面等は引き続き completedSavingTotal
+   *   （実額）を使うため、この値はレベル・ヘッダーゲージの算出にのみ使用する。
+   * @param {State} state
+   * @returns {number}
+   */
+  questExpTotal(state){
+    const completed = state?.quests?.completed ?? {};
+    return Object.keys(completed).length * C.QUEST_EXP_PER_COMPLETION;
+  },
+
+  /**
    * 「伝説の勇者」状態（＝足切りルールによりクエストが1件も生成されない、
    * 見直す余地のない完璧な家計）かどうかを判定する。
    * ★fixedCostsTotal>0 を条件に加えるのは、固定費を何も入力していない初期状態
@@ -278,7 +291,9 @@ export const selectors = {
   },
 
   /**
-   * ヘッダーの常時プログレスバー用：次のレベルアップ単位（5,000円）に対する到達率（%）。
+   * ヘッダーの常時プログレスバー用：次のレベルアップ単位に対する到達率（%）。
+   * ★ゲーミフィケーション改修v2：実額（円）ではなく questExpTotal（疑似EXP）を
+   *   C.LEVELUP_UNITで割った端数を使う。
    * ★伝説の勇者状態（Lv.99カンスト）の場合はゲージも常にMAX（100%）で固定する。
    * ★致命的バグ修正（2026-08-08）：hasConfirmedQuests()がfalseの間は判定しない
    *   （currentLevel()と同じゲート。理由はそちらのコメント参照）。
@@ -287,7 +302,7 @@ export const selectors = {
    */
   headerProgressPct(state){
     if (selectors.hasConfirmedQuests(state) && selectors.isLegendaryHero(state)) return 100;
-    const total = selectors.completedSavingTotal(state);
+    const total = selectors.questExpTotal(state);
     return Math.round((total % C.LEVELUP_UNIT) / C.LEVELUP_UNIT * 100);
   },
 

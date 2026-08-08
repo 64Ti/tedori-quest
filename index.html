@@ -757,13 +757,18 @@
     <h2>あなたの称号</h2>
 
     <!-- ★capture-safe クラスは captureCard() がキャプチャ処理中だけ動的に付与する（§4.4）。
-         html2canvas非対応プロパティ(backdrop-filter/filter/box-shadow等)を無効化するため。 -->
-    <div class="card karte" id="karte-capture-target">
-      <p class="karte__level">Lv.<span data-bind="text:displayLevel">1</span></p>
-      <p class="karte__rank" data-bind="text:rankTitle">見習い冒険者</p>
-      <!-- ★data-capture-amount：saveKarte()がマスク設定を見て、キャプチャ処理中だけ
-           テキストを「非公開」に差し替える対象。画面表示自体は常に金額のまま（マスクは画像のみ）。 -->
-      <p class="karte__amount" data-capture-amount>
+         html2canvas非対応プロパティ(backdrop-filter/filter/box-shadow等)を無効化するため。
+         ★節約金額のテキストは二重枠ウィンドウ（.card.karte）の外側に配置し、下部で目立たせる
+           （ユーザーテストフィードバック改修）。画像保存・PDF出力の対象には引き続き含めたいため、
+           #karte-capture-target自体は.card.karteより一回り広く取り、その中でカードの外に置く。 -->
+    <div id="karte-capture-target">
+      <div class="card karte">
+        <p class="karte__level">Lv.<span data-bind="text:displayLevel">1</span></p>
+        <p class="karte__level-growth">開始時 Lv.<span data-bind="text:startLevel">1</span> ➔ 最終 Lv.<span data-bind="text:displayLevel">1</span></p>
+        <p class="karte__rank" data-bind="text:rankTitle">見習い冒険者</p>
+      </div>
+
+      <p class="karte__amount-outside">
         解呪済みクエストの合計で月額
         <strong class="karte__amount-value" data-bind="text:completedSavingFormatted">0</strong> 円
         の手取りを取り戻しました
@@ -773,16 +778,11 @@
       </p>
     </div>
 
-    <label class="field-check">
-      <input type="checkbox" id="in-mask-amount-on-save" checked>
-      画像保存・SNS共有時は金額を隠す（レベル・称号のみ表示）
-    </label>
-
     <div class="karte-actions">
       <button type="button" class="btn btn--accent" data-action="shareX">🐦 Xでシェア</button>
       <button type="button" class="btn" data-action="saveKarte">🖼️ 画像で保存</button>
       <button type="button" class="btn btn--ghost btn-copy-spell" data-action="copySpell">📜 魔法の呪文をコピー</button>
-      <button type="button" class="btn btn--ghost btn-copy-spell" data-action="copySpellLink">🔗 共有リンクをコピー</button>
+      <button type="button" class="btn btn--ghost btn-copy-spell" data-action="exportPdf">📄 PDFとして出力する</button>
     </div>
 
     <button type="button" class="btn btn--ghost btn--block" style="margin-top:1.5rem;" data-action="goToScreen3">

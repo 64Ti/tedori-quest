@@ -24,3 +24,34 @@ export async function loadHtml2Canvas(){
   _html2canvas = mod.default ?? mod;
   return _html2canvas;
 }
+
+/** html2pdf.js のバージョン。★latest 指定は破壊的変更で壊れるため固定する */
+const HTML2PDF_VERSION = '0.14.0';
+
+let _html2pdfPromise = null;
+
+/**
+ * html2pdf.js を遅延ロードして返す（PDF出力機能・2026-08-08）。
+ * ★html2pdf.js はUMDバンドルのみ配布されておりESM importが使えないため、
+ *   <script>タグを動的に挿入してグローバル window.html2pdf を待つ方式にする。
+ *   CDN URLはこのファイル以外に書かない（Node-Ready N-1）。2回目以降はキャッシュを返す。
+ * @returns {Promise<Function>}
+ */
+export function loadHtml2Pdf(){
+  if (_html2pdfPromise) return _html2pdfPromise;
+  _html2pdfPromise = new Promise((resolve, reject) => {
+    if (window.html2pdf){ resolve(window.html2pdf); return; }
+
+    // === ビルドレス構成（現行）===
+    const script = document.createElement('script');
+    script.src = `https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/${HTML2PDF_VERSION}/html2pdf.bundle.min.js`;
+
+    // === npm + バンドラ導入時は上記2行を下記に差し替えるだけでよい ===
+    // resolve((await import('html2pdf.js')).default); return;
+
+    script.onload = () => resolve(window.html2pdf);
+    script.onerror = () => reject(new Error('html2pdf load failed'));
+    document.head.appendChild(script);
+  });
+  return _html2pdfPromise;
+}
