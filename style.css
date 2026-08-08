@@ -388,6 +388,13 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
 
 .empty-state{color:var(--text-muted); font-size:var(--fs-sm); padding:var(--sp-3);}
 
+/* --- その他のサブスク（自由入力）。ゲーミフィケーション改修（2026-08-08）で凍結解除に伴い再実装 --- */
+.sub-other{border-top:1px solid var(--text-muted); padding-top:var(--sp-3);}
+.other-sub-row{display:flex; align-items:center; gap:var(--sp-2); margin-top:var(--sp-2);}
+.other-sub-row:first-child{margin-top:var(--sp-3);}
+.other-sub-row .input--label{flex:1.4;}
+.other-sub-row .input{flex:1;}
+
 /* ===== ⑪ クエスト一覧 =====
    ★罫線は使わず、アイテム間の大きな余白（margin-bottom:56px）だけで区切る。 */
 .quest-list{display:flex; flex-direction:column; margin-top:var(--sp-3);}

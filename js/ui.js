@@ -466,6 +466,103 @@ function renderQuestList(s){
   }
 }
 
+// ---------------------------------------------------------------------------
+// その他のサブスク（自由入力）。ゲーミフィケーション改修（2026-08-08）で凍結解除に伴い再実装。
+//   ★行の追加・削除でのみDOMを作り直し、通常の入力中はvalueの差分同期のみ行う
+//     （フォーカス中・IME変換中の入力欄には書き戻さない＝CLAUDE.md 制約5）。
+// ---------------------------------------------------------------------------
+
+/**
+ * その他サブスク1行分のDOMを組み立てる。
+ * @param {{id:string, label:string, monthly:number|null}} row
+ * @returns {HTMLDivElement}
+ */
+function createOtherSubRow(row){
+  const el = document.createElement('div');
+  el.className = 'other-sub-row';
+  el.dataset.otherSubId = row.id;
+
+  const labelInput = document.createElement('input');
+  labelInput.type = 'text';
+  labelInput.className = 'input input--label';
+  labelInput.maxLength = C.OTHER_SUBSCRIPTION.labelMaxLength;
+  labelInput.placeholder = C.OTHER_SUBSCRIPTION.placeholders[0] ?? 'ジム';
+  labelInput.autocomplete = 'off';
+  labelInput.enterKeyHint = 'done';
+  labelInput.setAttribute('aria-label', 'サービス名');
+  labelInput.dataset.otherSubField = 'label';
+  labelInput.dataset.composing = '0';
+  labelInput.value = row.label ?? '';
+
+  const monthlyInput = document.createElement('input');
+  monthlyInput.type = 'text';
+  monthlyInput.inputMode = 'numeric';
+  monthlyInput.pattern = '[0-9,]*';
+  monthlyInput.className = 'input';
+  monthlyInput.placeholder = '8,000';
+  monthlyInput.autocomplete = 'off';
+  monthlyInput.enterKeyHint = 'done';
+  monthlyInput.setAttribute('aria-label', '月額（円）');
+  monthlyInput.dataset.otherSubField = 'monthly';
+  monthlyInput.dataset.composing = '0';
+  monthlyInput.value = formatNumber(row.monthly);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn-icon';
+  removeBtn.dataset.action = 'removeOtherSubscription';
+  removeBtn.setAttribute('aria-label', 'このサブスクを削除');
+  removeBtn.textContent = '✕';
+
+  el.append(labelInput, monthlyInput, removeBtn);
+  return el;
+}
+
+let lastOtherSubIds = null;
+
+/** その他サブスクの再描画キャッシュを破棄する（全リセット・呪文復元直後などに呼ぶ）。 */
+export function resetOtherSubscriptionsCache(){ lastOtherSubIds = null; }
+
+/**
+ * その他サブスク（自由入力）の行一覧を再描画する。行の追加・削除があった時だけDOMを作り直し、
+ * それ以外は値の同期のみ行う。上限到達時は追加ボタンを非活性にする。
+ * @param {object} s state
+ * @returns {void}
+ */
+function renderOtherSubscriptions(s){
+  const container = document.querySelector('[data-other-sub-list]');
+  if (!container) return;
+
+  const rows = s.selections.otherSubscriptions ?? [];
+  const idsKey = rows.map(r => r.id).join(',');
+  if (idsKey !== lastOtherSubIds){
+    lastOtherSubIds = idsKey;
+    container.querySelectorAll('.other-sub-row').forEach(el => el.remove());
+    rows.forEach(r => container.appendChild(createOtherSubRow(r)));
+  }
+
+  rows.forEach(r => {
+    const rowEl = container.querySelector(`[data-other-sub-id="${r.id}"]`);
+    if (!rowEl) return;
+    const labelEl = rowEl.querySelector('[data-other-sub-field="label"]');
+    const monthlyEl = rowEl.querySelector('[data-other-sub-field="monthly"]');
+    if (labelEl && labelEl !== document.activeElement && labelEl.dataset.composing !== '1'){
+      const next = r.label ?? '';
+      if (labelEl.value !== next) labelEl.value = next;
+    }
+    if (monthlyEl && monthlyEl !== document.activeElement){
+      const next = formatNumber(r.monthly);
+      if (monthlyEl.value !== next) monthlyEl.value = next;
+    }
+  });
+
+  const addBtn = document.querySelector('[data-action="addOtherSubscription"]');
+  if (addBtn){
+    const atMax = rows.length >= C.OTHER_SUBSCRIPTION.maxRows;
+    if (addBtn.disabled !== atMax) addBtn.disabled = atMax;
+  }
+}
+
 /**
  * "a.b.c" 形式のパスで値を読む。
  * @param {object} obj
@@ -556,6 +653,7 @@ function render(){
     syncScreens(state);
     syncHeaderGauge(state);
     renderQuestList(state);
+    renderOtherSubscriptions(state);
 
     const step1Btn = document.querySelector('[data-requires-step1]');
     if (step1Btn){

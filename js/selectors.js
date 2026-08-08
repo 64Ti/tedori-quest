@@ -62,6 +62,19 @@ function cardQuestMeta(pattern, extra){
 }
 
 /**
+ * サブスク新クエスト（重複の呪縛／幽霊ギルドの退会／スマホの深淵）の表示メタ情報を引く。
+ * @param {'duplicate'|'ghostGuild'|'phoneAbyss'} kind calc.evaluateSubscriptionQuests() が返すid
+ * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string, basis?:string,
+ *   talkScript?:string[], disclaimer?:string, completeLabel?:string}}
+ */
+function subscriptionQuestMeta(kind){
+  const t = C.SUBSCRIPTION_QUEST_TEXT[kind];
+  return { id: t.id, mainTitle: t.mainTitle, subTitle: t.subTitle,
+    detail: t.detail, basis: t.basis, talkScript: t.talkScript, disclaimer: t.disclaimer,
+    completeLabel: t.completeLabel };
+}
+
+/**
  * クエストID単体から表示メタ情報を復元する（完了済みだが現在のギャップ計算では
  * 再生成されなくなったクエストを一覧から消さないためのフォールバック）。
  * @param {string} id
@@ -79,6 +92,9 @@ function orphanQuestMeta(id){
   const cq = Object.values(C.CARD_QUEST_TEXT).find(q => q.id === id);
   if (cq) return { id, mainTitle: cq.mainTitle, subTitle: cq.subTitle, detail: cq.detail,
     completeLabel: cq.completeLabel };
+  const sq = Object.values(C.SUBSCRIPTION_QUEST_TEXT).find(q => q.id === id);
+  if (sq) return { id, mainTitle: sq.mainTitle, subTitle: sq.subTitle, detail: sq.detail,
+    basis: sq.basis, talkScript: sq.talkScript, disclaimer: sq.disclaimer, completeLabel: sq.completeLabel };
   return null;
 }
 
@@ -118,19 +134,6 @@ export const selectors = {
     const sel = state?.selections ?? {};
     return C.sumSubscriptions(sel.subscriptionPlanIds ?? [])
          + C.sumOtherSubscriptions(sel.otherSubscriptions ?? []);
-  },
-
-  /**
-   * プランから選択したサブスクのみの月額合計（自由入力の手動サブスクを含まない）。
-   * ★ユーザーテストフィードバック改修（2026-08-07）：手動入力サブスク（ジム・ファンクラブ等）は
-   *   固定費合計（家計圧迫度）には算入するが、システムが「ムダ」と自動判定する対象からは
-   *   除外する（＝理想の目標値＝現状の価格として扱う）ため、クエスト判定にはこちらを使う。
-   * @param {State} state
-   * @returns {number}
-   */
-  planSubscriptionTotal(state){
-    const sel = state?.selections ?? {};
-    return C.sumSubscriptions(sel.subscriptionPlanIds ?? []);
   },
 
   /**
@@ -305,14 +308,14 @@ export const selectors = {
       internetMonthly: fc.internetMonthly,
       medicalInsurance: fc.medicalInsurance,
       fireInsurance: fc.fireInsurance,
-      subscriptions: selectors.planSubscriptionTotal(s),
       nhkMonthly: (C.NHK_PLANS.find(p => p.value === fc.nhkPlan) ?? C.NHK_PLANS[0]).monthly,
       hasCar: fc.hasCar,
       carInsurance: fc.carInsurance
     };
     const fixedResults = calc.evaluateFixedCostQuests(costs);
+    const subscriptionResults = calc.evaluateSubscriptionQuests(s.selections);
 
-    // ★クレジットカード・サブスクリプション機能は一時凍結中（非表示。2026-08-08）。
+    // ★クレジットカード機能は一時凍結中（非表示。2026-08-08）。
     //   入力UIを隠しただけでなく、クエスト判定からも除外する。
     //   ロジック自体（calc.evaluateCreditCardQuests等）は将来の再開に備えて削除せず残してある。
     // const cards = selectors.resolvedCards(s);
@@ -321,9 +324,12 @@ export const selectors = {
 
     const active = [];
     fixedResults.forEach(r => {
-      if (r.category === 'subscriptions') return;   // ★サブスク機能一時凍結中のため除外
       if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
       active.push({ ...fixedQuestMeta(r.category), monthlySaving: r.monthlySaving });
+    });
+    subscriptionResults.forEach(r => {
+      if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
+      active.push({ ...subscriptionQuestMeta(r.id), monthlySaving: r.monthlySaving });
     });
     // cardResults.forEach(r => {
     //   if (r.monthlySaving < C.QUEST_MIN_SAVING) return;

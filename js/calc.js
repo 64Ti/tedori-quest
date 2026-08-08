@@ -384,9 +384,10 @@ export function calcCurrentLevel(initialLevel, totalSaving){
 /**
  * 固定費クエスト（節約可能額）を判定する。節約可能額 = 現状の価格 − 理想の目標値。
  * 理想の目標値が null のカテゴリ（駐車場代）は判定対象外とする。
+ * ★サブスクは「合計額－理想値」の単調なギャップ判定から、独立した3クエスト
+ *   （evaluateSubscriptionQuests）へ置き換えたため、ここでは扱わない（ゲーミフィケーション改修・2026-08-08）。
  * @param {{smartphone:number, internetMonthly:number, medicalInsurance:number,
- *   fireInsurance:number, subscriptions:number, nhkMonthly:number,
- *   hasCar:boolean, carInsurance:number}} costs 現状の各カテゴリ金額
+ *   fireInsurance:number, nhkMonthly:number, hasCar:boolean, carInsurance:number}} costs 現状の各カテゴリ金額
  * @returns {{category:string, monthlySaving:number}[]} 足切り前の全件（節約可能額が正のもの）
  */
 export function evaluateFixedCostQuests(costs){
@@ -404,9 +405,59 @@ export function evaluateFixedCostQuests(costs){
   push('internet', c.internetMonthly);
   push('medicalInsurance', c.medicalInsurance);
   push('fireInsurance', c.fireInsurance);
-  push('subscriptions', c.subscriptions);
   push('nhk', c.nhkMonthly);
   if (c.hasCar) push('carInsurance', c.carInsurance);
+  return results;
+}
+
+/**
+ * サブスクリプションの新クエスト（重複の呪縛／幽霊ギルドの退会／スマホの深淵）を判定する
+ * （ゲーミフィケーション改修・2026-08-08）。3つは互いに独立しており、条件を満たしたものが
+ * すべて同時に発生しうる。
+ *
+ * - duplicate（重複の呪縛）: SUBSCRIPTION_PLANS の同一カテゴリ内で2つ以上のサービスを契約している場合。
+ *   節約可能額はカテゴリごとの「合計－最高額の1件」をカテゴリ間で合算した額
+ *   （最も高い1件だけ残す前提で、残りを解約した場合に浮く額）。
+ * - ghostGuild（幽霊ギルドの退会）: 手動入力サブスク（otherSubscriptions）の合計が
+ *   SUBSCRIPTION_GHOST_GUILD_MIN（5,000円）以上の場合。節約可能額はその合計そのもの。
+ * - phoneAbyss（スマホの深淵）: サブスク合計（プラン選択＋手動入力）が1円以上の全ユーザーに発生。
+ *   節約可能額は実額に基づかない固定のゲーム上のボーナス（SUBSCRIPTION_AUDIT_SAVING）。
+ *
+ * @param {{subscriptionPlanIds?:string[], otherSubscriptions?:{label:string,monthly:number}[]}} selections
+ * @returns {{id:'duplicate'|'ghostGuild'|'phoneAbyss', monthlySaving:number}[]} 足切り前の全件
+ */
+export function evaluateSubscriptionQuests(selections){
+  const sel = selections ?? {};
+  const planIds = Array.isArray(sel.subscriptionPlanIds) ? sel.subscriptionPlanIds : [];
+  const others = Array.isArray(sel.otherSubscriptions) ? sel.otherSubscriptions : [];
+  const results = [];
+
+  // ① 重複の呪縛：カテゴリ内で2サービス以上が契約中の場合、最高額の1件を残して他を解約する想定の節約額
+  let duplicateSaving = 0;
+  for (const category of C.SUBSCRIPTION_PLANS){
+    const activePrices = category.services
+      .map(service => service.plans.find(p => planIds.includes(p.id)))
+      .filter(Boolean)
+      .map(plan => C.resolvePlanMonthly(plan));
+    if (activePrices.length >= 2){
+      const total = activePrices.reduce((sum, v) => sum + v, 0);
+      duplicateSaving += total - Math.max(...activePrices);
+    }
+  }
+  if (duplicateSaving > 0) results.push({ id:'duplicate', monthlySaving: Math.floor(duplicateSaving) });
+
+  // ② 幽霊ギルドの退会：手動入力サブスク合計が閾値以上
+  const othersTotal = C.sumOtherSubscriptions(others);
+  if (othersTotal >= C.SUBSCRIPTION_GHOST_GUILD_MIN){
+    results.push({ id:'ghostGuild', monthlySaving: othersTotal });
+  }
+
+  // ③ スマホの深淵：サブスクを1円でも契約していれば発生
+  const total = C.sumSubscriptions(planIds) + othersTotal;
+  if (total > 0){
+    results.push({ id:'phoneAbyss', monthlySaving: C.SUBSCRIPTION_AUDIT_SAVING });
+  }
+
   return results;
 }
 

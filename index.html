@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-
 <!-- §7.5 SEO・OGP：タイトル・説明文はSPEC記載の確定文言をそのまま使用する。
      ★「FP監修」の表記は実際に監修者を立てた場合のみ正しい。ダミーのまま公開しないこと（要確認・報告済み） -->
 <title>【β版】FP監修｜手取り最大化シミュレーター てどりクエスト</title>
@@ -303,10 +302,11 @@
       </div>
     </div>
 
-    <!-- --- サブスクリプション（デジタルサブスクのみ。ジム等の自由入力枠は廃止） ---
-         ★機能一時凍結中（2026-08-08）：入力UI・クエスト判定ともに非表示にする。
-           今後の改修に備え、マークアップ・ロジックは削除せず hidden 属性で隠すだけに留める。 -->
-    <div class="card" hidden>
+    <!-- --- サブスクリプション ---
+         ★ゲーミフィケーション改修（2026-08-08）：凍結解除。新3クエスト（重複の呪縛／
+           幽霊ギルドの退会／スマホの深淵）に対応するため、手動入力欄（その他サブスク）も
+           このタイミングで再実装する（js/ui.js renderOtherSubscriptions が描画）。 -->
+    <div class="card">
       <p class="card__title">🎬 サブスクリプション</p>
       <label class="audience-toggle">
         <input type="checkbox" id="toggle-audience">
@@ -574,6 +574,18 @@
       <p class="empty-state" data-bind="toggle:hasSubscription">
         ✅ サブスクを選択しています。上のカテゴリから内容を確認・変更できます。
       </p>
+
+      <!-- ★その他のサブスク（自由入力）。ジム・習い事など、定額プランに当てはまらない
+           契約を受ける枠。js/ui.js renderOtherSubscriptions が data-other-sub-list 内の
+           行DOMを差分更新する（フォーカス中の入力欄には書き戻さない＝CLAUDE.md 制約5）。 -->
+      <div class="sub-other" style="margin-top:1.5rem;">
+        <p class="card__title">🏋️ その他のサブスク（自由入力）</p>
+        <p class="section-lead">ジム・習い事・コンタクトの定期便など、定額プランに無いものはこちらへ。</p>
+        <div data-other-sub-list></div>
+        <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="addOtherSubscription">
+          ＋ サブスクを追加する
+        </button>
+      </div>
 
       <div class="cost-bar" data-cost-bar="subscriptions" style="margin-top:1rem;">
         <div class="cost-bar__track">

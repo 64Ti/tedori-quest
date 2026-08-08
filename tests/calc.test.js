@@ -397,7 +397,10 @@ describe('Phase2 固定費クエスト・クレジットカードクエストの
     }
   });
 
-  test('FEEDBACK-02: 手動入力サブスクは固定費合計に加算されるがクエスト判定からは除外される', () => {
+  // ★ゲーミフィケーション改修（2026-08-08）：サブスク凍結解除に伴い、旧「合計額－理想値」の
+  //   単調な cancelSubscription 判定を廃止し、独立した3クエスト（duplicate/ghostGuild/phoneAbyss）
+  //   に置き換えた。FEEDBACK-02/03 もそれに合わせて新しい期待値へ更新する。
+  test('FEEDBACK-02: 手動入力サブスクは固定費合計に加算され、5,000円以上なら幽霊ギルドの退会も発生する', () => {
     const state = buildState({
       selections: {
         subscriptionPlanIds: [],
@@ -406,20 +409,90 @@ describe('Phase2 固定費クエスト・クレジットカードクエストの
     });
     // 固定費合計（家計圧迫度）には手動入力分が含まれる
     assert.equal(selectors.fixedCostsTotal(state), 8000);
-    // クエスト判定（ムダの自動判定）には手動入力分を使わないため、サブスクのクエストは発生しない
-    assert.equal(selectors.buildQuestList(state).some(q => q.id === 'cancelSubscription'), false);
+    const quests = selectors.buildQuestList(state);
+    const ghost = quests.find(q => q.id === 'subscriptionGhostGuild');
+    assert.ok(ghost);
+    assert.equal(ghost.monthlySaving, 8000);
+    // 1円以上契約していれば「スマホの深淵」も同時に発生する
+    assert.ok(quests.some(q => q.id === 'subscriptionPhoneAbyss'));
   });
 
-  // ★ゲーミフィケーション改修（2026-08-08）：サブスクリプション機能は一時凍結（非表示）した。
-  //   選択済みプランがあっても、fixedCostsTotal（家計圧迫度）には引き続き算入されるが、
-  //   クエスト判定からは除外される（FEEDBACK-02と同じ扱いに統一）。
-  test('FEEDBACK-03: サブスク機能凍結中はプラン選択分があってもクエスト判定の対象にならない', () => {
+  test('FEEDBACK-03: プラン選択が1件のみ（重複なし）の場合はスマホの深淵のみ発生する', () => {
     const state = buildState({
-      selections: { subscriptionPlanIds: ['netflix_premium'], otherSubscriptions: [] }   // 2,290円（理想1,000円との差1,290円）
+      selections: { subscriptionPlanIds: ['netflix_premium'], otherSubscriptions: [] }   // 2,290円
     });
     assert.equal(selectors.fixedCostsTotal(state), 2290);
-    const quest = selectors.buildQuestList(state).find(q => q.id === 'cancelSubscription');
-    assert.equal(quest, undefined);
+    const quests = selectors.buildQuestList(state);
+    assert.ok(quests.some(q => q.id === 'subscriptionPhoneAbyss'));
+    assert.equal(quests.some(q => q.id === 'subscriptionDuplicate'), false);
+    assert.equal(quests.some(q => q.id === 'subscriptionGhostGuild'), false);
+  });
+});
+
+describe('8.8 サブスク新クエスト（重複の呪縛／幽霊ギルドの退会／スマホの深淵）', () => {
+  test('SUB-01: 何も契約していなければクエストは0件', () => {
+    const results = calc.evaluateSubscriptionQuests({ subscriptionPlanIds: [], otherSubscriptions: [] });
+    assert.equal(results.length, 0);
+  });
+
+  test('SUB-02: 1サービスのみ契約 → スマホの深淵のみ発生し、節約可能額は固定値', () => {
+    const results = calc.evaluateSubscriptionQuests({ subscriptionPlanIds: ['netflix_premium'], otherSubscriptions: [] });
+    assert.equal(results.length, 1);
+    assert.equal(results[0].id, 'phoneAbyss');
+    assert.equal(results[0].monthlySaving, C.SUBSCRIPTION_AUDIT_SAVING);
+  });
+
+  test('SUB-03: 同一カテゴリで2サービス契約 → 重複の呪縛が発生し、節約額は合計－最高額の1件', () => {
+    // netflix_premium(2,290円)・primevideo_general(600円) はともに「動画配信」カテゴリ
+    const results = calc.evaluateSubscriptionQuests({
+      subscriptionPlanIds: ['netflix_premium', 'primevideo_general'],
+      otherSubscriptions: []
+    });
+    const dup = results.find(r => r.id === 'duplicate');
+    assert.ok(dup);
+    assert.equal(dup.monthlySaving, 600);   // (2290+600) - 2290
+  });
+
+  test('SUB-04: カテゴリが異なれば2サービス契約していても重複の呪縛は発生しない', () => {
+    // netflix_premium は動画配信、spotify_standard は音楽配信（別カテゴリ）
+    const results = calc.evaluateSubscriptionQuests({
+      subscriptionPlanIds: ['netflix_premium', 'spotify_standard'],
+      otherSubscriptions: []
+    });
+    assert.equal(results.some(r => r.id === 'duplicate'), false);
+  });
+
+  test('SUB-05: 手動入力サブスク合計5,000円以上 → 幽霊ギルドの退会が発生し節約額は合計そのもの', () => {
+    const results = calc.evaluateSubscriptionQuests({
+      subscriptionPlanIds: [],
+      otherSubscriptions: [{ id:'o1', label:'ジム', monthly: 6000 }]
+    });
+    const ghost = results.find(r => r.id === 'ghostGuild');
+    assert.ok(ghost);
+    assert.equal(ghost.monthlySaving, 6000);
+  });
+
+  test('SUB-06: 手動入力サブスク合計が5,000円未満なら幽霊ギルドの退会は発生しない（スマホの深淵は発生する）', () => {
+    const results = calc.evaluateSubscriptionQuests({
+      subscriptionPlanIds: [],
+      otherSubscriptions: [{ id:'o1', label:'新聞', monthly: 3000 }]
+    });
+    assert.equal(results.some(r => r.id === 'ghostGuild'), false);
+    assert.ok(results.some(r => r.id === 'phoneAbyss'));
+  });
+
+  test('SUB-07: 3クエストが互いに独立して同時に発生しうる', () => {
+    const results = calc.evaluateSubscriptionQuests({
+      subscriptionPlanIds: ['netflix_premium', 'primevideo_general'],
+      otherSubscriptions: [{ id:'o1', label:'ジム', monthly: 7000 }]
+    });
+    const ids = results.map(r => r.id).sort();
+    assert.deepEqual(ids, ['duplicate', 'ghostGuild', 'phoneAbyss']);
+  });
+
+  test('SUB-08: 旧クエストcancelSubscriptionはQUEST_CATALOGから廃止されている', () => {
+    assert.equal(C.QUEST_CATALOG.some(q => q.id === 'cancelSubscription'), false);
+    assert.equal('subscriptions' in C.REUSED_QUEST_MAP, false);
   });
 });
 

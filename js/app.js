@@ -5,7 +5,7 @@ import { state, subscribe, setPersistErrorHandler, parseYen,
 import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotifyLevelUp,
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
-         captureCard, saveCard, resetQuestListCache, populateAnnualSalarySelect,
+         captureCard, saveCard, resetQuestListCache, resetOtherSubscriptionsCache, populateAnnualSalarySelect,
          triggerLevelUpEffect, showLevelReveal, hideLevelReveal } from './ui.js';
 import { selectors } from './selectors.js';
 import * as calc from './calc.js';
@@ -64,6 +64,9 @@ function bindEvents(){
   });
 
   document.addEventListener('input', e => {
+    const otherField = e.target.closest('[data-other-sub-field]');
+    if (otherField){ onOtherSubscriptionFieldInput(otherField); return; }
+
     const el = e.target.closest('[data-model]');
     if (!el || el.dataset.composing === '1') return;
     if (el.type === 'checkbox' || el.tagName === 'SELECT') return;   // これらは change で処理する
@@ -84,6 +87,12 @@ function bindEvents(){
     if (el && el.type !== 'checkbox' && el.tagName !== 'SELECT'){
       el.value = formatNumber(getByPath(state, el.dataset.model));
     }
+    const otherMonthly = e.target.closest('[data-other-sub-field="monthly"]');
+    if (otherMonthly){
+      const id = otherMonthly.closest('[data-other-sub-id]')?.dataset.otherSubId;
+      const row = state.selections.otherSubscriptions.find(r => r.id === id);
+      otherMonthly.value = formatNumber(row?.monthly);
+    }
     // ★隠しボーナスEXP③：自由記述欄に数文字以上入力してフォーカスが外れた時（生涯1回のみ抽選。
     //   レベルへの反映は「送信する」ボタン押下時＝applyPendingFeedbackBonus）
     if (e.target.id === 'in-feedback-comment' && e.target.value.trim().length >= 2){
@@ -97,6 +106,8 @@ function bindEvents(){
   document.addEventListener('focus', e => {
     const el = e.target.closest('[data-model]');
     if (el && el.type !== 'checkbox' && el.tagName !== 'SELECT') el.select();
+    const otherField = e.target.closest('[data-other-sub-field]');
+    if (otherField) otherField.select();
   }, true);
 
   document.addEventListener('click', e => {
@@ -227,6 +238,25 @@ function onCreditCardSelectChange(changedPath){
   if (sub && state.creditCards.others.includes(sub)){
     state.creditCards.others = state.creditCards.others.filter(id => id !== sub);
   }
+}
+
+/**
+ * その他サブスク（自由入力）の1フィールド分の入力を state.selections.otherSubscriptions に反映する。
+ * ★ゲーミフィケーション改修（2026-08-08）：凍結解除に伴い再実装。
+ * @param {HTMLInputElement} el data-other-sub-field を持つ入力要素
+ * @returns {void}
+ */
+function onOtherSubscriptionFieldInput(el){
+  if (el.dataset.composing === '1') return;
+  const id = el.closest('[data-other-sub-id]')?.dataset.otherSubId;
+  if (!id) return;
+  const field = el.dataset.otherSubField;   // 'label' | 'monthly'
+  state.selections.otherSubscriptions = state.selections.otherSubscriptions.map(r => {
+    if (r.id !== id) return r;
+    if (field === 'label') return { ...r, label: el.value.slice(0, C.OTHER_SUBSCRIPTION.labelMaxLength) };
+    if (field === 'monthly') return { ...r, monthly: parseYen(el.value) };
+    return r;
+  });
 }
 
 /**
@@ -427,6 +457,7 @@ const ACTIONS = {
       applyRestoredState(restored);
       unlockAllScreensAfterRestore();
       resetQuestListCache();
+      resetOtherSubscriptionsCache();
       syncNotifiedLevel();   // ★復元直後に基準レベルとの差分で誤った「LEVEL UP!」通知が出るのを防ぐ
       if (input) input.value = '';
       showToast('呪文から復元しました');
@@ -440,6 +471,29 @@ const ACTIONS = {
   assistFireInsurance(){
     // 「わからない」時の相場補完値（config.js FIRE_INSURANCE.assistMonthly）。
     state.fixedCosts.fireInsurance = C.FIRE_INSURANCE_ASSIST_MONTHLY;
+  },
+
+  /**
+   * その他サブスク（自由入力）の行を1件追加する。上限（OTHER_SUBSCRIPTION.maxRows）到達時は何もしない。
+   * ★ゲーミフィケーション改修（2026-08-08）：凍結解除に伴い再実装。
+   */
+  addOtherSubscription(){
+    if (state.selections.otherSubscriptions.length >= C.OTHER_SUBSCRIPTION.maxRows) return;
+    const id = `o${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    state.selections.otherSubscriptions = [
+      ...state.selections.otherSubscriptions,
+      { id, label: '', monthly: null }
+    ];
+  },
+
+  /**
+   * その他サブスクの行を1件削除する。
+   * @param {HTMLButtonElement} btn クリックされた削除ボタン（data-other-sub-id を持つ行の子）
+   */
+  removeOtherSubscription(btn){
+    const id = btn.closest('[data-other-sub-id]')?.dataset.otherSubId;
+    if (!id) return;
+    state.selections.otherSubscriptions = state.selections.otherSubscriptions.filter(r => r.id !== id);
   },
 
   /**
@@ -463,6 +517,7 @@ const ACTIONS = {
     const fresh = structuredClone(INITIAL_STATE);
     applyRestoredState(fresh);
     resetQuestListCache();
+    resetOtherSubscriptionsCache();
     syncNotifiedLevel();   // ★リセット直後に誤ったレベル差分演出が出ないよう基準を同期する
     showToast('冒険をはじめから始めます');
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
@@ -620,6 +675,7 @@ function loadSpellFromUrlIfPresent(){
     applyRestoredState(restoreFromSpell(code));
     unlockAllScreensAfterRestore();
     resetQuestListCache();
+    resetOtherSubscriptionsCache();
     syncNotifiedLevel();   // ★復元直後に基準レベルとの差分で誤った「LEVEL UP!」通知が出るのを防ぐ
     showToast('呪文から復元しました');
   }catch{
