@@ -662,12 +662,13 @@
 <!-- ============================================================
      PDF家計診断レポート専用テンプレート（FP提出用フォーマル書式）
      ★デザイン原本は pdf-template.html（プロジェクトルート）。そのHTML構造・CSSを
-       style.css の .report-container 系スタイルとして移植済み。
-     ★通常画面には一切表示しない（style.css .report-container が既定 display:none）。
+       style.css の #pdf-report-template スコープのスタイルとして移植済み
+       （RPG画面との相互干渉を避けるため、すべてID起点のセレクタで完全に分離している）。
+     ★通常画面には一切表示しない（style.css #pdf-report-template が既定 display:none）。
        js/ui.js exportFullReportPdf() が state から中身を組み立て直し、html2pdf.jsの
        キャプチャ対象にする。中身は完全にJSが動的に構築するため、ここは空の器のみ置く。
      ============================================================ -->
-<div id="pdf-report-template" class="report-container"></div>
+<div id="pdf-report-template"></div>
 
 <script type="module" src="./js/app.js"></script>
 </body>

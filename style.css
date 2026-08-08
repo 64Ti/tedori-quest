@@ -460,52 +460,55 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
 }
 
 /* ===== ⑬d PDF家計診断レポート（FP提出用フォーマル書式）=====
-   ★html2pdf.jsの出力専用テンプレート（#pdf-report-template）。通常画面には一切表示しない。
+   ★html2pdf.jsの出力専用テンプレート。通常画面には一切表示しない。
      pdf-template.html（デザイン原本）のHTML構造・CSSをこの中に移植したもの。
-     RPG風のグローバルスタイル（ドット絵フォント・黒背景・二重枠・letter-spacing等）が
-     一切継承・干渉しないよう、フォント・配色・字間をこの中で明示的に上書きしてスコープを閉じる
-     （.card/.btn等のRPG風クラスは中で一切使わない）。
+   ★【重要】RPG風のグローバルスタイル（ドット絵フォント・黒背景・二重枠・letter-spacing等）が
+     一切継承・干渉せず、かつレポート側のスタイルもRPG画面へ絶対に漏れ出さないよう、
+     すべてのセレクタの先頭に #pdf-report-template を付けて完全にスコープを閉じる
+     （.card/.btn等のRPG風クラスは中で一切使わない。クラスセレクタではなくID起点にすることで
+     詳細度も最大化し、どのグローバルCSSより確実に優先させる）。
    ★既定はdisplay:noneだが、js/ui.js exportFullReportPdf()がキャプチャ中だけdisplay:blockに
-     切り替える。position:fixed; left:-9999pxで画面外に置いたままにするため、
-     表示状態になってもユーザー画面には一切見えない（フラッシュ・レイアウト崩れの防止）。
-     html2pdf.js（内部のhtml2canvas）はdisplay:noneの要素を描画できないため、
-     「表示はするが画面外」の状態を保つことが必須（visibility:hiddenやopacity:0でも
-     html2canvasは描画してしまい不可視のPDFになるため使わない）。 */
-.report-container{
+     切り替える。
+     ★致命的バグ修正：以前は position:fixed/absolute; left:-9999px で画面外に飛ばしていたが、
+       html2canvasがそのような負の座標に置かれた要素の高さを正しく計測できず、
+       高さ0のcanvas（＝空白または壊れたPDF）になる不具合を実機検証で確認した。
+       そのため画面外オフセットには一切頼らず、js/ui.js側で本文の他の要素
+       （ヘッダー・main・ボトムナビ等）を一時的に隠し、このテンプレートを通常の
+       ドキュメントフロー内に表示することでhtml2canvasに正しく計測・描画させる方式に変更した。 */
+#pdf-report-template{
   display:none;
-  position:fixed; left:-9999px; top:0;
   width:210mm; min-height:297mm; padding:20mm; box-sizing:border-box;
   background:#ffffff; color:#111111;
   font-family:"Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
   font-weight:400; letter-spacing:normal; line-height:1.5; font-size:14px;
 }
-.report-container h1{
+#pdf-report-template h1{
   font-size:24px; font-weight:400; letter-spacing:normal; color:#111111;
   border-bottom:2px solid #333333; padding-bottom:10px; margin:0 0 24px;
   display:flex; justify-content:space-between; align-items:baseline;
 }
-.report-container h1 .app-name{font-size:14px; font-weight:400; color:#555555;}
-.report-container h2{
+#pdf-report-template h1 .app-name{font-size:14px; font-weight:400; color:#555555;}
+#pdf-report-template h2{
   font-size:16px; font-weight:400; letter-spacing:normal; color:#ffffff;
   background:#333333; padding:6px 12px; margin:24px 0 12px; border:none;
 }
-.report-container p{margin-top:6px; font-size:14px;}
-.report-container table{width:100%; border-collapse:collapse; margin-bottom:16px; font-size:14px;}
-.report-container th, .report-container td{
+#pdf-report-template p{margin-top:6px; font-size:14px;}
+#pdf-report-template table{width:100%; border-collapse:collapse; margin-bottom:16px; font-size:14px;}
+#pdf-report-template th, #pdf-report-template td{
   border:1px solid #333333; padding:8px 12px; text-align:left; vertical-align:top;
 }
-.report-container th{background:#f5f5f5; font-weight:700; width:30%;}
-.report-container .num-align{text-align:right;}
-.report-container .highlight-box{
+#pdf-report-template th{background:#f5f5f5; font-weight:700; width:30%;}
+#pdf-report-template .num-align{text-align:right;}
+#pdf-report-template .highlight-box{
   border:2px solid #d32f2f; background:#ffebee; padding:16px; text-align:center; margin:24px 0;
 }
-.report-container .highlight-box .title{font-size:16px; font-weight:700; color:#d32f2f; margin-bottom:8px;}
-.report-container .highlight-box .amount{font-size:32px; font-weight:700; color:#d32f2f;}
-.report-container .highlight-box .sub{font-size:14px; margin-top:8px; color:#333333;}
-.report-container .action-list{margin:0; padding-left:24px;}
-.report-container .action-list li{margin-bottom:12px; font-size:14px;}
-.report-container .action-list strong{display:block; font-size:15px; margin-bottom:4px;}
-.report-container .disclaimer{
+#pdf-report-template .highlight-box .title{font-size:16px; font-weight:700; color:#d32f2f; margin-bottom:8px;}
+#pdf-report-template .highlight-box .amount{font-size:32px; font-weight:700; color:#d32f2f;}
+#pdf-report-template .highlight-box .sub{font-size:14px; margin-top:8px; color:#333333;}
+#pdf-report-template .action-list{margin:0; padding-left:24px;}
+#pdf-report-template .action-list li{margin-bottom:12px; font-size:14px;}
+#pdf-report-template .action-list strong{display:block; font-size:15px; margin-bottom:4px;}
+#pdf-report-template .disclaimer{
   font-size:10px; color:#666666; margin-top:32px; border-top:1px solid #cccccc; padding-top:8px;
 }
 

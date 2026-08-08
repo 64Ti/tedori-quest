@@ -1558,12 +1558,16 @@ function populatePdfReportTemplate(s){
 
 /**
  * PDF家計診断レポートを出力する。
- * ★通常は非表示（.report-container既定でdisplay:none）のテンプレートを、キャプチャ中だけ
- *   画面外（position:fixed; left:-9999px。style.css参照）に配置したまま表示状態にして
- *   html2canvasに読み取らせ、完了後（例外時も）必ず非表示へ戻す。
- *   ★html2pdf.js（内部のhtml2canvas）はdisplay:noneの要素を描画できないため、
- *     「表示はするが画面外」を維持する必要がある（visibility:hidden/opacity:0は
- *     不可視のまま描画されてしまい白紙PDFの原因になるため使わない）。
+ * ★致命的バグ修正：以前は #pdf-report-template を position:fixed/absolute; left:-9999px で
+ *   画面外に飛ばしたまま display:block にしてhtml2canvasへ渡していたが、実機検証で
+ *   「html2canvasは負の座標に配置された要素の高さを正しく計測できず、高さ0のcanvas
+ *   （＝空白または壊れたPDF。RPG画面がそのまま写り込んで見えることもある）になる」
+ *   不具合を確認した。そのため画面外オフセットには一切頼らず、
+ *   ①レポート以外の <body> 直下の要素（RPGのヘッダー・main・ボトムナビ等）をすべて
+ *     一時的に display:none にし、②レポートだけを通常のドキュメントフロー内に表示する
+ *   方式に変更した。ヘッダー等の非表示とレポートの表示は同じ同期処理内で行うため、
+ *   ブラウザが「何も表示されていない」フレームを描画することはない（一瞬でRPG画面から
+ *   レポート表示へ切り替わる）。完了後（例外時も）必ず元の状態へ戻す。
  * @returns {Promise<void>}
  */
 export async function exportFullReportPdf(){
@@ -1571,6 +1575,10 @@ export async function exportFullReportPdf(){
   if (!target) return;
 
   populatePdfReportTemplate(state);
+
+  const siblings = [...document.body.children].filter(el => el !== target);
+  const originalDisplay = siblings.map(el => el.style.display);
+  siblings.forEach(el => { el.style.display = 'none'; });
   target.style.display = 'block';
 
   try{
@@ -1585,5 +1593,6 @@ export async function exportFullReportPdf(){
     }).from(target).save('てどりクエスト-家計診断レポート.pdf');
   } finally {
     target.style.display = 'none';
+    siblings.forEach((el, i) => { el.style.display = originalDisplay[i]; });
   }
 }
