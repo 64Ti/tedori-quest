@@ -1300,27 +1300,136 @@ export function showImageModal(dataUrl, message){
 }
 
 // ---------------------------------------------------------------------------
-// PDF出力（§4.4追加・2026-08-08）
+// PDF家計診断レポート（FP提出用フォーマル書式・2026-08-08 改修）
 // ★html2pdf.js は vendor.js 経由（Node-Ready N-1）。CDN URLをここに直書きしない。
+// ★以前はRPG画面（黒背景・二重枠）をそのままキャプチャしていたが、FPがそのまま家計診断に
+//   使える白背景・sans-serifのフォーマルなA4レポート（#pdf-report-template）を state から
+//   動的に組み立てて出力する方式に全面改修した。通常のUI（.card等）とは完全に独立した
+//   別ドキュメントのため、インタラクティブな入力要素を持たない＝毎回まるごと作り直しても
+//   フォーカス等の問題が起きない（CLAUDE.md 制約5はユーザー入力欄の保護が趣旨のため対象外）。
 // ---------------------------------------------------------------------------
 
+const REPORT_AREA_LABELS = { tokyo:'東京都', osaka:'大阪府', urban:'地方主要都市', other:'その他地域' };
+const REPORT_INSURANCE_TYPE_LABELS = { association:'協会けんぽ', kumiai:'健康保険組合' };
+
 /**
- * STEP1・STEP2・クエスト一覧・結果画面のすべての内容を1つのPDFとして出力する。
- * ★通常は state.meta.screen に応じて1画面ずつしか表示しない（[hidden]属性）ため、
- *   PDF生成中だけ一時的にすべての .screen の hidden を解除して縦に並べてキャプチャし、
- *   完了後に元のhidden状態へ戻す（restoreで必ず戻す。例外時もfinallyで保証する）。
- *   sticky/fixedのヘッダー・ボトムナビや画面遷移アニメーションも、キャプチャ中だけ
- *   body.pdf-export-mode（style.css）で無効化する。
+ * レポート内の見出し要素を組み立てる。
+ * @param {'h1'|'h2'} tag
+ * @param {string} text
+ * @returns {HTMLHeadingElement}
+ */
+function buildReportHeading(tag, text){
+  const el = document.createElement(tag);
+  el.textContent = text;
+  return el;
+}
+
+/**
+ * レポート内のテーブルを組み立てる。1行目をヘッダー（th）として扱う。
+ * @param {string[][]} rows 1行目はヘッダー、以降はデータ行
+ * @returns {HTMLTableElement}
+ */
+function buildReportTable(rows){
+  const table = document.createElement('table');
+  rows.forEach((cells, rowIndex) => {
+    const tr = document.createElement('tr');
+    cells.forEach(text => {
+      const cell = document.createElement(rowIndex === 0 ? 'th' : 'td');
+      cell.textContent = text;
+      tr.appendChild(cell);
+    });
+    table.appendChild(tr);
+  });
+  return table;
+}
+
+/**
+ * PDF家計診断レポート（#pdf-report-template）の中身を state から組み立て直す。
+ * @param {object} s state
+ * @returns {void}
+ */
+function populatePdfReportTemplate(s){
+  const root = document.getElementById('pdf-report-template');
+  if (!root) return;
+  root.textContent = '';   // 前回分を消してから作り直す（インタラクティブ要素が無いため丸ごと再構築で問題ない）
+
+  const view = buildViewModel(s);
+  const p = s.userProfile ?? {};
+  const fc = s.fixedCosts ?? {};
+
+  root.appendChild(buildReportHeading('h1', 'てどりクエスト 家計診断レポート'));
+  const meta = document.createElement('p');
+  meta.className = 'report-meta';
+  meta.textContent = `作成日：${new Date().toLocaleDateString('ja-JP')}　※${C.SYSTEM_BASE_DATE}時点の制度に基づく試算です`;
+  root.appendChild(meta);
+
+  root.appendChild(buildReportHeading('h2', '1. プロフィール'));
+  root.appendChild(buildReportTable([
+    ['項目', '内容'],
+    ['年収（額面）', `¥${YEN(p.annualSalary)}`],
+    ['お住まいのエリア', REPORT_AREA_LABELS[p.area] ?? '未選択'],
+    ['健康保険の種類', REPORT_INSURANCE_TYPE_LABELS[p.insuranceType] ?? '未選択'],
+    ['称号・レベル', `${view.rankTitle}（Lv.${view.displayLevel}）`]
+  ]));
+
+  root.appendChild(buildReportHeading('h2', '2. 公的保障の状況'));
+  root.appendChild(buildReportTable([
+    ['項目', '金額'],
+    ['高額療養費の自己負担上限（月額）', `¥${view.selfPayCap}`],
+    ['傷病手当金（日額）', `¥${view.injuryDaily} / 日`]
+  ]));
+
+  root.appendChild(buildReportHeading('h2', '3. 固定費の現状と理想'));
+  const costRows = [['項目', '現状（月額）', '理想の目標値', '全国平均']];
+  const costCategories = ['smartphone', 'internet', 'medicalInsurance', 'fireInsurance', 'subscriptions', 'nhk'];
+  if (fc.hasCar) costCategories.push('carInsurance', 'parking');
+  costCategories.forEach(category => {
+    const target = C.FIXED_COST_TARGETS[category];
+    if (!target) return;
+    const value = getCostCategoryValue(s, category);
+    const average = getCategoryAverage(s, category, target);
+    const idealText = (target.ideal === null || target.ideal === undefined) ? '—' : `¥${YEN(target.ideal)}`;
+    costRows.push([target.label, `¥${YEN(value)}`, idealText, `¥${YEN(average)}`]);
+  });
+  root.appendChild(buildReportTable(costRows));
+
+  root.appendChild(buildReportHeading('h2', '4. アクションプラン（見直すべき項目）'));
+  const quests = selectors.buildQuestList(s);
+  if (quests.length){
+    const questRows = [['項目', '内容', '月額節約可能額']];
+    quests.forEach(q => questRows.push([q.mainTitle, q.detail ?? q.subTitle ?? '', `¥${YEN(q.monthlySaving)}`]));
+    root.appendChild(buildReportTable(questRows));
+  } else {
+    const none = document.createElement('p');
+    none.textContent = '現時点で見直しの余地がある固定費は見つかりませんでした。';
+    root.appendChild(none);
+  }
+
+  const highlight = document.createElement('p');
+  highlight.className = 'report-highlight';
+  highlight.textContent = `合計節約可能額：月額 ¥${view.questTotalSaving}`;
+  root.appendChild(highlight);
+
+  const disclaimer = document.createElement('p');
+  disclaimer.className = 'report-disclaimer';
+  disclaimer.textContent = '※本レポートは入力内容に基づく試算であり、実際の給付額・控除額・保険料とは異なる場合があります。'
+    + '制度の詳細は最新の公的情報をご確認ください。';
+  root.appendChild(disclaimer);
+}
+
+/**
+ * PDF家計診断レポートを出力する。
+ * ★通常は非表示（.report-container既定でdisplay:none）のテンプレートを、キャプチャ中だけ
+ *   画面外（position:fixed; left:-99999px。style.css参照）に配置したまま表示状態にして
+ *   html2canvasに読み取らせ、完了後（例外時も）必ず非表示へ戻す。
  * @returns {Promise<void>}
  */
 export async function exportFullReportPdf(){
-  const target = document.querySelector('main');
+  const target = document.getElementById('pdf-report-template');
   if (!target) return;
 
-  const screens = [...document.querySelectorAll('.screen[data-screen]')];
-  const originalHidden = screens.map(el => el.hidden);
-  document.body.classList.add('pdf-export-mode');
-  screens.forEach(el => { el.hidden = false; });
+  populatePdfReportTemplate(state);
+  target.style.display = 'block';
 
   try{
     const html2pdf = await loadHtml2Pdf();
@@ -1328,16 +1437,12 @@ export async function exportFullReportPdf(){
 
     await html2pdf().set({
       margin: 10,
-      filename: 'tedori-quest-report.pdf',
+      filename: 'てどりクエスト-家計診断レポート.pdf',
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 2, backgroundColor: '#000000', useCORS: true, logging: false,
-        windowWidth: document.documentElement.clientWidth
-      },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false },
       jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
     }).from(target).save();
   } finally {
-    document.body.classList.remove('pdf-export-mode');
-    screens.forEach((el, i) => { el.hidden = originalHidden[i]; });
+    target.style.display = 'none';
   }
 }

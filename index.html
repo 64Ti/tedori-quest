@@ -659,6 +659,14 @@
      （z-index競合・:focus-within競合を避けるため、CSSトリガーは[open]属性のみに限定する）。 -->
 <div class="tip-backdrop" data-tip-backdrop hidden></div>
 
+<!-- ============================================================
+     PDF家計診断レポート専用テンプレート（FP提出用フォーマル書式・2026-08-08改修）
+     ★通常画面には一切表示しない（style.css .report-container が既定 display:none）。
+       js/ui.js exportFullReportPdf() が state から中身を組み立て直し、html2pdf.jsの
+       キャプチャ対象にする。中身は完全にJSが動的に構築するため、ここは空の器のみ置く。
+     ============================================================ -->
+<div id="pdf-report-template" class="report-container"></div>
+
 <script type="module" src="./js/app.js"></script>
 </body>
 </html>

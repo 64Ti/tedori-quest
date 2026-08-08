@@ -459,13 +459,42 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
   @page{margin:12mm;}
 }
 
-/* ===== ⑬d PDF出力（§4.4追加）：全STEPを縦に並べてキャプチャするための一時レイアウト =====
-   ★js/ui.js exportFullReportPdf() がキャプチャ中だけ body に付与する。sticky/fixed要素の
-     解除・画面遷移アニメーションの無効化のみを行い、配色（黒背景）は capture-safe と同様
-     そのまま活かす（PDFでも王道クラシックRPGの見た目を保つ）。 */
-.pdf-export-mode .app-header{position:static;}
-.pdf-export-mode .bottom-nav{display:none;}
-.pdf-export-mode .screen{animation:none;}
+/* ===== ⑬d PDF家計診断レポート（FP提出用フォーマル書式・2026-08-08改修） =====
+   ★html2pdf.jsの出力専用テンプレート（#pdf-report-template）。通常画面には一切表示しない。
+     RPG風のグローバルスタイル（ドット絵フォント・黒背景・二重枠・letter-spacing等）が
+     一切継承・干渉しないよう、フォント・配色・字間をこの中で明示的に上書きしてスコープを閉じる
+     （.card/.btn等のRPG風クラスは中で一切使わない）。
+   ★既定はdisplay:noneだが、js/ui.js exportFullReportPdf()がキャプチャ中だけdisplay:blockに
+     切り替える。position:fixed; left:-99999pxで画面外に置いたままにするため、
+     表示状態になってもユーザー画面には一切見えない（フラッシュ・レイアウト崩れの防止）。 */
+.report-container{
+  display:none;
+  position:fixed; left:-99999px; top:0;
+  width:210mm; padding:20mm; box-sizing:border-box;
+  background:#ffffff; color:#111111;
+  font-family:-apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  font-weight:400; letter-spacing:normal; line-height:1.6; font-size:12pt;
+}
+.report-container h1{
+  font-size:20pt; font-weight:700; color:#111111; letter-spacing:normal;
+  border-bottom:2px solid #111111; padding-bottom:8pt; margin-bottom:4pt;
+}
+.report-container h2{
+  font-size:14pt; font-weight:700; color:#111111; letter-spacing:normal;
+  margin-top:20pt; padding-bottom:4pt; border-bottom:1px solid #999999;
+}
+.report-container p{margin-top:6pt;}
+.report-container table{width:100%; border-collapse:collapse; margin-top:8pt; font-size:10.5pt;}
+.report-container th, .report-container td{
+  border:1px solid #cccccc; padding:6pt 8pt; text-align:left; vertical-align:top;
+}
+.report-container th{background:#f2f2f2; font-weight:700; white-space:nowrap;}
+.report-container .report-meta{color:#555555; font-size:9pt; margin-top:2pt;}
+.report-container .report-highlight{
+  margin-top:16pt; padding:12pt; border:2px solid #111111; text-align:center;
+  font-size:16pt; font-weight:700;
+}
+.report-container .report-disclaimer{margin-top:20pt; font-size:8.5pt; color:#666666;}
 
 /* ===== ⑬e フッター（§7.4：法定表示への導線。全ページ共通） ===== */
 .app-footer{
