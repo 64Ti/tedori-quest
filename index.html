@@ -29,7 +29,13 @@
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <link rel="apple-touch-icon" href="./favicon.svg">
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#111114">
+<meta name="theme-color" content="#000000">
+
+<!-- ★クラシックRPG風デザイン改修（2026-08-08）：ドット絵風フォント「DotGothic16」をGoogle Fontsから読み込む。
+     js/vendor.js経由ではなくCSSフォントのため、ここに直接記載する（Node-Ready原則はJSのCDN読み込みが対象）。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="./style.css">
 

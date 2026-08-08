@@ -1,37 +1,43 @@
 /* style.css — 素のCSS。フレームワーク・プリプロセッサ・ビルド不使用（CLAUDE.md 制約9）。
-   ★UIデザイン実装仕様書（tedori-quest-ui-spec.md）準拠のストイック・ミニマリズムデザイン
-     （2026-08-08 全面改修）。角丸・box-shadow・半透明・グラデーションを排除し、
-     7色パレット＋Noto Sans JP（500/700/900のみ）で構成する。 */
+   ★クラシックRPG（王道8bit/16bit風）デザイン改修（2026-08-08）：
+     tedori-quest-ui-spec.md（王道クラシックRPGスタイル編）準拠。
+     黒背景＋太い白の二重枠＋わずかな角丸の「コマンドウィンドウ」様式を全コンテナに徹底し、
+     ドット絵フォント「DotGothic16」（index.html/privacy.htmlでGoogle Fontsから読み込み）を採用する。 */
 
 /* ===== ① デザイントークン（すべてここで一元管理） ===== */
 :root{
-  /* 色：UIデザイン実装仕様書 §2 準拠。この7色のみで構成する（HEX固定・oklch()等は使わない＝CLAUDE.md 制約10） */
-  --base:      #FFFFFF;   /* 背景・ボタンのホバー時背景・反転文字色 */
-  --main:      #111114;   /* ヘッダー背景・見出し・ボタン背景・強調テキスト */
-  --accent:    #E23E14;   /* ★面積3%ルール。警告の左ボーダー線・アイコン・エラー文字のみに使う */
-  --text-gray: #2A2C30;   /* 通常の本文テキスト */
-  --sub-gray:  #6E6E6A;   /* 注記・補足ラベル */
-  --border:    #DEDEDA;   /* 区切り線のみ */
-  --dark-sub:  #C9C9C5;   /* 黒帯（ヘッダー等）上のサブテキスト */
+  /* 色：tedori-quest-ui-spec.md §2 準拠。HEX固定・oklch()等は使わない（CLAUDE.md 制約10） */
+  --window-bg:     #000000;   /* コマンドウィンドウ・ボタンの背景（完全な黒） */
+  --window-border: #FFFFFF;   /* ウィンドウの枠線・区切り線 */
+  --text-main:     #FFFFFF;   /* 通常のテキスト（白） */
+  --text-gold:     #F8D820;   /* レベル・称号・金額などのポジティブな強調 */
+  --text-danger:   #E60012;   /* 警告・エラー・マイナス要素 */
+  --bar-exp:       #2080D0;   /* 経験値・進捗バーの塗り（青系） */
+  --bg-body:       #111111;   /* 画面全体の背景。ウィンドウ（真っ黒）より少し浮かせた色 */
+  --text-muted:    #8A8A8A;   /* ★仕様書に無い補助色。注記・非活性・控えめな枠線用（実務上必要な最小限の追加） */
 
   /* 間隔：4px グリッド（仕様書に規定なし。既存の間隔設計を踏襲する） */
   --sp-1:.25rem; --sp-2:.5rem;  --sp-3:.75rem;
   --sp-4:1rem;   --sp-6:1.5rem; --sp-8:2rem;
 
-  /* 文字サイズ・字間：UIデザイン実装仕様書 §3 準拠（固定px。レスポンシブclampは使わない） */
-  --fs-h1: 32px; --ls-h1: -0.02em;         /* H1見出し・900 */
-  --fs-h2: 24px; --ls-h2: -0.02em;         /* H2見出し・900 */
-  --fs-h3: 18px; --ls-h3: -0.02em;         /* H3見出し・700 */
-  --fs-body: 16px;                         /* 本文・500・line-height:1.6 */
-  --fs-data: 24px;                         /* 強調値（金額表示など）・900 */
-  --fs-button: 16px; --ls-button: 0.1em;   /* ボタン文字・700 */
-  --fs-label: 12px; --ls-label: 0.12em;    /* 英字/小ラベル・700 */
-  --fs-label-lg: 14px;                     /* 英字/小ラベルの大きい方 */
-  --fs-xs: 12px;                           /* 仕様書に明記の無い注記・キャプション類（sub-gray表示）用 */
+  /* 文字サイズ：tedori-quest-ui-spec.md §3 準拠（H1/H2=24px、本文/ボタン=16px、注記=12px） */
+  --fs-h1: 24px;
+  --fs-h2: 24px;
+  --fs-h3: 18px;               /* ★仕様書に無い中間見出し。H1/H2とのバランスで設定 */
+  --fs-body: 16px;
+  --fs-data: 24px;              /* 強調値（レベル・金額表示など）＝H1/H2と同格 */
+  --fs-button: 16px;
+  --fs-label: 12px;
+  --fs-label-lg: 14px;
+  --fs-xs: 12px;
   --fs-sm: 13px;
+  --ls-base: 2px;               /* ★仕様書 §3：letter-spacing 2px 程度 */
 
-  --radius:0; --radius-full:0;             /* ★角丸は完全排除（すべて0固定・下の②で!important強制） */
+  --radius: 8px;                 /* ★仕様書 §4.1：わずかな角丸 */
+  --radius-full: 999px;
   --dur:180ms; --ease:cubic-bezier(.4,0,.2,1);
+  --win-border-w: 6px;           /* ★仕様書 §4.1：可能であれば double 6px の二重枠 */
+  --bar-h: 18px;                 /* ★仕様書 §4.3：EXPゲージは16〜20px程度の厚み */
 }
 
 /* ===== ② リセット（最小限） ===== */
@@ -43,125 +49,156 @@ button,input,select,textarea{font:inherit;color:inherit;}
 a{color:inherit;}
 [hidden]{display:none !important;}   /* ★他のdisplay指定に負けないよう明示する */
 
-/* ★UIデザイン実装仕様書 §1：角丸・立体感（box-shadow）の完全排除。
-   個別コンポーネントの指定に関わらず、すべての要素に一律で適用する（最優先の安全網）。 */
-*,*::before,*::after{ border-radius:0 !important; box-shadow:none !important; }
-
 /* ===== ③ ベース ===== */
 body{
-  background:var(--base); color:var(--text-gray);
-  font-family:'Noto Sans JP', sans-serif;
-  font-weight:500;
-  font-size:var(--fs-body); line-height:1.6;
-  font-feature-settings:"palt" 1;          /* ★仕様書 §3：カーニング必須 */
+  /* ★仕様書 §2：画面全体の背景（--bg-body）はウィンドウの背景（--window-bg＝純黒）より
+     少し明るく浮かせることで、ウィンドウが画面の上に「浮いて見える」奥行きを出す */
+  background:var(--bg-body); color:var(--text-main);
+  font-family:'DotGothic16', sans-serif;
+  font-weight:400;                          /* ★DotGothic16はRegularの1ウェイトのみ */
+  font-size:var(--fs-body); line-height:1.5;
+  letter-spacing:var(--ls-base);
   -webkit-text-size-adjust:100%;
   padding-bottom:calc(64px + env(safe-area-inset-bottom));   /* ボトムナビ分の余白 */
 }
 main{display:block; max-width:640px; margin:0 auto; padding:0 var(--sp-4);}
-h1{font-size:var(--fs-h1); font-weight:900; letter-spacing:var(--ls-h1);}
-h2{font-size:var(--fs-h2); font-weight:900; letter-spacing:var(--ls-h2);}
-h3{font-size:var(--fs-h3); font-weight:700; letter-spacing:var(--ls-h3);}
-h4{font-size:var(--fs-body); font-weight:700;}
-p{font-weight:500; line-height:1.6;}
-section{padding:var(--sp-6) 0; border-bottom:1px solid var(--border);}
+h1{font-size:var(--fs-h1); font-weight:400; letter-spacing:var(--ls-base); color:var(--text-gold);}
+h2{font-size:var(--fs-h2); font-weight:400; letter-spacing:var(--ls-base); color:var(--text-gold);}
+h3{font-size:var(--fs-h3); font-weight:400; letter-spacing:var(--ls-base);}
+h4{font-size:var(--fs-body); font-weight:400;}
+p{font-weight:400; line-height:1.5;}
+section{padding:var(--sp-6) 0; border-bottom:1px solid var(--text-muted);}
 section:last-of-type{border-bottom:none;}
-.section-lead{color:var(--sub-gray); font-size:var(--fs-sm); margin-top:var(--sp-1);}
+.section-lead{color:var(--text-muted); font-size:var(--fs-sm); margin-top:var(--sp-1);}
 
-/* ★強調値（金額表示など）。UIデザイン実装仕様書 §3：24px/900/字間なし */
-.data-value{font-size:var(--fs-data); font-weight:900; color:var(--main);}
+/* ★強調値（金額・レベル表示など）。ゴールドで目立たせる */
+.data-value{font-size:var(--fs-data); font-weight:400; color:var(--text-gold);}
 
-/* ===== ④ コンポーネント（BEM風の命名。ユーティリティを乱造しない） ===== */
+/* ===== ④ コンポーネント（BEM風の命名。ユーティリティを乱造しない） =====
+   ★「コマンドウィンドウ」様式：黒背景＋白の太い二重線＋わずかな角丸を全コンテナに徹底する
+     （tedori-quest-ui-spec.md §4.1）。 */
 .card{
-  background:var(--base); border:1px solid var(--border); padding:var(--sp-4);
+  background:var(--window-bg); color:var(--text-main);
+  border:var(--win-border-w) double var(--window-border);
+  border-radius:var(--radius);
+  padding:var(--sp-4);
 }
 .card + .card{margin-top:var(--sp-4);}
-.card__title{display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-body); font-weight:700;}
+.card__title{display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-body); font-weight:400;}
 
-/* --- ボタン（.btn）。UIデザイン実装仕様書 §4.3 準拠 ---
-   ★通常時：背景--main・文字--base。ホバー時：背景--base・文字--main＋境界線2px solid --main に反転。
-     ホバーで枠線が「現れる」とサイズがずれるため、通常時から2px（背景と同色）の枠を確保しておく。 */
+/* --- ボタン（.btn／コマンド選択）。tedori-quest-ui-spec.md §4.2 準拠 ---
+   ★ホバー時も背景は黒のまま反転させない。「▶」カーソルを左側に出現させて選択を示す。
+     左側にカーソル分の余白を常に確保しておき、出現時にラベルが動かないようにする。 */
 .btn{
+  position:relative;
   display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2);
-  min-height:44px; padding:var(--sp-3) var(--sp-4);   /* ★タップ領域 44px 確保 */
-  border:2px solid var(--main);
-  background:var(--main); color:var(--base);
-  font-size:var(--fs-button); font-weight:700; letter-spacing:var(--ls-button);
-  cursor:pointer; transition:background var(--dur) var(--ease), color var(--dur) var(--ease);
+  min-height:44px; padding:var(--sp-3) var(--sp-4) var(--sp-3) calc(var(--sp-4) + 1.3em);
+  border:2px solid var(--window-border);
+  border-radius:var(--radius);
+  background:var(--window-bg); color:var(--text-main);
+  font-family:'DotGothic16', sans-serif;
+  font-size:var(--fs-button); font-weight:400; letter-spacing:var(--ls-base);
+  cursor:pointer; transition:color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.btn:hover{background:var(--base); color:var(--main);}
+.btn::before{
+  content:'▶';
+  position:absolute; left:var(--sp-3); top:50%; transform:translateY(-50%);
+  color:var(--text-gold);
+  opacity:0;
+}
+.btn:hover, .btn:focus-visible{
+  background:var(--window-bg);              /* ★背景は反転させない（黒のまま） */
+  color:var(--text-gold); border-color:var(--text-gold); outline:none;
+}
+.btn:hover::before, .btn:focus-visible::before{
+  opacity:1;
+  animation:cursor-blink 700ms steps(1,end) infinite;   /* ★選択中カーソルの点滅（RPGの定番演出） */
+}
+@keyframes cursor-blink{ 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
 .btn:disabled{opacity:.4; cursor:not-allowed;}
-.btn:disabled:hover{background:var(--main); color:var(--base);}
-/* --- 反転済み（アウトライン）の常設スタイル。戻る・キャンセル等の副次アクションに使う ---
-   ホバーで通常ボタンと逆方向（明→暗）に反転する。 */
-.btn--ghost{background:var(--base); color:var(--main); border-color:var(--main);}
-.btn--ghost:hover{background:var(--main); color:var(--base);}
-.btn--ghost:disabled:hover{background:var(--base); color:var(--main);}
-/* ★アクセント（赤）はボタン背景に使わない（仕様書 §2 禁止事項）。通常ボタンと同一の見た目にする */
-.btn--accent{background:var(--main); color:var(--base); border-color:var(--main);}
-.btn--accent:hover{background:var(--base); color:var(--main);}
+.btn:disabled:hover{color:var(--text-main); border-color:var(--window-border);}
+.btn:disabled:hover::before{opacity:0; animation:none;}
+/* --- 副次アクション（戻る・キャンセル等）。枠線を控えめなグレーにして優先度を下げる --- */
+.btn--ghost{border-color:var(--text-muted); color:var(--text-muted);}
+.btn--ghost:hover, .btn--ghost:focus-visible{background:var(--window-bg); color:var(--text-gold); border-color:var(--text-gold);}
+/* --- 主要アクション（送信・確定等）。デフォルトからゴールド枠にして「既定の選択肢」を示す ---
+   ★背景は他のボタン同様、反転させず黒のまま統一する（仕様書 §4.2）。 */
+.btn--accent{border-color:var(--text-gold); color:var(--text-gold);}
+.btn--accent:hover, .btn--accent:focus-visible{background:var(--window-bg); color:var(--text-gold); border-color:var(--text-gold);}
 .btn--block{width:100%;}
 .btn-icon{
   display:inline-flex; align-items:center; justify-content:center;
-  min-width:44px; min-height:44px; border:1px solid var(--border);
-  background:var(--base); color:var(--text-gray); cursor:pointer;
+  min-width:44px; min-height:44px; border:2px solid var(--window-border);
+  border-radius:var(--radius);
+  background:var(--window-bg); color:var(--text-main); cursor:pointer;
 }
+.btn-icon:hover, .btn-icon:focus-visible{color:var(--text-gold); border-color:var(--text-gold); outline:none;}
 .btn.is-loading{position:relative; color:transparent;}
 .btn.is-loading::after{
   content:''; position:absolute; width:1.1em; height:1.1em;
-  border:2px solid var(--base); border-top-color:transparent;
+  border:2px solid var(--text-main); border-top-color:transparent; border-radius:50%;
   animation:spin .7s linear infinite;
 }
-.btn--ghost.is-loading::after{border-color:var(--main); border-top-color:transparent;}
-.btn.is-copied{color:var(--accent);}   /* ★背景は変えず、文字色のみアクセントにして完了を伝える */
+.btn.is-copied{color:var(--text-gold); border-color:var(--text-gold);}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-.input{
+/* --- 入力欄（tedori-quest-ui-spec.md §4.5）。ブラウザ標準の白背景を廃止し、
+   黒背景・白文字・細い白枠のドット風デザインにリセットする --- */
+.input, select{
   width:100%; min-height:44px; padding:var(--sp-3);
-  background:var(--base); border:1px solid var(--border); color:var(--text-gray);
+  background:var(--window-bg); border:2px solid var(--window-border); color:var(--text-main);
+  border-radius:var(--radius);
+  font-family:'DotGothic16', sans-serif;
   font-size:16px;                                     /* ★iOS の自動ズーム防止。16px 未満にしない */
-  font-weight:500;
+  font-weight:400;
   text-align:right; font-variant-numeric:tabular-nums;
+  -webkit-appearance:none; appearance:none;            /* ★ネイティブの白背景・標準UIを除去 */
 }
-.input:focus-visible{outline:2px solid var(--main); outline-offset:2px;}
+.input:focus-visible, select:focus-visible{outline:2px solid var(--text-gold); outline-offset:2px;}
 .input--label{text-align:left; font-variant-numeric:normal;}
-.input--select{text-align:left;}
+.input--select, select{text-align:left;}
+/* ★select はネイティブの矢印も appearance:none で消えるため、SVGのデータURIで白い三角を描き直す
+   （外部アイコンファイルを増やさない。favicon.svg同様インライン埋め込みでNode-Ready原則を保つ） */
+select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpolygon points='0,0 10,0 5,6' fill='%23FFFFFF'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right var(--sp-3) center; background-size:10px 6px;
+  padding-right:calc(var(--sp-3) * 2 + 10px);
+}
 /* ★プレースホルダー（例）と実際に入力済みの値を見分けやすくする（改善要望対応）。
-   プレースホルダーは薄く・斜体、入力済みの値は不透明・通常体で表示する。 */
-.input::placeholder{color:var(--sub-gray); opacity:.65; font-style:italic;}
-.input:not(:placeholder-shown){color:var(--text-gray); font-weight:700;}
+   プレースホルダーは控えめなグレー、入力済みの値は白でくっきり表示する。 */
+.input::placeholder{color:var(--text-muted); opacity:1;}
+.input:not(:placeholder-shown){color:var(--text-main);}
 .field{display:flex; flex-direction:column; gap:var(--sp-1); margin-top:var(--sp-3);}
 .field:first-child{margin-top:0;}
-.field__label{font-size:var(--fs-sm); color:var(--sub-gray);}
+.field__label{font-size:var(--fs-sm); color:var(--text-muted);}
 .field-row{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
 .field-check{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
-.field-check input{width:20px; height:20px; accent-color:var(--main);}
+.field-check input{width:20px; height:20px; accent-color:var(--text-gold);}
 
 /* ===== Tips アイコン（？マーク。タップでツールチップ表示・外側タップ/バックドロップで確実に閉じる） =====
-   ★ユーザーテストフィードバック改修（2026-08-08）：以前は :hover / :focus-within でも表示するCSSに
-     していたため、outside-clickでdetailsの[open]属性を外してもフォーカスが要約要素に残ったままだと
-     :focus-within が効き続け「閉じたはずが裏に隠れているだけ」に見えるバグがあった。
-     表示条件を[open]属性のみに一本化し、js/app.jsのbackdrop連動と組み合わせて確実に閉じるようにする。 */
+   ★ユーザーテストフィードバック改修：外側タップ・native toggleイベント連動で確実に閉じる方式は維持し、
+     見た目のみコマンドウィンドウ様式（黒背景・白枠・わずかな角丸）に統一する。 */
 .field__label-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2);}
 .field__label-row .field__label{margin:0;}
 details.tip{position:relative; display:inline-block;}
 details.tip[open]{z-index:16;}                 /* ★backdrop(z-index:15)より確実に手前に出す */
 details.tip > summary{
   display:flex; align-items:center; justify-content:center;
-  width:20px; height:20px; border:1px solid var(--main);
-  background:var(--base); color:var(--main);
-  font-size:var(--fs-xs); font-weight:700; line-height:1;
+  width:20px; height:20px; border:2px solid var(--window-border); border-radius:50%;
+  background:var(--window-bg); color:var(--text-main);
+  font-size:var(--fs-xs); font-weight:400; line-height:1;
   cursor:pointer; list-style:none; user-select:none;
 }
 details.tip > summary::-webkit-details-marker{display:none;}
-details.tip > summary:hover{background:var(--main); color:var(--base);}
+details.tip > summary:hover{color:var(--text-gold); border-color:var(--text-gold);}
 details.tip > .tip__text{display:none;}
 details.tip[open] > .tip__text{
   display:block;
   position:absolute; right:0; top:calc(100% + 6px); z-index:16;
   width:220px; max-width:70vw;
-  background:var(--base); border:1px solid var(--main);
+  background:var(--window-bg); border:2px solid var(--window-border); border-radius:var(--radius);
   padding:var(--sp-2) var(--sp-3);
-  font-size:var(--fs-xs); color:var(--text-gray); text-align:left; font-weight:500;
+  font-size:var(--fs-xs); color:var(--text-main); text-align:left; font-weight:400;
 }
 
 /* Tips用の透明バックドロップ。開いている間だけ表示し、外側タップで確実に閉じられるようにする */
@@ -170,107 +207,105 @@ details.tip[open] > .tip__text{
 .field-hint{margin-top:var(--sp-2);}
 .field-hint summary{
   cursor:pointer; min-height:44px; display:flex; align-items:center;
-  font-size:var(--fs-sm); color:var(--sub-gray);
+  font-size:var(--fs-sm); color:var(--text-muted);
 }
-.field-hint p{margin-top:var(--sp-2); font-size:var(--fs-sm); color:var(--sub-gray);}
+.field-hint p{margin-top:var(--sp-2); font-size:var(--fs-sm); color:var(--text-muted);}
 
 .cost-card__reveal-btn{margin-top:var(--sp-3);}
 .cost-card__optimized{
-  margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px dashed var(--border);
+  margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px dashed var(--text-muted);
 }
 
 .before-after{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); margin-top:var(--sp-3);}
 .before-after .field{margin-top:0;}
 
-/* ===== ⑤ プログレスバー ===== */
-/* ★ヘッダー（黒背景=--main）の上に置かれるゲージのため、トラック・インジケーターとも
-   黒背景に同化しない色を選ぶ（ユーザーテストフィードバック改修）。
-   トラック=--sub-gray（黒背景上でも視認できる中間グレー）、
-   インジケーター=--base（白。黒背景・グレートラックの両方に対してコントラストが立つ）、
-   さらに先端に--accentの細い目印を置き「どこまで進んだか」を一目で分かるようにする。 */
-.progress{height:8px; background:var(--sub-gray); overflow:hidden;}
+/* ===== ⑤ プログレスバー（レベル進捗ゲージ）。tedori-quest-ui-spec.md §4.3 準拠 =====
+   ★枠線は白、背景は黒、伸びる中身は青（--bar-exp）。視認性を高めるため厚め（--bar-h）にとる。 */
+.progress{height:var(--bar-h); background:var(--window-bg); border:2px solid var(--window-border); border-radius:var(--radius); overflow:hidden;}
 .progress__fill{
-  height:100%; background:var(--base);
+  height:100%; background:var(--bar-exp);
   width:var(--progress, 0%);
   transition:width var(--dur) var(--ease);
-  border-right:2px solid var(--accent);   /* ★進捗の先端マーカー。0%時は幅0のため見えない */
+  border-right:2px solid var(--text-gold);   /* ★進捗の先端マーカー。0%時は幅0のため見えない */
 }
 
 /* ===== ⑤a 家賃の常時比較メーター ===== */
-.rent-meter__verdict{font-weight:700; margin-top:.75rem; color:var(--text-gray);}
-.rent-meter__verdict[data-level="appropriate"]{color:var(--main);}
-.rent-meter__verdict[data-level="over_average"]{color:var(--sub-gray);}
-.rent-meter__verdict[data-level="over_limit"]{color:var(--accent);}
+.rent-meter__verdict{font-weight:400; margin-top:.75rem; color:var(--text-main);}
+.rent-meter__verdict[data-level="appropriate"]{color:var(--text-gold);}
+.rent-meter__verdict[data-level="over_average"]{color:var(--text-muted);}
+.rent-meter__verdict[data-level="over_limit"]{color:var(--text-danger);}
 
 .rent-meter{margin-top:var(--sp-2);}
 .rent-meter__bar{
-  position:relative; height:14px; background:var(--border); overflow:hidden;
+  position:relative; height:var(--bar-h); background:var(--window-bg);
+  border:2px solid var(--window-border); border-radius:var(--radius); overflow:hidden;
 }
 .rent-meter__fill{
-  height:100%; background:var(--main);
+  height:100%; background:var(--bar-exp);
   width:var(--progress, 0%);
   transition:width var(--dur) var(--ease);
 }
-/* 上限超過時はバー自体を警告色にする（判定と連動）。ただしアクセント（赤）は帯の塗りには使わず、
-   目立たせたい時は sub-gray止まりにする（仕様書 §2 禁止事項：赤を背景ベタ塗りに使わない） */
-.rent-meter__bar[data-level="over_limit"] .rent-meter__fill{background:var(--sub-gray);}
+.rent-meter__bar[data-level="over_limit"] .rent-meter__fill{background:var(--text-danger);}
 
 .rent-meter__marker{
   position:absolute; top:0; bottom:0; width:2px;
-  background:var(--base);
+  background:var(--text-main);
   transform:translateX(-50%);
 }
 .rent-meter__legend{
   display:flex; gap:var(--sp-4); margin-top:var(--sp-2);
-  font-size:var(--fs-xs); color:var(--sub-gray);
+  font-size:var(--fs-xs); color:var(--text-muted);
 }
 .rent-meter__legend span{display:inline-flex; align-items:center; gap:4px;}
-.rent-meter__dot{width:8px; height:8px; background:var(--sub-gray);}
-.rent-meter__dot--limit{background:var(--accent);}
+.rent-meter__dot{width:8px; height:8px; border-radius:50%; background:var(--text-muted);}
+.rent-meter__dot--limit{background:var(--text-danger);}
 
-/* ===== ⑥ ヘッダー（常時可視・sticky追従）。UIデザイン実装仕様書 §4.1「ステータスバー」 ===== */
+/* ===== ⑥ ヘッダー（常時可視・sticky追従）。RPGのステータス画面を模した黒帯 ===== */
 .app-header{
   position:sticky; top:0; z-index:10;
-  background:var(--main);
+  background:var(--window-bg);
+  border-bottom:var(--win-border-w) double var(--window-border);
   padding:var(--sp-3) var(--sp-4);
 }
 .app-header__inner{max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:var(--sp-2);}
 .app-header__row{display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-3);}
-.app-header__level{font-size:var(--fs-data); font-weight:900; color:var(--base);}
-.app-header__rank{font-size:var(--fs-sm); font-weight:700; color:var(--dark-sub);}
+.app-header__level{font-size:var(--fs-data); font-weight:400; color:var(--text-gold);}
+.app-header__rank{font-size:var(--fs-sm); font-weight:400; color:var(--text-main);}
 .app-header__badge{
   display:inline-flex; align-items:center; padding:0 var(--sp-2); height:20px;
-  border:1px solid var(--dark-sub); background:transparent; color:var(--dark-sub);
-  font-size:var(--fs-label); font-weight:700; letter-spacing:var(--ls-label);
+  border:1px solid var(--text-muted); border-radius:var(--radius-full);
+  background:transparent; color:var(--text-muted);
+  font-size:var(--fs-label); font-weight:400; letter-spacing:var(--ls-base);
 }
-.app-header__gap{font-size:var(--fs-xs); color:var(--dark-sub);}
+.app-header__gap{font-size:var(--fs-xs); color:var(--text-muted);}
 
 /* ===== ⑦ ボトムナビ（iOS セーフエリア対応） ===== */
 .bottom-nav{
   position:fixed; left:0; right:0; bottom:0; z-index:10;
   display:flex; justify-content:space-around;
-  background:var(--main); border-top:1px solid var(--main);
+  background:var(--window-bg); border-top:var(--win-border-w) double var(--window-border);
   padding:var(--sp-2) var(--sp-2) calc(var(--sp-2) + env(safe-area-inset-bottom));
 }
 .bottom-nav__item{
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
   min-width:44px; min-height:44px; padding:var(--sp-1) var(--sp-2);
-  color:var(--dark-sub); font-size:var(--fs-xs); font-weight:700;
+  color:var(--text-muted); font-size:var(--fs-xs); font-weight:400;
   text-decoration:none; background:transparent;
 }
-.bottom-nav__item[aria-current="page"]{color:var(--base);}
+.bottom-nav__item[aria-current="page"]{color:var(--text-gold);}
 
 /* ===== ⑧ ボトムシート（iOS対応。§3.5） ===== */
 .bottom-sheet{
   position:fixed; inset:0; z-index:20;
   display:flex; align-items:flex-end; justify-content:center;
-  background:var(--main);
+  background:var(--window-bg);
 }
 .bottom-sheet__panel{
   width:100%; max-width:640px;
   height:auto; max-height:90dvh;      /* ★vhではなくdvh（キーボード出現時のズレ防止） */
   overflow-y:auto; overscroll-behavior:contain;
-  background:var(--base); border-top:2px solid var(--main);
+  background:var(--window-bg); border-top:var(--win-border-w) double var(--window-border);
+  border-radius:var(--radius) var(--radius) 0 0;
   padding:var(--sp-6) var(--sp-4);
   padding-bottom:calc(var(--sp-6) + env(safe-area-inset-bottom));
 }
@@ -278,20 +313,20 @@ details.tip[open] > .tip__text{
 
 /* ===== ⑨ フィードバックUI（§3.6） ===== */
 .emotion-buttons{display:flex; gap:var(--sp-2);}
-.emotion-buttons .btn{flex:1; flex-direction:column; background:var(--base); color:var(--text-gray); border:1px solid var(--border); font-weight:500;}
-.emotion-buttons .btn:hover{background:var(--base); color:var(--text-gray);}
-.emotion-buttons .btn[aria-pressed="true"]{background:var(--main); color:var(--base); border-color:var(--main); font-weight:700;}
+.emotion-buttons .btn{flex:1; flex-direction:column; padding-left:var(--sp-4); font-weight:400;}
+.emotion-buttons .btn::before{display:none;}   /* ★3択の並びではカーソル演出は省略し選択状態のみで示す */
+.emotion-buttons .btn[aria-pressed="true"]{color:var(--text-gold); border-color:var(--text-gold);}
 
 .chip-group{display:flex; flex-wrap:wrap; gap:var(--sp-2); margin-top:var(--sp-3);}
 .chip{
   display:inline-flex; align-items:center; min-height:44px; padding:0 var(--sp-3);
-  border:1px solid var(--border);
-  background:var(--base); color:var(--text-gray); font-size:var(--fs-sm); font-weight:500; cursor:pointer;
+  border:2px solid var(--text-muted); border-radius:var(--radius-full);
+  background:var(--window-bg); color:var(--text-main); font-size:var(--fs-sm); font-weight:400; cursor:pointer;
 }
-.chip[aria-pressed="true"]{background:var(--main); color:var(--base); border-color:var(--main); font-weight:700;}
+.chip[aria-pressed="true"]{color:var(--text-gold); border-color:var(--text-gold);}
 
-.feedback-note{font-size:var(--fs-xs); color:var(--sub-gray); margin-top:var(--sp-2);}
-textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:500;}
+.feedback-note{font-size:var(--fs-xs); color:var(--text-muted); margin-top:var(--sp-2);}
+textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:400;}
 
 /* ===== ⑩ サブスクリプション階層UI（§3.9） ★機能一時凍結中（非表示）だがスタイルは維持する ===== */
 .sub-category > summary{
@@ -302,10 +337,10 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:50
 .sub-category > summary::-webkit-details-marker{display:none;}
 .sub-category > summary::after{content:'▼'; transition:transform var(--dur) var(--ease);}
 .sub-category[open] > summary::after{transform:rotate(180deg);}
-.sub-category{border:1px solid var(--border); margin-top:var(--sp-3);}
+.sub-category{border:2px solid var(--text-muted); border-radius:var(--radius); margin-top:var(--sp-3);}
 .sub-category:first-child{margin-top:0;}
 
-.sub-badge{font-size:var(--fs-xs); color:var(--main); font-weight:700;}
+.sub-badge{font-size:var(--fs-xs); color:var(--text-gold); font-weight:400;}
 
 .sub-service{padding:0 var(--sp-3) var(--sp-4);}
 .sub-service h4{margin-bottom:var(--sp-2);}
@@ -316,16 +351,16 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:50
 .plan-chips span{
   display:inline-flex; align-items:center; justify-content:center; text-align:center;
   min-height:44px; padding:var(--sp-2) var(--sp-3);
-  border:1px solid var(--border);
-  font-size:var(--fs-xs); line-height:1.3; font-weight:500;
+  border:2px solid var(--text-muted); border-radius:var(--radius);
+  font-size:var(--fs-xs); line-height:1.3; font-weight:400;
 }
 /* ★キーボード操作でも選択位置が分かるようにする */
-.plan-chips input:focus-visible + span{outline:2px solid var(--main); outline-offset:2px;}
+.plan-chips input:focus-visible + span{outline:2px solid var(--text-gold); outline-offset:2px;}
 .plan-chips input:checked + span{
-  background:var(--main); color:var(--base); border-color:var(--main); font-weight:700;
+  color:var(--text-gold); border-color:var(--text-gold);
 }
 
-.audience-toggle{display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-3); font-size:var(--fs-sm); color:var(--sub-gray);}
+.audience-toggle{display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-3); font-size:var(--fs-sm); color:var(--text-muted);}
 
 /* ★「ファミリー・学生プランも表示する」が未チェックの間は student/family 向けプランを隠す。
    #toggle-audience はStateを持たない一時的なUI設定のため、CSSの:has()のみで完結させる
@@ -339,70 +374,69 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:50
 /* 主要サービスの直接表示エリア（選択疲れ対策） */
 .sub-primary-group{display:flex; flex-direction:column; gap:var(--sp-4);}
 .sub-primary-group .sub-service{padding:0;}
-.sub-primary-group .sub-service + .sub-service{margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px solid var(--border);}
+.sub-primary-group .sub-service + .sub-service{margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px solid var(--text-muted);}
 
 /* 「その他のサブスクを表示」アコーディオン */
-.sub-more{margin-top:var(--sp-4); border:1px solid var(--border);}
+.sub-more{margin-top:var(--sp-4); border:2px solid var(--text-muted); border-radius:var(--radius);}
 .sub-more > summary{
   cursor:pointer; min-height:44px; padding:var(--sp-3); display:flex; align-items:center;
-  color:var(--main); font-weight:700; list-style:none;
+  color:var(--text-gold); font-weight:400; list-style:none;
 }
 .sub-more > summary::-webkit-details-marker{display:none;}
 .sub-more .sub-accordion-group{padding:0 var(--sp-3) var(--sp-3);}
 .sub-more .sub-accordion-group .sub-category:first-child{margin-top:0;}
 
-.empty-state{color:var(--sub-gray); font-size:var(--fs-sm); padding:var(--sp-3);}
+.empty-state{color:var(--text-muted); font-size:var(--fs-sm); padding:var(--sp-3);}
 
-/* ===== ⑪ クエスト一覧。UIデザイン実装仕様書 §4.4 準拠 =====
+/* ===== ⑪ クエスト一覧 =====
    ★罫線は使わず、アイテム間の大きな余白（margin-bottom:56px）だけで区切る。 */
 .quest-list{display:flex; flex-direction:column; margin-top:var(--sp-3);}
 .quest-item{padding:0; margin-bottom:56px;}
 .quest-item:last-child{margin-bottom:0;}
 .quest-item__head{display:flex; justify-content:space-between; align-items:flex-start; gap:var(--sp-3);}
-.quest-item__title{font-size:var(--fs-h3); font-weight:700; letter-spacing:var(--ls-h3); line-height:1.5; color:var(--main);}
+.quest-item__title{font-size:var(--fs-h3); font-weight:400; letter-spacing:var(--ls-base); line-height:1.6; color:var(--text-main);}
 .quest-item__toggle{display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-xs); white-space:nowrap;}
-.quest-item__toggle input{width:20px; height:20px; flex-shrink:0; accent-color:var(--main);}
-.quest-item__summary{color:var(--sub-gray); font-size:var(--fs-sm); margin-top:var(--sp-2);}
+.quest-item__toggle input{width:20px; height:20px; flex-shrink:0; accent-color:var(--text-gold);}
+.quest-item__summary{color:var(--text-muted); font-size:var(--fs-sm); margin-top:var(--sp-2);}
 .quest-item__description{margin-top:var(--sp-2);}
-.quest-item__basis{margin-top:var(--sp-3); border-top:1px solid var(--border); padding-top:var(--sp-2);}
-.quest-item__basis summary{cursor:pointer; color:var(--main); font-size:var(--fs-sm); font-weight:700; min-height:44px; display:flex; align-items:center;}
-.quest-item__basis p{margin-top:var(--sp-2); color:var(--text-gray);}
+.quest-item__basis{margin-top:var(--sp-3); border-top:1px solid var(--text-muted); padding-top:var(--sp-2);}
+.quest-item__basis summary{cursor:pointer; color:var(--text-gold); font-size:var(--fs-sm); font-weight:400; min-height:44px; display:flex; align-items:center;}
+.quest-item__basis p{margin-top:var(--sp-2); color:var(--text-main);}
 .quest-item__talkscript{margin-top:var(--sp-2); padding-left:var(--sp-4); list-style:disc;}
 .quest-item__talkscript li{margin-top:var(--sp-1);}
-.quest-item__disclaimer{margin-top:var(--sp-2); font-size:var(--fs-xs); color:var(--sub-gray);}
-/* ★アイコン絵文字は装飾なしでプレーンに表示する（仕様書 §4.4） */
+.quest-item__disclaimer{margin-top:var(--sp-2); font-size:var(--fs-xs); color:var(--text-muted);}
+/* ★アイコン絵文字は装飾なしでプレーンに表示する */
 .quest-item__icon{font-size:24px; line-height:1;}
 
-/* ===== ⑫ アラート（.alert）。UIデザイン実装仕様書 §4.2 準拠 =====
-   ★背景は白のまま。左側にのみ4px solid accentのボーダー線を引く。テキストの一部（⚠等）だけ赤字にする。
-   ★リボ払い警告（.revolving-alert）もこの .alert 系のスタイルへ統一する
-     （旧デザインは背景を赤く塗り、box-shadowで点滅させていたが、仕様書の禁止事項に抵触するため廃止）。 */
+/* ===== ⑫ アラート・メッセージボックス（tedori-quest-ui-spec.md §4.4） =====
+   ★RPGの「会話ウィンドウ」風。背景は黒、枠は白、左側にのみ赤の警告線を添える。 */
 .alert, .revolving-alert{
   display:flex; align-items:center; gap:var(--sp-2);
-  background:var(--base); border-left:4px solid var(--accent);
+  background:var(--window-bg); border:2px solid var(--window-border); border-left:4px solid var(--text-danger);
+  border-radius:var(--radius);
   padding:var(--sp-3); margin-top:var(--sp-3);
-  color:var(--text-gray); font-weight:700;
+  color:var(--text-main); font-weight:400;
 }
-.alert__mark, .revolving-alert__mark{color:var(--accent);}
+.alert__mark, .revolving-alert__mark{color:var(--text-danger);}
 
 /* ===== ⑫a トースト通知 ===== */
 .toast{
   position:fixed; left:50%; bottom:calc(72px + env(safe-area-inset-bottom));
   transform:translateX(-50%);
   max-width:90vw; z-index:30;
-  background:var(--base); border:1px solid var(--main);
-  padding:var(--sp-3) var(--sp-4); font-size:var(--fs-sm); font-weight:700; color:var(--main);
+  background:var(--window-bg); border:2px solid var(--window-border); border-radius:var(--radius);
+  padding:var(--sp-3) var(--sp-4); font-size:var(--fs-sm); font-weight:400; color:var(--text-main);
 }
-.toast--warn{border:none; border-left:4px solid var(--accent); color:var(--accent);}
-.toast--levelup{border:none; border-left:4px solid var(--main); color:var(--main);}
+.toast--warn{border-color:var(--text-danger); color:var(--text-danger);}
+.toast--levelup{border-color:var(--text-gold); color:var(--text-gold);}
 
 /* ===== ⑬ 最終結果（あなたの称号）画面 ===== */
 .karte{text-align:center;}
-.karte__level{font-size:var(--fs-h1); font-weight:900; letter-spacing:var(--ls-h1); color:var(--main);}
-.karte__rank{font-size:var(--fs-h3); font-weight:700; letter-spacing:var(--ls-h3); margin-top:var(--sp-1); color:var(--main);}
-.karte__amount{font-size:var(--fs-body); font-weight:500; color:var(--text-gray); margin-top:var(--sp-3);}
-.karte__amount-value{font-size:var(--fs-data); font-weight:900; color:var(--main);}
-.karte__disclaimer{display:block; font-size:var(--fs-xs); color:var(--sub-gray); margin-top:var(--sp-2);}
+.karte__level{font-size:var(--fs-h1); font-weight:400; letter-spacing:var(--ls-base); color:var(--text-gold);}
+.karte__rank{font-size:var(--fs-h3); font-weight:400; letter-spacing:var(--ls-base); margin-top:var(--sp-1); color:var(--text-main);}
+.karte__amount{font-size:var(--fs-body); font-weight:400; color:var(--text-main); margin-top:var(--sp-3);}
+.karte__amount-value{font-size:var(--fs-data); font-weight:400; color:var(--text-gold);}
+.karte__disclaimer{display:block; font-size:var(--fs-xs); color:var(--text-muted); margin-top:var(--sp-2);}
 .karte-actions{display:flex; flex-wrap:wrap; gap:var(--sp-2); margin-top:var(--sp-4); justify-content:center;}
 .btn-copy-spell{min-width:14rem; justify-content:center;}  /* ラベル長変化での伸縮を防ぐ */
 .spell-restore{display:flex; gap:var(--sp-2); margin-top:var(--sp-3);}
@@ -412,21 +446,22 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:50
 .capture-safe, .capture-safe *{
   backdrop-filter:none !important; filter:none !important; box-shadow:none !important;
 }
-.capture-safe{ background-color:#FFFFFF !important; color:#2A2C30 !important; }
-.capture-safe .card{ background-color:#FFFFFF !important; border-color:#DEDEDA !important; }
+.capture-safe{ background-color:#111111 !important; color:#FFFFFF !important; }
+.capture-safe .card{ background-color:#000000 !important; border-color:#FFFFFF !important; }
 .capture-safe .karte__level,
-.capture-safe .karte__rank,
-.capture-safe .karte__amount-value{ color:#111114 !important; }
+.capture-safe .karte__amount-value{ color:#F8D820 !important; }
+.capture-safe .karte__rank{ color:#FFFFFF !important; }
 
 /* ===== ⑬b 画像モーダル（iOS長押し保存の案内） ===== */
-.image-modal__img{width:100%; margin-top:var(--sp-3);}
+.image-modal__img{width:100%; margin-top:var(--sp-3); border-radius:var(--radius);}
 
-/* ===== ⑬c プリントCSSフォールバック ===== */
+/* ===== ⑬c プリントCSSフォールバック：黒背景のまま印刷すると判読不能・インク消費が激しいため反転 ===== */
 @media print{
   *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;}
-  body{background:#fff !important; color:#111114 !important;}
-  .karte{background:#fff !important; border:2px solid #111114 !important;
+  body{background:#fff !important; color:#000000 !important;}
+  .karte{background:#fff !important; border:2px solid #000000 !important;
          break-inside:avoid; page-break-inside:avoid;}
+  .karte__level, .karte__amount-value{color:#8A6D00 !important;}
   .bottom-nav, .btn, .toast, .app-header__badge{display:none !important;}
   @page{margin:12mm;}
 }
@@ -434,69 +469,71 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:50
 /* ===== ⑬d フッター（§7.4：法定表示への導線。全ページ共通） ===== */
 .app-footer{
   margin-top:var(--sp-8); padding-top:var(--sp-6);
-  border-top:1px solid var(--border);
+  border-top:1px solid var(--text-muted);
   text-align:center;
 }
 .app-footer__link{
   display:inline-flex; align-items:center; justify-content:center;
   min-height:44px; padding:0 var(--sp-3);
-  color:var(--sub-gray); font-size:var(--fs-sm); font-weight:700; text-decoration:underline;
+  color:var(--text-muted); font-size:var(--fs-sm); font-weight:400; text-decoration:underline;
 }
-.app-footer__link:hover, .app-footer__link:focus-visible{color:var(--main);}
-.app-footer__note{margin-top:var(--sp-1); font-size:var(--fs-xs); color:var(--sub-gray);}
+.app-footer__link:hover, .app-footer__link:focus-visible{color:var(--text-gold);}
+.app-footer__note{margin-top:var(--sp-1); font-size:var(--fs-xs); color:var(--text-muted);}
 
 /* ===== ⑬e privacy.html 専用の簡易レイアウト（index.htmlと統一感のあるトークンを流用） ===== */
 .policy-section{margin-top:var(--sp-6);}
 .policy-section:first-of-type{margin-top:0;}
-.policy-section h2{font-size:var(--fs-h3); letter-spacing:var(--ls-h3); color:var(--main); margin-bottom:var(--sp-2);}
-.policy-section p, .policy-section li{color:var(--text-gray); font-size:var(--fs-sm);}
+.policy-section h2{font-size:var(--fs-h3); letter-spacing:var(--ls-base); color:var(--text-gold); margin-bottom:var(--sp-2);}
+.policy-section p, .policy-section li{color:var(--text-main); font-size:var(--fs-sm);}
 .policy-section ul{list-style:disc; padding-left:var(--sp-6); margin-top:var(--sp-2);}
 .policy-section li + li{margin-top:var(--sp-1);}
 .policy-back{
   display:inline-flex; align-items:center; gap:var(--sp-2);
   min-height:44px; padding:0 var(--sp-2);
-  color:var(--main); font-weight:700; text-decoration:none;
+  color:var(--text-gold); font-weight:400; text-decoration:none;
 }
-.policy-updated{color:var(--sub-gray); font-size:var(--fs-xs); margin-top:var(--sp-1);}
+.policy-updated{color:var(--text-muted); font-size:var(--fs-xs); margin-top:var(--sp-1);}
 
 /* ===== ⑮ 固定費の2段階目標バー（Phase2.1改修） ===== */
 .cost-bar{margin-top:var(--sp-3);}
 .cost-bar__track{
-  position:relative; height:10px; background:var(--border); overflow:hidden;
+  position:relative; height:var(--bar-h); background:var(--window-bg);
+  border:2px solid var(--window-border); border-radius:var(--radius); overflow:hidden;
 }
 .cost-bar__fill{
-  height:100%; background:var(--main);
+  height:100%; background:var(--bar-exp);
   width:var(--progress, 0%);
   transition:width var(--dur) var(--ease);
 }
 .cost-bar__marker{
   position:absolute; top:0; bottom:0; width:2px;
-  background:var(--base); transform:translateX(-50%);
+  background:var(--text-main); transform:translateX(-50%);
 }
-.cost-bar__marker--ideal{background:var(--accent);}
+.cost-bar__marker--ideal{background:var(--text-danger);}
 .cost-bar__legend{
   display:flex; justify-content:space-between; margin-top:var(--sp-1);
-  font-size:var(--fs-xs); color:var(--sub-gray);
+  font-size:var(--fs-xs); color:var(--text-muted);
 }
 
 /* ===== ⑯ クレジットカード選択UI（Phase1.5改修） ★機能一時凍結中（非表示）だがスタイルは維持する ===== */
 .card-checklist{display:flex; flex-direction:column; gap:var(--sp-2); margin-top:var(--sp-2);}
 .card-checklist label{display:flex; align-items:center; gap:var(--sp-2); min-height:44px;}
-.card-checklist input{width:20px; height:20px; flex-shrink:0; accent-color:var(--main);}
+.card-checklist input{width:20px; height:20px; flex-shrink:0; accent-color:var(--text-gold);}
 
 /* ===== ⑰ クエスト一覧の追加要素（Phase2〜3改修） ===== */
 .quest-item__saving{
-  font-size:var(--fs-body); font-weight:900; color:var(--main); white-space:nowrap;
+  font-size:var(--fs-body); font-weight:400; color:var(--text-gold); white-space:nowrap;
 }
 .quest-item__toggle{margin-top:var(--sp-3);}
 
 /* ===== ⑱「伝説の勇者」専用カード（Phase4.1） =====
-   ★box-shadowでの発光演出は仕様書の禁止事項に該当するため廃止し、太い黒枠で特別感を出す。 */
+   ★通常カードよりさらに太い二重線のゴールド枠で「特別感」を出す。 */
 .card--legendary{
-  border:2px solid var(--main); text-align:center; margin-top:var(--sp-3);
+  border:var(--win-border-w) double var(--text-gold); border-radius:var(--radius);
+  text-align:center; margin-top:var(--sp-3);
 }
-.card--legendary__title{font-size:var(--fs-h3); font-weight:900; letter-spacing:var(--ls-h3); color:var(--main);}
-.card--legendary__subtitle{margin-top:var(--sp-2); color:var(--sub-gray); font-size:var(--fs-sm);}
+.card--legendary__title{font-size:var(--fs-h3); font-weight:400; letter-spacing:var(--ls-base); color:var(--text-gold);}
+.card--legendary__subtitle{margin-top:var(--sp-2); color:var(--text-muted); font-size:var(--fs-sm);}
 
 /* ===== ⑲ ウィザードUI改修（2026-08-08） ===== */
 
@@ -506,8 +543,8 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:50
 @keyframes screen-in{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
 
 /* --- ヘッダーのレベル進捗ゲージ（画面3・4専用）---
-   ★ゲーミフィケーション改修（2026-08-08）：STEP1・STEP2で入力するたびに動くEXPゲージ演出は
-     廃止した。画面1・2では [data-level-gauge] 自体を hidden にする（js/ui.js 側で制御）。 */
+   ★STEP1・STEP2で入力するたびに動くEXPゲージ演出は廃止した。
+     画面1・2では [data-level-gauge] 自体を hidden にする（js/ui.js 側で制御）。 */
 /* ★レベルアップ時の巻き戻り（右から左へ縮んで見える）対策。0%へ瞬間リセットする間だけ付与する */
 .progress__fill.no-transition{transition:none !important;}
 
@@ -515,11 +552,12 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:50
 .level-reveal{
   position:fixed; inset:0; z-index:40;
   display:flex; align-items:center; justify-content:center;
-  background:var(--main); padding:var(--sp-4);
+  background:var(--bg-body); padding:var(--sp-4);
 }
 .level-reveal__panel{
   width:100%; max-width:360px; text-align:center;
-  background:var(--base); border:2px solid var(--base);
+  background:var(--window-bg); border:var(--win-border-w) double var(--window-border);
+  border-radius:var(--radius);
   padding:var(--sp-8) var(--sp-6);
   animation:level-reveal-in 480ms cubic-bezier(.34,1.56,.64,1);
 }
@@ -528,16 +566,15 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:50
   60%  { opacity:1; transform:scale(1.08); }
   100% { opacity:1; transform:scale(1); }
 }
-.level-reveal__label{color:var(--sub-gray); font-size:var(--fs-body); font-weight:700;}
+.level-reveal__label{color:var(--text-muted); font-size:var(--fs-body); font-weight:400;}
 .level-reveal__value{
-  margin-top:var(--sp-2); font-size:56px; font-weight:900;
-  color:var(--main);
+  margin-top:var(--sp-2); font-size:56px; font-weight:400;
+  color:var(--text-gold);
 }
-.level-reveal__sub{margin-top:var(--sp-2); min-height:1.5em; color:var(--text-gray); font-size:var(--fs-sm);}
+.level-reveal__sub{margin-top:var(--sp-2); min-height:1.5em; color:var(--text-main); font-size:var(--fs-sm);}
 .level-reveal .btn{margin-top:var(--sp-6);}
 
-/* --- クエスト解呪時のレベルアップ演出（ヘッダーのレベル表示・ゲージを強調する） ---
-   ★box-shadowでの発光は禁止事項のため、拡大（scale）のみの演出に変更する。 */
+/* --- クエスト解呪時のレベルアップ演出（ヘッダーのレベル表示・ゲージを強調する） --- */
 .app-header__level.is-leveling{animation:level-bump 550ms cubic-bezier(.34,1.56,.64,1);}
 @keyframes level-bump{
   0%   { transform:scale(1); }

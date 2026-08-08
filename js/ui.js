@@ -1033,7 +1033,7 @@ export async function captureCard(el, opts = {}){
     while (rect.width*scale * rect.height*scale > MAX_AREA && scale > 1) scale -= 0.25;
 
     const canvas = await html2canvas(el, {
-      scale, backgroundColor:'#FFFFFF', useCORS:true, logging:false,
+      scale, backgroundColor:'#000000', useCORS:true, logging:false,
       windowWidth: document.documentElement.clientWidth,
       scrollX:0, scrollY:-window.scrollY                // 無いとスクロール量分ずれる
     });
