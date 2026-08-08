@@ -328,7 +328,10 @@ details.tip[open] > .tip__text{
 .feedback-note{font-size:var(--fs-xs); color:var(--text-muted); margin-top:var(--sp-2);}
 textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:400;}
 
-/* ===== ⑩ サブスクリプション階層UI（§3.9） ★機能一時凍結中（非表示）だがスタイルは維持する ===== */
+/* ===== ⑩ サブスクリプション階層UI（§3.9）UI刷新（ゲーミフィケーション改修v3・2026-08-08） =====
+   ★アコーディオン（.sub-category）＋RPG風チェックボックス（.rpg-checkbox）＋
+     プログレッシブディスクロージャー（.sub-reveal）の3点で構成する。
+     デジタルサブスク・リアル課金（手動入力）とも共通のコンポーネントを使う。 */
 .sub-category > summary{
   display:flex; justify-content:space-between; align-items:center;
   min-height:44px; padding:var(--sp-3); cursor:pointer;
@@ -342,56 +345,31 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
 
 .sub-badge{font-size:var(--fs-xs); color:var(--text-gold); font-weight:400;}
 
-.sub-service{padding:0 var(--sp-3) var(--sp-4);}
-.sub-service h4{margin-bottom:var(--sp-2);}
-
-.plan-chips{display:flex; flex-wrap:wrap; gap:var(--sp-2);}
-.plan-chips label{position:relative;}
-.plan-chips input{position:absolute; opacity:0; width:0; height:0;}
-.plan-chips span{
-  display:inline-flex; align-items:center; justify-content:center; text-align:center;
-  min-height:44px; padding:var(--sp-2) var(--sp-3);
-  border:2px solid var(--text-muted); border-radius:var(--radius);
-  font-size:var(--fs-xs); line-height:1.3; font-weight:400;
-}
-/* ★キーボード操作でも選択位置が分かるようにする */
-.plan-chips input:focus-visible + span{outline:2px solid var(--text-gold); outline-offset:2px;}
-.plan-chips input:checked + span{
-  color:var(--text-gold); border-color:var(--text-gold);
-}
-
-.audience-toggle{display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-3); font-size:var(--fs-sm); color:var(--text-muted);}
-
-/* ★「ファミリー・学生プランも表示する」が未チェックの間は student/family 向けプランを隠す。
-   #toggle-audience はStateを持たない一時的なUI設定のため、CSSの:has()のみで完結させる
-   （JS側でrender()のたびに同期する必要が無く、チェック操作に即座に追従する）。
-   #toggle-audience は一意なIDのため、それを含む.cardが常に一意に特定できる。 */
-.card:has(#toggle-audience:not(:checked)) .plan-chips label:has(input[data-audience="student"]),
-.card:has(#toggle-audience:not(:checked)) .plan-chips label:has(input[data-audience="family"]){
-  display:none;
-}
-
-/* 主要サービスの直接表示エリア（選択疲れ対策） */
-.sub-primary-group{display:flex; flex-direction:column; gap:var(--sp-4);}
-.sub-primary-group .sub-service{padding:0;}
-.sub-primary-group .sub-service + .sub-service{margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px solid var(--text-muted);}
-
-/* 「その他のサブスクを表示」アコーディオン */
-.sub-more{margin-top:var(--sp-4); border:2px solid var(--text-muted); border-radius:var(--radius);}
-.sub-more > summary{
-  cursor:pointer; min-height:44px; padding:var(--sp-3); display:flex; align-items:center;
-  color:var(--text-gold); font-weight:400; list-style:none;
-}
-.sub-more > summary::-webkit-details-marker{display:none;}
-.sub-more .sub-accordion-group{padding:0 var(--sp-3) var(--sp-3);}
-.sub-more .sub-accordion-group .sub-category:first-child{margin-top:0;}
+.sub-category__body{padding:0 var(--sp-3) var(--sp-3);}
 
 .empty-state{color:var(--text-muted); font-size:var(--fs-sm); padding:var(--sp-3);}
 
-/* --- その他のサブスク（自由入力）。ゲーミフィケーション改修（2026-08-08）で凍結解除に伴い再実装 --- */
-.sub-other{border-top:1px solid var(--text-muted); padding-top:var(--sp-3);}
-.other-sub-row{display:flex; align-items:center; gap:var(--sp-2); margin-top:var(--sp-2);}
-.other-sub-row:first-child{margin-top:var(--sp-3);}
+/* --- RPG風チェックボックス（[ ]/[*]）。ネイティブcheckboxは視覚上隠し、テキスト擬似要素で表現する --- */
+.rpg-checkbox{
+  position:relative; display:flex; align-items:center; gap:var(--sp-2);
+  min-height:44px; cursor:pointer; font-weight:400;
+}
+.rpg-checkbox input{position:absolute; opacity:0; width:0; height:0;}
+.rpg-checkbox__box{font-family:'DotGothic16', monospace, sans-serif; color:var(--text-main); white-space:pre;}
+.rpg-checkbox__box::before{content:'[ ]';}
+.rpg-checkbox input:checked ~ .rpg-checkbox__box::before{content:'[*]'; color:var(--text-gold);}
+.rpg-checkbox input:checked ~ .rpg-checkbox__label{color:var(--text-gold);}
+.rpg-checkbox input:focus-visible ~ .rpg-checkbox__box{outline:2px solid var(--text-gold); outline-offset:2px;}
+.rpg-checkbox__label{font-size:var(--fs-sm);}
+
+/* --- プログレッシブディスクロージャー：チェック時にスムーズに出現する折りたたみ領域 ---
+   ★grid-template-rows 0fr→1fr の手法により、height:autoな中身でも滑らかにアニメーションできる。 */
+.sub-reveal{display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--dur) var(--ease);}
+.sub-reveal.is-open{grid-template-rows:1fr; margin:var(--sp-2) 0 var(--sp-3) calc(20px + var(--sp-2));}
+.sub-reveal__inner{overflow:hidden; min-height:0;}
+
+/* --- リアル課金「その他（自由入力）」の入力行（サービス名＋金額の横並び） --- */
+.other-sub-row{display:flex; align-items:center; gap:var(--sp-2);}
 .other-sub-row .input--label{flex:1.4;}
 .other-sub-row .input{flex:1;}
 

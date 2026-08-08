@@ -303,289 +303,33 @@
     </div>
 
     <!-- --- サブスクリプション ---
-         ★ゲーミフィケーション改修（2026-08-08）：凍結解除。新3クエスト（重複の呪縛／
-           幽霊ギルドの退会／スマホの深淵）に対応するため、手動入力欄（その他サブスク）も
-           このタイミングで再実装する（js/ui.js renderOtherSubscriptions が描画）。 -->
+         ★UI刷新（ゲーミフィケーション改修v3・2026-08-08）：ラジオボタンのハードコードUIを廃止し、
+           SUBSCRIPTION_PLANS を唯一の情報源としてアコーディオン＋チェックボックス＋
+           プログレッシブディスクロージャー方式へ全面刷新した。カテゴリ・サービス・プランの
+           DOM構造は js/ui.js populateSubscriptionAccordion() が起動時に一度だけ組み立てる
+           （静的データのため差分描画の対象外。以後は checked/select値/バッジのみ同期する）。 -->
     <div class="card">
-      <p class="card__title">🎬 サブスクリプション</p>
-      <label class="audience-toggle">
-        <input type="checkbox" id="toggle-audience">
-        ファミリー・学生プランも表示する
-      </label>
+      <p class="card__title">🎬 デジタルサブスク</p>
+      <p class="section-lead">契約しているサービスに [*] を入れると、プランを選べます。</p>
 
-      <!-- 主要6サービスはデフォルトで直接表示し、選択疲れを防ぐ。
-           それ以外のマイナーなデジタルサブスクは「▼その他のサブスクを表示」に格納する。 -->
-      <div class="sub-primary-group">
-        <div class="sub-service">
-          <h4>Netflix</h4>
-          <div class="plan-chips" role="radiogroup" aria-label="Netflixのプラン">
-            <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="" checked><span>契約なし</span></label>
-            <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_ad" data-audience="single"><span>広告つきスタンダード<br>890円</span></label>
-            <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_standard" data-audience="single"><span>スタンダード<br>1,590円</span></label>
-            <label><input type="radio" name="svc-netflix" data-plan-group="netflix" value="netflix_premium" data-audience="single"><span>プレミアム<br>2,290円</span></label>
-          </div>
-        </div>
-        <div class="sub-service">
-          <h4>Amazon Prime Video</h4>
-          <div class="plan-chips" role="radiogroup" aria-label="Amazon Prime Videoのプラン">
-            <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="" checked><span>契約なし</span></label>
-            <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="primevideo_general" data-audience="single"><span>一般（プライム会員）<br>600円</span></label>
-            <label><input type="radio" name="svc-primevideo" data-plan-group="primevideo" value="primevideo_student" data-audience="student"><span>Prime Student<br>300円</span></label>
-          </div>
-        </div>
-        <div class="sub-service">
-          <h4>YouTube Premium</h4>
-          <div class="plan-chips" role="radiogroup" aria-label="YouTube Premiumのプラン">
-            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="" checked><span>契約なし</span></label>
-            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_lite" data-audience="single"><span>Premium Lite<br>780円</span></label>
-            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_personal" data-audience="single"><span>個人<br>1,280円</span></label>
-            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_student" data-audience="student"><span>学生<br>780円</span></label>
-            <label><input type="radio" name="svc-ytpremium" data-plan-group="ytpremium" value="ytpremium_family" data-audience="family"><span>ファミリー<br>2,280円</span></label>
-          </div>
-        </div>
-        <div class="sub-service">
-          <h4>Disney+</h4>
-          <div class="plan-chips" role="radiogroup" aria-label="Disney+のプラン">
-            <label><input type="radio" name="svc-disney" data-plan-group="disney" value="" checked><span>契約なし</span></label>
-            <label><input type="radio" name="svc-disney" data-plan-group="disney" value="disney_standard" data-audience="single"><span>スタンダード<br>1,250円</span></label>
-            <label><input type="radio" name="svc-disney" data-plan-group="disney" value="disney_premium" data-audience="single"><span>プレミアム<br>1,670円</span></label>
-          </div>
-        </div>
-        <div class="sub-service">
-          <h4>Hulu</h4>
-          <div class="plan-chips" role="radiogroup" aria-label="Huluのプラン">
-            <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="" checked><span>契約なし</span></label>
-            <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_single" data-audience="single"><span>単体プラン<br>1,026円</span></label>
-            <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_disney_standard" data-audience="single"><span>Hulu | Disney+ スタンダード<br>1,890円</span></label>
-            <label><input type="radio" name="svc-hulu" data-plan-group="hulu" value="hulu_disney_premium" data-audience="single"><span>Hulu | Disney+ プレミアム<br>2,150円</span></label>
-          </div>
-        </div>
-        <div class="sub-service">
-          <h4>Spotify</h4>
-          <div class="plan-chips" role="radiogroup" aria-label="Spotifyのプラン">
-            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="" checked><span>契約なし</span></label>
-            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_standard" data-audience="single"><span>Standard<br>1,080円</span></label>
-            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_student" data-audience="student"><span>Student<br>580円</span></label>
-            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_duo" data-audience="family"><span>Duo（2名）<br>1,480円</span></label>
-            <label><input type="radio" name="svc-spotify" data-plan-group="spotify" value="spotify_family" data-audience="family"><span>Family<br>1,880円</span></label>
-          </div>
-        </div>
-      </div>
-
-      <!-- それ以外のマイナーなデジタルサブスクはここに格納する -->
-      <details class="sub-more">
-        <summary>▼その他のサブスクを表示</summary>
-
-      <!-- 5カテゴリ：<details name="sub-accordion"> による排他アコーディオン。
-           カテゴリ内は開閉なしのカード一覧＋プランはラジオボタン（§3.9）。
-           各サービスの先頭に「契約なし」ラジオを配置し、選択を解除できるようにする。
-           ★ウィザードUI改修（2026-08-08）：非デジタルの「ライフ・配送」カテゴリと
-             「その他」自由入力枠（ジム等の自己投資が紛れ込む原因）は廃止した。 -->
-      <div class="sub-accordion-group">
-        <details class="sub-category" name="sub-accordion" data-sub-category="video">
-          <summary>
-            <span>動画配信（その他）</span>
-            <span class="sub-badge">未選択</span>
-          </summary>
-          <div class="sub-service">
-            <h4>U-NEXT</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="U-NEXTのプラン">
-              <label><input type="radio" name="svc-unext" data-plan-group="unext" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-unext" data-plan-group="unext" value="unext_monthly" data-audience="single"><span>月額プラン<br>2,189円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>ABEMA</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="ABEMAのプラン">
-              <label><input type="radio" name="svc-abema" data-plan-group="abema" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-abema" data-plan-group="abema" value="abema_ad" data-audience="single"><span>広告つきABEMAプレミアム<br>680円</span></label>
-              <label><input type="radio" name="svc-abema" data-plan-group="abema" value="abema_premium" data-audience="single"><span>ABEMAプレミアム<br>1,180円</span></label>
-            </div>
-          </div>
-        </details>
-
-        <details class="sub-category" name="sub-accordion" data-sub-category="music">
-          <summary>
-            <span>音楽配信（その他）</span>
-            <span class="sub-badge">未選択</span>
-          </summary>
-          <div class="sub-service">
-            <h4>Apple Music</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Apple Musicのプラン">
-              <label><input type="radio" name="svc-applemusic" data-plan-group="applemusic" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-applemusic" data-plan-group="applemusic" value="applemusic_personal" data-audience="single"><span>個人<br>1,180円</span></label>
-              <label><input type="radio" name="svc-applemusic" data-plan-group="applemusic" value="applemusic_student" data-audience="student"><span>学生<br>680円</span></label>
-              <label><input type="radio" name="svc-applemusic" data-plan-group="applemusic" value="applemusic_family" data-audience="family"><span>ファミリー<br>1,980円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Amazon Music Unlimited</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Amazon Music Unlimitedのプラン">
-              <label><input type="radio" name="svc-amazonmusic" data-plan-group="amazonmusic" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-amazonmusic" data-plan-group="amazonmusic" value="amazonmusic_prime" data-audience="single"><span>個人（プライム会員）<br>1,080円</span></label>
-              <label><input type="radio" name="svc-amazonmusic" data-plan-group="amazonmusic" value="amazonmusic_nonprime" data-audience="single"><span>個人（非プライム会員）<br>1,180円</span></label>
-              <label><input type="radio" name="svc-amazonmusic" data-plan-group="amazonmusic" value="amazonmusic_echo" data-audience="single"><span>Echo（ワンデバイス）<br>680円</span></label>
-              <label><input type="radio" name="svc-amazonmusic" data-plan-group="amazonmusic" value="amazonmusic_student" data-audience="student"><span>学生<br>580円</span></label>
-              <label><input type="radio" name="svc-amazonmusic" data-plan-group="amazonmusic" value="amazonmusic_family" data-audience="family"><span>ファミリー<br>1,980円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>LINE MUSIC</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="LINE MUSICのプラン">
-              <label><input type="radio" name="svc-linemusic" data-plan-group="linemusic" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-linemusic" data-plan-group="linemusic" value="linemusic_general" data-audience="single"><span>一般<br>980円</span></label>
-              <label><input type="radio" name="svc-linemusic" data-plan-group="linemusic" value="linemusic_student" data-audience="student"><span>学生<br>480円</span></label>
-              <label><input type="radio" name="svc-linemusic" data-plan-group="linemusic" value="linemusic_family" data-audience="family"><span>ファミリー<br>1,680円</span></label>
-            </div>
-          </div>
-        </details>
-
-        <details class="sub-category" name="sub-accordion" data-sub-category="books">
-          <summary>
-            <span>電子書籍・オーディオ</span>
-            <span class="sub-badge">未選択</span>
-          </summary>
-          <div class="sub-service">
-            <h4>Kindle Unlimited</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Kindle Unlimitedのプラン">
-              <label><input type="radio" name="svc-kindleunlimited" data-plan-group="kindleunlimited" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-kindleunlimited" data-plan-group="kindleunlimited" value="kindleunlimited_general" data-audience="single"><span>一般<br>980円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>楽天マガジン</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="楽天マガジンのプラン">
-              <label><input type="radio" name="svc-rakutenmagazine" data-plan-group="rakutenmagazine" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-rakutenmagazine" data-plan-group="rakutenmagazine" value="rakutenmagazine_general" data-audience="single"><span>月額プラン（一般）<br>597円</span></label>
-              <label><input type="radio" name="svc-rakutenmagazine" data-plan-group="rakutenmagazine" value="rakutenmagazine_mobile" data-audience="single"><span>月額プラン（楽天モバイル）<br>537円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>dマガジン</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="dマガジンのプラン">
-              <label><input type="radio" name="svc-dmagazine" data-plan-group="dmagazine" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-dmagazine" data-plan-group="dmagazine" value="dmagazine_monthly" data-audience="single"><span>月額プラン<br>580円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Audible</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Audibleのプラン">
-              <label><input type="radio" name="svc-audible" data-plan-group="audible" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-audible" data-plan-group="audible" value="audible_standard" data-audience="single"><span>スタンダード<br>880円</span></label>
-              <label><input type="radio" name="svc-audible" data-plan-group="audible" value="audible_premium" data-audience="single"><span>プレミアム<br>1,500円</span></label>
-            </div>
-          </div>
-        </details>
-
-        <details class="sub-category" name="sub-accordion" data-sub-category="cloud">
-          <summary>
-            <span>クラウド・AI</span>
-            <span class="sub-badge">未選択</span>
-          </summary>
-          <div class="sub-service">
-            <h4>iCloud+</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="iCloud+のプラン">
-              <label><input type="radio" name="svc-icloud" data-plan-group="icloud" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-icloud" data-plan-group="icloud" value="icloud_50gb" data-audience="single"><span>50GB<br>180円</span></label>
-              <label><input type="radio" name="svc-icloud" data-plan-group="icloud" value="icloud_200gb" data-audience="single"><span>200GB<br>540円</span></label>
-              <label><input type="radio" name="svc-icloud" data-plan-group="icloud" value="icloud_2tb" data-audience="single"><span>2TB<br>1,800円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Google One</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Google Oneのプラン">
-              <label><input type="radio" name="svc-googleone" data-plan-group="googleone" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-googleone" data-plan-group="googleone" value="googleone_basic" data-audience="single"><span>ベーシック (100GB)<br>290円</span></label>
-              <label><input type="radio" name="svc-googleone" data-plan-group="googleone" value="googleone_standard" data-audience="single"><span>スタンダード (200GB)<br>440円</span></label>
-              <label><input type="radio" name="svc-googleone" data-plan-group="googleone" value="googleone_aiplus" data-audience="single"><span>AI Plus (2TB)<br>1,450円</span></label>
-              <label><input type="radio" name="svc-googleone" data-plan-group="googleone" value="googleone_aipro" data-audience="single"><span>AI Pro (5TB)<br>1,760円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Gemini Advanced</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Gemini Advancedのプラン">
-              <label><input type="radio" name="svc-geminiadvanced" data-plan-group="geminiadvanced" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-geminiadvanced" data-plan-group="geminiadvanced" value="geminiadvanced_general" data-audience="single"><span>一般（Google One AI プレミアム）<br>2,900円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Microsoft 365</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Microsoft 365のプラン">
-              <label><input type="radio" name="svc-ms365" data-plan-group="ms365" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-ms365" data-plan-group="ms365" value="ms365_personal" data-audience="single"><span>Personal<br>2,130円</span></label>
-              <label><input type="radio" name="svc-ms365" data-plan-group="ms365" value="ms365_family" data-audience="family"><span>Family<br>2,740円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>ChatGPT</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="ChatGPTのプラン">
-              <label><input type="radio" name="svc-chatgpt" data-plan-group="chatgpt" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-chatgpt" data-plan-group="chatgpt" value="chatgpt_go" data-audience="single"><span>Go<br>1,400円</span></label>
-              <label><input type="radio" name="svc-chatgpt" data-plan-group="chatgpt" value="chatgpt_plus" data-audience="single"><span>Plus<br>3,000円</span></label>
-              <label><input type="radio" name="svc-chatgpt" data-plan-group="chatgpt" value="chatgpt_pro5x" data-audience="single"><span>Pro 5x<br>16,800円</span></label>
-              <label><input type="radio" name="svc-chatgpt" data-plan-group="chatgpt" value="chatgpt_pro20x" data-audience="single"><span>Pro 20x<br>30,000円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Claude</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Claudeのプラン">
-              <label><input type="radio" name="svc-claude" data-plan-group="claude" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-claude" data-plan-group="claude" value="claude_pro" data-audience="single"><span>Pro<br>3,300円</span></label>
-            </div>
-          </div>
-        </details>
-
-        <details class="sub-category" name="sub-accordion" data-sub-category="game">
-          <summary>
-            <span>ゲーム</span>
-            <span class="sub-badge">未選択</span>
-          </summary>
-          <div class="sub-service">
-            <h4>PlayStation Plus</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="PlayStation Plusのプラン">
-              <label><input type="radio" name="svc-psplus" data-plan-group="psplus" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-psplus" data-plan-group="psplus" value="psplus_essential" data-audience="single"><span>エッセンシャル<br>850円</span></label>
-              <label><input type="radio" name="svc-psplus" data-plan-group="psplus" value="psplus_extra" data-audience="single"><span>エクストラ<br>1,300円</span></label>
-              <label><input type="radio" name="svc-psplus" data-plan-group="psplus" value="psplus_premium" data-audience="single"><span>プレミアム<br>1,550円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Nintendo Switch Online</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Nintendo Switch Onlineのプラン">
-              <label><input type="radio" name="svc-nso" data-plan-group="nso" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-nso" data-plan-group="nso" value="nso_individual" data-audience="single"><span>個人<br>400円</span></label>
-              <label><input type="radio" name="svc-nso" data-plan-group="nso" value="nso_individual_plus" data-audience="single"><span>個人＋追加パック<br>年額のみ<br>月額換算492円</span></label>
-              <label><input type="radio" name="svc-nso" data-plan-group="nso" value="nso_family" data-audience="family"><span>ファミリー<br>年額のみ<br>月額換算483円</span></label>
-              <label><input type="radio" name="svc-nso" data-plan-group="nso" value="nso_family_plus" data-audience="family"><span>ファミリー＋追加パック<br>年額のみ<br>月額換算825円</span></label>
-            </div>
-          </div>
-          <div class="sub-service">
-            <h4>Xbox Game Pass</h4>
-            <div class="plan-chips" role="radiogroup" aria-label="Xbox Game Passのプラン">
-              <label><input type="radio" name="svc-xboxgamepass" data-plan-group="xboxgamepass" value="" checked><span>契約なし</span></label>
-              <label><input type="radio" name="svc-xboxgamepass" data-plan-group="xboxgamepass" value="xboxgamepass_ultimate" data-audience="single"><span>Ultimate<br>1,550円</span></label>
-              <label><input type="radio" name="svc-xboxgamepass" data-plan-group="xboxgamepass" value="xboxgamepass_pc" data-audience="single"><span>PC Game Pass<br>1,300円</span></label>
-            </div>
-          </div>
-        </details>
-      </div>
-      </details>
+      <div class="sub-accordion-group" data-sub-categories></div>
 
       <p class="empty-state" data-bind="toggle:hasSubscription">
         ✅ サブスクを選択しています。上のカテゴリから内容を確認・変更できます。
       </p>
 
-      <!-- ★その他のサブスク（自由入力）。ジム・習い事など、定額プランに当てはまらない
-           契約を受ける枠。js/ui.js renderOtherSubscriptions が data-other-sub-list 内の
-           行DOMを差分更新する（フォーカス中の入力欄には書き戻さない＝CLAUDE.md 制約5）。 -->
-      <div class="sub-other" style="margin-top:1.5rem;">
-        <p class="card__title">🏋️ その他のサブスク（自由入力）</p>
-        <p class="section-lead">ジム・習い事・コンタクトの定期便など、定額プランに無いものはこちらへ。</p>
-        <div data-other-sub-list></div>
-        <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="addOtherSubscription">
-          ＋ サブスクを追加する
-        </button>
-      </div>
+      <!-- ★リアル課金（手動入力）。ジム・習い事など、定額プランに当てはまらない契約を受ける枠。
+           config.js OTHER_SUBSCRIPTION_PRESETS（＋「その他」自由入力1行）を、デジタル版と同じ
+           アコーディオン＋RPG風チェックボックスで並べる（js/ui.js populateRealChargeAccordion）。
+           数値・ラベルの入力欄自体は data-other-sub-id/data-other-sub-field の既存デリゲーションを
+           そのまま流用する（フォーカス中の入力欄には書き戻さない＝CLAUDE.md 制約5）。 -->
+      <details class="sub-category" style="margin-top:1rem;">
+        <summary>
+          <span>▶ リアル課金（手動入力）</span>
+          <span class="sub-badge" data-real-charge-badge></span>
+        </summary>
+        <div class="sub-category__body" data-real-charge-list></div>
+      </details>
 
       <div class="cost-bar" data-cost-bar="subscriptions" style="margin-top:1rem;">
         <div class="cost-bar__track">

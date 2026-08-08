@@ -5,7 +5,8 @@ import { state, subscribe, setPersistErrorHandler, parseYen,
 import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotifyLevelUp,
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
-         captureCard, saveCard, resetQuestListCache, resetOtherSubscriptionsCache, populateAnnualSalarySelect,
+         captureCard, saveCard, resetQuestListCache, populateAnnualSalarySelect,
+         populateSubscriptionAccordion, populateRealChargeAccordion,
          triggerLevelUpEffect, showLevelReveal, hideLevelReveal, exportFullReportPdf } from './ui.js';
 import { selectors } from './selectors.js';
 import * as calc from './calc.js';
@@ -171,6 +172,12 @@ function bindEvents(){
     const otherCardCb = e.target.closest('[data-card-other-toggle]');
     if (otherCardCb){ onCardOtherToggle(otherCardCb); return; }
 
+    const subServiceCb = e.target.closest('[data-sub-service-toggle]');
+    if (subServiceCb){ onSubServiceToggle(subServiceCb); return; }
+
+    const realChargeCb = e.target.closest('[data-real-charge-toggle]');
+    if (realChargeCb){ onRealChargeToggle(realChargeCb); return; }
+
     const planRadio = e.target.closest('[data-plan-group]');
     if (planRadio){ onPlanGroupChange(planRadio); return; }
 
@@ -274,9 +281,9 @@ function onOtherSubscriptionFieldInput(el){
 }
 
 /**
- * ラジオグループの状態変化を selections.subscriptionPlanIds に反映する（§3.9）。
- * 同一サービスの他プランを除去してから、選択されたものだけ入れる。
- * @param {HTMLInputElement} el
+ * サービスのプラン選択（<select data-plan-group>）の変化を selections.subscriptionPlanIds に
+ * 反映する（§3.9）。同一サービスの他プランを除去してから、選択されたものだけ入れる。
+ * @param {HTMLSelectElement} el
  * @returns {void}
  */
 function onPlanGroupChange(el){
@@ -287,6 +294,43 @@ function onPlanGroupChange(el){
   if (el.value) next.push(el.value);
   state.selections.subscriptionPlanIds = next;
   // fixedCosts.subscriptions は selectors 側で sumSubscriptions() により算出する（直接書き込まない）
+}
+
+/**
+ * デジタルサブスクのサービス単位チェックボックス（[ ]/[*]）の変化を
+ * selections.subscriptionPlanIds に反映する（UI刷新・ゲーミフィケーション改修v3）。
+ * チェックONで初期状態のオーディエンス（C.DEFAULT_PLAN_AUDIENCE）の先頭プランを自動選択し、
+ * チェックOFFでそのサービスの選択を解除する。個別プランの変更は onPlanGroupChange が担う。
+ * @param {HTMLInputElement} cb
+ * @returns {void}
+ */
+function onSubServiceToggle(cb){
+  const group = cb.dataset.subServiceToggle;
+  const service = C.SUBSCRIPTION_PLANS.flatMap(g => g.services).find(s => s.id === group);
+  if (!service) return;
+  const allIds = service.plans.map(p => p.id);
+  const next = state.selections.subscriptionPlanIds.filter(id => !allIds.includes(id));
+  if (cb.checked){
+    const first = service.plans.find(p => p.audience === C.DEFAULT_PLAN_AUDIENCE) ?? service.plans[0];
+    if (first) next.push(first.id);
+  }
+  state.selections.subscriptionPlanIds = next;
+}
+
+/**
+ * リアル課金（手動入力）のプリセット／「その他」チェックボックスの変化を
+ * selections.otherSubscriptions に反映する（UI刷新・ゲーミフィケーション改修v3）。
+ * チェックONで行を追加（プリセットは固定ラベル、customは空ラベルでユーザー入力を待つ）、
+ * チェックOFFで該当行を削除する。金額・ラベルの入力自体は onOtherSubscriptionFieldInput が担う。
+ * @param {HTMLInputElement} cb
+ * @returns {void}
+ */
+function onRealChargeToggle(cb){
+  const id = cb.dataset.realChargeToggle;
+  const preset = C.OTHER_SUBSCRIPTION_PRESETS.find(p => p.id === id);
+  const rows = state.selections.otherSubscriptions.filter(r => r.id !== id);
+  if (cb.checked) rows.push({ id, label: preset?.label ?? '', monthly: null });
+  state.selections.otherSubscriptions = rows;
 }
 
 /** グループ内の他要素の aria-pressed を外し、対象だけ true にする（感情ボタン用）。 */
@@ -478,7 +522,6 @@ const ACTIONS = {
       applyRestoredState(restored);
       unlockAllScreensAfterRestore();
       resetQuestListCache();
-      resetOtherSubscriptionsCache();
       syncNotifiedLevel();   // ★復元直後に基準レベルとの差分で誤った「LEVEL UP!」通知が出るのを防ぐ
       if (input) input.value = '';
       showToast('呪文から復元しました');
@@ -492,29 +535,6 @@ const ACTIONS = {
   assistFireInsurance(){
     // 「わからない」時の相場補完値（config.js FIRE_INSURANCE.assistMonthly）。
     state.fixedCosts.fireInsurance = C.FIRE_INSURANCE_ASSIST_MONTHLY;
-  },
-
-  /**
-   * その他サブスク（自由入力）の行を1件追加する。上限（OTHER_SUBSCRIPTION.maxRows）到達時は何もしない。
-   * ★ゲーミフィケーション改修（2026-08-08）：凍結解除に伴い再実装。
-   */
-  addOtherSubscription(){
-    if (state.selections.otherSubscriptions.length >= C.OTHER_SUBSCRIPTION.maxRows) return;
-    const id = `o${Date.now()}${Math.floor(Math.random() * 1000)}`;
-    state.selections.otherSubscriptions = [
-      ...state.selections.otherSubscriptions,
-      { id, label: '', monthly: null }
-    ];
-  },
-
-  /**
-   * その他サブスクの行を1件削除する。
-   * @param {HTMLButtonElement} btn クリックされた削除ボタン（data-other-sub-id を持つ行の子）
-   */
-  removeOtherSubscription(btn){
-    const id = btn.closest('[data-other-sub-id]')?.dataset.otherSubId;
-    if (!id) return;
-    state.selections.otherSubscriptions = state.selections.otherSubscriptions.filter(r => r.id !== id);
   },
 
   /**
@@ -538,7 +558,6 @@ const ACTIONS = {
     const fresh = structuredClone(INITIAL_STATE);
     applyRestoredState(fresh);
     resetQuestListCache();
-    resetOtherSubscriptionsCache();
     syncNotifiedLevel();   // ★リセット直後に誤ったレベル差分演出が出ないよう基準を同期する
     showToast('冒険をはじめから始めます');
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
@@ -696,7 +715,6 @@ function loadSpellFromUrlIfPresent(){
     applyRestoredState(restoreFromSpell(code));
     unlockAllScreensAfterRestore();
     resetQuestListCache();
-    resetOtherSubscriptionsCache();
     syncNotifiedLevel();   // ★復元直後に基準レベルとの差分で誤った「LEVEL UP!」通知が出るのを防ぐ
     showToast('呪文から復元しました');
   }catch{
@@ -716,5 +734,7 @@ subscribe(maybeNotifyLevelUp);   // ★State変更のたびにレベル上昇を
 
 bindEvents();
 populateAnnualSalarySelect();
+populateSubscriptionAccordion();
+populateRealChargeAccordion();
 loadSpellFromUrlIfPresent();
 scheduleRender();            // 初期描画

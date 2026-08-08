@@ -778,11 +778,18 @@ export const DEFAULT_PLAN_AUDIENCE = 'single';
 //   ★プルダウンで持とうとすると価格が実態と合わず、かえって誤った試算になる
 // ---------------------------------------------------------------------------
 export const OTHER_SUBSCRIPTION = {
-  maxRows: 5,                       // 入力欄の上限。増やしすぎると入力負荷ゼロが崩れる
   labelMaxLength: 30,
   monthlyMax: 200000,               // 異常値ガード
   placeholders: ['ジム', '習い事', 'コンタクトの定期便', '新聞', 'ソフトウェア']
 };
+
+// ★UI刷新（ゲーミフィケーション改修v3・2026-08-08）：「＋追加」ボタンで自由に行を増やす方式を廃止し、
+//   placeholdersをそのままRPG風チェックボックスの固定プリセットとして並べる方式に変更した。
+//   id は placeholders の並び順に紐づく固定値（`preset0`〜）。これに加えて「その他（自由入力）」
+//   用の1行（id:'custom'。ラベルもユーザー入力）をUI側（js/ui.js）で追加する。
+export const OTHER_SUBSCRIPTION_PRESETS = OTHER_SUBSCRIPTION.placeholders.map((label, i) => ({
+  id: `preset${i}`, label
+}));
 
 /**
  * プランの月額を解決する。価格改定・年額のみプランを吸収する。

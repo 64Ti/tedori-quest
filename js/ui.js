@@ -472,99 +472,246 @@ function renderQuestList(s){
 }
 
 // ---------------------------------------------------------------------------
-// その他のサブスク（自由入力）。ゲーミフィケーション改修（2026-08-08）で凍結解除に伴い再実装。
-//   ★行の追加・削除でのみDOMを作り直し、通常の入力中はvalueの差分同期のみ行う
-//     （フォーカス中・IME変換中の入力欄には書き戻さない＝CLAUDE.md 制約5）。
+// サブスク階層UI（ゲーミフィケーション改修v3・2026-08-08）
+//   ★アコーディオン＋チェックボックス＋プログレッシブディスクロージャー方式に全面刷新。
+//     デジタルサブスク（カテゴリ→サービス→プラン）・リアル課金（手動入力）とも、
+//     静的データ（SUBSCRIPTION_PLANS / OTHER_SUBSCRIPTION_PRESETS）から起動時に一度だけ
+//     DOMを組み立てる（populateSubscriptionAccordion / populateRealChargeAccordion）。
+//     構造そのものは実行中に変化しないため、以後は checked / select値 / バッジ文言のみを
+//     render() のたびに syncSubscriptionAccordion で同期する（差分描画の対象外）。
 // ---------------------------------------------------------------------------
 
+const SUB_CATEGORY_ICON = { video:'🎬', music:'🎵', books:'📚', cloud:'☁️', game:'🎮' };
+
 /**
- * その他サブスク1行分のDOMを組み立てる。
- * @param {{id:string, label:string, monthly:number|null}} row
- * @returns {HTMLDivElement}
+ * RPG風チェックボックス（[ ]/[*]表示。CSSの:checked擬似クラスで見た目を切り替える）の
+ * 1行分のDOMを組み立てる。
+ * @param {string} labelText 表示テキスト
+ * @param {string} datasetKey input.dataset に設定するキー（camelCase）
+ * @param {string} datasetValue 上記キーの値
+ * @returns {{row:HTMLLabelElement, input:HTMLInputElement}}
  */
-function createOtherSubRow(row){
-  const el = document.createElement('div');
-  el.className = 'other-sub-row';
-  el.dataset.otherSubId = row.id;
+function buildRpgCheckboxRow(labelText, datasetKey, datasetValue){
+  const row = document.createElement('label');
+  row.className = 'rpg-checkbox';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.dataset[datasetKey] = datasetValue;
+  input.setAttribute('aria-label', labelText);
+  const box = document.createElement('span');
+  box.className = 'rpg-checkbox__box';
+  box.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.className = 'rpg-checkbox__label';
+  text.textContent = labelText;
+  row.append(input, box, text);
+  return { row, input };
+}
+
+/**
+ * プログレッシブディスクロージャー用の折りたたみラッパーを組み立てる（CSSの
+ * grid-template-rows 0fr→1fr でスムーズに開閉する。開閉自体はis-openクラスで制御する）。
+ * @returns {{wrap:HTMLDivElement, inner:HTMLDivElement}}
+ */
+function buildRevealWrap(){
+  const wrap = document.createElement('div');
+  wrap.className = 'sub-reveal';
+  const inner = document.createElement('div');
+  inner.className = 'sub-reveal__inner';
+  wrap.appendChild(inner);
+  return { wrap, inner };
+}
+
+/**
+ * デジタルサブスクのアコーディオンUI（カテゴリ→サービス→プラン選択）を、
+ * SUBSCRIPTION_PLANS から起動時に一度だけ組み立てる。
+ * ★プランの選択肢は初期状態のオーディエンス（C.DEFAULT_PLAN_AUDIENCE='single'）のみ表示する。
+ * ★サービスのチェックボックスは data-sub-service-toggle、プランのselectは既存の
+ *   data-plan-group（app.js onPlanGroupChangeがラジオ/select問わず同じロジックで処理する）を使う。
+ * @returns {void}
+ */
+export function populateSubscriptionAccordion(){
+  const container = document.querySelector('[data-sub-categories]');
+  if (!container || container.childElementCount) return;   // 二重初期化を防ぐ
+
+  C.SUBSCRIPTION_PLANS.forEach(category => {
+    const details = document.createElement('details');
+    details.className = 'sub-category';
+    details.dataset.subCategory = category.id;
+
+    const summary = document.createElement('summary');
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = `${SUB_CATEGORY_ICON[category.id] ?? ''} ${category.label}`.trim();
+    const badge = document.createElement('span');
+    badge.className = 'sub-badge';
+    badge.textContent = '未選択';
+    summary.append(labelSpan, badge);
+    details.appendChild(summary);
+
+    const body = document.createElement('div');
+    body.className = 'sub-category__body';
+
+    category.services.forEach(service => {
+      const singlePlans = service.plans.filter(p => p.audience === C.DEFAULT_PLAN_AUDIENCE);
+      const { row } = buildRpgCheckboxRow(service.name, 'subServiceToggle', service.id);
+      body.appendChild(row);
+
+      const { wrap, inner } = buildRevealWrap();
+      wrap.dataset.subServiceReveal = service.id;
+      const select = document.createElement('select');
+      select.className = 'input input--select';
+      select.dataset.planGroup = service.id;
+      select.setAttribute('aria-label', `${service.name}のプラン`);
+      singlePlans.forEach(plan => {
+        const opt = document.createElement('option');
+        opt.value = plan.id;
+        opt.textContent = `${plan.label}（${C.resolvePlanMonthly(plan).toLocaleString('ja-JP')}円）`;
+        select.appendChild(opt);
+      });
+      inner.appendChild(select);
+      body.appendChild(wrap);
+    });
+
+    details.appendChild(body);
+    container.appendChild(details);
+  });
+}
+
+/**
+ * リアル課金（手動入力）のアコーディオンUIを起動時に一度だけ組み立てる。
+ * config.js の OTHER_SUBSCRIPTION_PRESETS（固定5項目）に「その他（自由入力）」の1行を
+ * 加えて並べる。入力欄自体は既存の data-other-sub-id/data-other-sub-field デリゲーション
+ * （app.js onOtherSubscriptionFieldInput）をそのまま流用する。
+ * @returns {void}
+ */
+export function populateRealChargeAccordion(){
+  const container = document.querySelector('[data-real-charge-list]');
+  if (!container || container.childElementCount) return;   // 二重初期化を防ぐ
+
+  C.OTHER_SUBSCRIPTION_PRESETS.forEach(preset => {
+    const { row } = buildRpgCheckboxRow(preset.label, 'realChargeToggle', preset.id);
+    container.appendChild(row);
+
+    const { wrap, inner } = buildRevealWrap();
+    wrap.dataset.realChargeReveal = preset.id;
+    inner.dataset.otherSubId = preset.id;
+    const amountInput = document.createElement('input');
+    amountInput.type = 'text';
+    amountInput.inputMode = 'numeric';
+    amountInput.pattern = '[0-9,]*';
+    amountInput.className = 'input';
+    amountInput.placeholder = '8,000';
+    amountInput.autocomplete = 'off';
+    amountInput.enterKeyHint = 'done';
+    amountInput.dataset.otherSubField = 'monthly';
+    amountInput.dataset.composing = '0';
+    amountInput.setAttribute('aria-label', `${preset.label}の月額（円）`);
+    inner.appendChild(amountInput);
+    container.appendChild(wrap);
+  });
+
+  // 「その他（自由入力）」：サービス名（テキスト）＋月額（数値）の両方を入力する
+  const { row: customRow } = buildRpgCheckboxRow('その他（自由入力）', 'realChargeToggle', 'custom');
+  container.appendChild(customRow);
+
+  const { wrap: customWrap, inner: customInner } = buildRevealWrap();
+  customWrap.dataset.realChargeReveal = 'custom';
+  customInner.classList.add('other-sub-row');
+  customInner.dataset.otherSubId = 'custom';
 
   const labelInput = document.createElement('input');
   labelInput.type = 'text';
   labelInput.className = 'input input--label';
   labelInput.maxLength = C.OTHER_SUBSCRIPTION.labelMaxLength;
-  labelInput.placeholder = C.OTHER_SUBSCRIPTION.placeholders[0] ?? 'ジム';
+  labelInput.placeholder = '習い事';
   labelInput.autocomplete = 'off';
   labelInput.enterKeyHint = 'done';
-  labelInput.setAttribute('aria-label', 'サービス名');
   labelInput.dataset.otherSubField = 'label';
   labelInput.dataset.composing = '0';
-  labelInput.value = row.label ?? '';
+  labelInput.setAttribute('aria-label', 'サービス名');
 
-  const monthlyInput = document.createElement('input');
-  monthlyInput.type = 'text';
-  monthlyInput.inputMode = 'numeric';
-  monthlyInput.pattern = '[0-9,]*';
-  monthlyInput.className = 'input';
-  monthlyInput.placeholder = '8,000';
-  monthlyInput.autocomplete = 'off';
-  monthlyInput.enterKeyHint = 'done';
-  monthlyInput.setAttribute('aria-label', '月額（円）');
-  monthlyInput.dataset.otherSubField = 'monthly';
-  monthlyInput.dataset.composing = '0';
-  monthlyInput.value = formatNumber(row.monthly);
+  const customAmount = document.createElement('input');
+  customAmount.type = 'text';
+  customAmount.inputMode = 'numeric';
+  customAmount.pattern = '[0-9,]*';
+  customAmount.className = 'input';
+  customAmount.placeholder = '8,000';
+  customAmount.autocomplete = 'off';
+  customAmount.enterKeyHint = 'done';
+  customAmount.dataset.otherSubField = 'monthly';
+  customAmount.dataset.composing = '0';
+  customAmount.setAttribute('aria-label', '月額（円）');
 
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'btn-icon';
-  removeBtn.dataset.action = 'removeOtherSubscription';
-  removeBtn.setAttribute('aria-label', 'このサブスクを削除');
-  removeBtn.textContent = '✕';
-
-  el.append(labelInput, monthlyInput, removeBtn);
-  return el;
+  customInner.append(labelInput, customAmount);
+  container.appendChild(customWrap);
 }
 
-let lastOtherSubIds = null;
-
-/** その他サブスクの再描画キャッシュを破棄する（全リセット・呪文復元直後などに呼ぶ）。 */
-export function resetOtherSubscriptionsCache(){ lastOtherSubIds = null; }
+/**
+ * リアル課金アコーディオンの見出しバッジ（件数・合計額）を組み立てる。
+ * @param {object} s state
+ * @returns {string} 例:「2件・9,000円」。未選択時は「未選択」
+ */
+function realChargeSummary(s){
+  const rows = s?.selections?.otherSubscriptions ?? [];
+  if (!rows.length) return '未選択';
+  return `${rows.length}件・${C.sumOtherSubscriptions(rows).toLocaleString('ja-JP')}円`;
+}
 
 /**
- * その他サブスク（自由入力）の行一覧を再描画する。行の追加・削除があった時だけDOMを作り直し、
- * それ以外は値の同期のみ行う。上限到達時は追加ボタンを非活性にする。
+ * サブスクアコーディオンUI（デジタル・リアル課金とも）の checked / select値 / バッジ文言を
+ * state から同期する（render()のたびに呼ぶ。DOM構造は起動時に固定済みのため作り直しはしない）。
  * @param {object} s state
  * @returns {void}
  */
-function renderOtherSubscriptions(s){
-  const container = document.querySelector('[data-other-sub-list]');
-  if (!container) return;
+function syncSubscriptionAccordion(s){
+  const selectedPlans = new Set(s.selections.subscriptionPlanIds ?? []);
 
-  const rows = s.selections.otherSubscriptions ?? [];
-  const idsKey = rows.map(r => r.id).join(',');
-  if (idsKey !== lastOtherSubIds){
-    lastOtherSubIds = idsKey;
-    container.querySelectorAll('.other-sub-row').forEach(el => el.remove());
-    rows.forEach(r => container.appendChild(createOtherSubRow(r)));
-  }
+  document.querySelectorAll('[data-sub-service-toggle]').forEach(cb => {
+    const group = cb.dataset.subServiceToggle;
+    const idsInGroup = getPlanIdsForGroup(group);
+    const selectedId = [...selectedPlans].find(id => idsInGroup.has(id)) ?? '';
+    const isChecked = selectedId !== '';
+    if (cb.checked !== isChecked) cb.checked = isChecked;
 
-  rows.forEach(r => {
-    const rowEl = container.querySelector(`[data-other-sub-id="${r.id}"]`);
-    if (!rowEl) return;
-    const labelEl = rowEl.querySelector('[data-other-sub-field="label"]');
-    const monthlyEl = rowEl.querySelector('[data-other-sub-field="monthly"]');
+    const reveal = document.querySelector(`[data-sub-service-reveal="${group}"]`);
+    if (!reveal) return;
+    reveal.classList.toggle('is-open', isChecked);
+    const select = reveal.querySelector('select');
+    if (select && select !== document.activeElement && selectedId && select.value !== selectedId){
+      select.value = selectedId;
+    }
+  });
+
+  syncSubscriptionBadges(s);
+
+  const otherRows = s.selections.otherSubscriptions ?? [];
+  const otherById = new Map(otherRows.map(r => [r.id, r]));
+  document.querySelectorAll('[data-real-charge-toggle]').forEach(cb => {
+    const id = cb.dataset.realChargeToggle;
+    const row = otherById.get(id);
+    const isChecked = Boolean(row);
+    if (cb.checked !== isChecked) cb.checked = isChecked;
+
+    const reveal = document.querySelector(`[data-real-charge-reveal="${id}"]`);
+    if (!reveal) return;
+    reveal.classList.toggle('is-open', isChecked);
+
+    const labelEl = reveal.querySelector('[data-other-sub-field="label"]');
+    const monthlyEl = reveal.querySelector('[data-other-sub-field="monthly"]');
     if (labelEl && labelEl !== document.activeElement && labelEl.dataset.composing !== '1'){
-      const next = r.label ?? '';
+      const next = row?.label ?? '';
       if (labelEl.value !== next) labelEl.value = next;
     }
     if (monthlyEl && monthlyEl !== document.activeElement){
-      const next = formatNumber(r.monthly);
+      const next = formatNumber(row?.monthly);
       if (monthlyEl.value !== next) monthlyEl.value = next;
     }
   });
 
-  const addBtn = document.querySelector('[data-action="addOtherSubscription"]');
-  if (addBtn){
-    const atMax = rows.length >= C.OTHER_SUBSCRIPTION.maxRows;
-    if (addBtn.disabled !== atMax) addBtn.disabled = atMax;
+  const realChargeBadge = document.querySelector('[data-real-charge-badge]');
+  if (realChargeBadge){
+    const next = realChargeSummary(s);
+    if (realChargeBadge.textContent !== next) realChargeBadge.textContent = next;
   }
 }
 
@@ -658,7 +805,6 @@ function render(){
     syncScreens(state);
     syncHeaderGauge(state);
     renderQuestList(state);
-    renderOtherSubscriptions(state);
 
     const step1Btn = document.querySelector('[data-requires-step1]');
     if (step1Btn){
@@ -684,13 +830,10 @@ function render(){
       }
     });
 
-    // ★サブスクのラジオボタンは data-model を持たないため、上のループでは同期されない。
-    //   選択直後は見た目上正しく見えるが、他の入力による再描画やページ再読込（永続化からの
-    //   復元）のたびに「契約なし」（HTML静的既定値）へ視覚上戻ってしまうバグがあった。
-    //   選択状態は state.selections.subscriptionPlanIds を唯一の正とし、
-    //   再描画のたびにラジオの checked をそこから引き直す。
-    syncSubscriptionRadios(state);
-    syncSubscriptionBadges(state);
+    // ★サブスクのチェックボックス・selectは data-model を持たないため、上のループでは
+    //   同期されない。選択状態は state.selections.subscriptionPlanIds / otherSubscriptions を
+    //   唯一の正とし、再描画のたびにDOMをそこから引き直す（CLAUDE.md 制約4）。
+    syncSubscriptionAccordion(state);
   } finally { isRendering = false; }
 }
 
@@ -727,21 +870,6 @@ function getPlanIdsForGroup(group){
   const ids = new Set(service ? service.plans.map(p => p.id) : []);
   planGroupCache.set(group, ids);
   return ids;
-}
-
-function syncSubscriptionRadios(s){
-  const selected = new Set(s.selections.subscriptionPlanIds ?? []);
-  const groups = new Set();
-  document.querySelectorAll('[data-plan-group]').forEach(el => groups.add(el.dataset.planGroup));
-
-  groups.forEach(group => {
-    const idsInGroup = getPlanIdsForGroup(group);
-    const selectedId = [...selected].find(id => idsInGroup.has(id)) ?? '';   // 無ければ「契約なし」
-    document.querySelectorAll(`[data-plan-group="${group}"]`).forEach(radio => {
-      const shouldCheck = radio.value === selectedId;
-      if (radio.checked !== shouldCheck) radio.checked = shouldCheck;
-    });
-  });
 }
 
 function syncSubscriptionBadges(s){
