@@ -660,7 +660,9 @@
 <div class="tip-backdrop" data-tip-backdrop hidden></div>
 
 <!-- ============================================================
-     PDF家計診断レポート専用テンプレート（FP提出用フォーマル書式・2026-08-08改修）
+     PDF家計診断レポート専用テンプレート（FP提出用フォーマル書式）
+     ★デザイン原本は pdf-template.html（プロジェクトルート）。そのHTML構造・CSSを
+       style.css の .report-container 系スタイルとして移植済み。
      ★通常画面には一切表示しない（style.css .report-container が既定 display:none）。
        js/ui.js exportFullReportPdf() が state から中身を組み立て直し、html2pdf.jsの
        キャプチャ対象にする。中身は完全にJSが動的に構築するため、ここは空の器のみ置く。

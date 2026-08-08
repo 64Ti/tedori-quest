@@ -459,42 +459,55 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
   @page{margin:12mm;}
 }
 
-/* ===== ⑬d PDF家計診断レポート（FP提出用フォーマル書式・2026-08-08改修） =====
+/* ===== ⑬d PDF家計診断レポート（FP提出用フォーマル書式）=====
    ★html2pdf.jsの出力専用テンプレート（#pdf-report-template）。通常画面には一切表示しない。
+     pdf-template.html（デザイン原本）のHTML構造・CSSをこの中に移植したもの。
      RPG風のグローバルスタイル（ドット絵フォント・黒背景・二重枠・letter-spacing等）が
      一切継承・干渉しないよう、フォント・配色・字間をこの中で明示的に上書きしてスコープを閉じる
      （.card/.btn等のRPG風クラスは中で一切使わない）。
    ★既定はdisplay:noneだが、js/ui.js exportFullReportPdf()がキャプチャ中だけdisplay:blockに
-     切り替える。position:fixed; left:-99999pxで画面外に置いたままにするため、
-     表示状態になってもユーザー画面には一切見えない（フラッシュ・レイアウト崩れの防止）。 */
+     切り替える。position:fixed; left:-9999pxで画面外に置いたままにするため、
+     表示状態になってもユーザー画面には一切見えない（フラッシュ・レイアウト崩れの防止）。
+     html2pdf.js（内部のhtml2canvas）はdisplay:noneの要素を描画できないため、
+     「表示はするが画面外」の状態を保つことが必須（visibility:hiddenやopacity:0でも
+     html2canvasは描画してしまい不可視のPDFになるため使わない）。 */
 .report-container{
   display:none;
-  position:fixed; left:-99999px; top:0;
-  width:210mm; padding:20mm; box-sizing:border-box;
+  position:fixed; left:-9999px; top:0;
+  width:210mm; min-height:297mm; padding:20mm; box-sizing:border-box;
   background:#ffffff; color:#111111;
-  font-family:-apple-system, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
-  font-weight:400; letter-spacing:normal; line-height:1.6; font-size:12pt;
+  font-family:"Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+  font-weight:400; letter-spacing:normal; line-height:1.5; font-size:14px;
 }
 .report-container h1{
-  font-size:20pt; font-weight:700; color:#111111; letter-spacing:normal;
-  border-bottom:2px solid #111111; padding-bottom:8pt; margin-bottom:4pt;
+  font-size:24px; font-weight:400; letter-spacing:normal; color:#111111;
+  border-bottom:2px solid #333333; padding-bottom:10px; margin:0 0 24px;
+  display:flex; justify-content:space-between; align-items:baseline;
 }
+.report-container h1 .app-name{font-size:14px; font-weight:400; color:#555555;}
 .report-container h2{
-  font-size:14pt; font-weight:700; color:#111111; letter-spacing:normal;
-  margin-top:20pt; padding-bottom:4pt; border-bottom:1px solid #999999;
+  font-size:16px; font-weight:400; letter-spacing:normal; color:#ffffff;
+  background:#333333; padding:6px 12px; margin:24px 0 12px; border:none;
 }
-.report-container p{margin-top:6pt;}
-.report-container table{width:100%; border-collapse:collapse; margin-top:8pt; font-size:10.5pt;}
+.report-container p{margin-top:6px; font-size:14px;}
+.report-container table{width:100%; border-collapse:collapse; margin-bottom:16px; font-size:14px;}
 .report-container th, .report-container td{
-  border:1px solid #cccccc; padding:6pt 8pt; text-align:left; vertical-align:top;
+  border:1px solid #333333; padding:8px 12px; text-align:left; vertical-align:top;
 }
-.report-container th{background:#f2f2f2; font-weight:700; white-space:nowrap;}
-.report-container .report-meta{color:#555555; font-size:9pt; margin-top:2pt;}
-.report-container .report-highlight{
-  margin-top:16pt; padding:12pt; border:2px solid #111111; text-align:center;
-  font-size:16pt; font-weight:700;
+.report-container th{background:#f5f5f5; font-weight:700; width:30%;}
+.report-container .num-align{text-align:right;}
+.report-container .highlight-box{
+  border:2px solid #d32f2f; background:#ffebee; padding:16px; text-align:center; margin:24px 0;
 }
-.report-container .report-disclaimer{margin-top:20pt; font-size:8.5pt; color:#666666;}
+.report-container .highlight-box .title{font-size:16px; font-weight:700; color:#d32f2f; margin-bottom:8px;}
+.report-container .highlight-box .amount{font-size:32px; font-weight:700; color:#d32f2f;}
+.report-container .highlight-box .sub{font-size:14px; margin-top:8px; color:#333333;}
+.report-container .action-list{margin:0; padding-left:24px;}
+.report-container .action-list li{margin-bottom:12px; font-size:14px;}
+.report-container .action-list strong{display:block; font-size:15px; margin-bottom:4px;}
+.report-container .disclaimer{
+  font-size:10px; color:#666666; margin-top:32px; border-top:1px solid #cccccc; padding-top:8px;
+}
 
 /* ===== ⑬e フッター（§7.4：法定表示への導線。全ページ共通） ===== */
 .app-footer{

@@ -1300,47 +1300,194 @@ export function showImageModal(dataUrl, message){
 }
 
 // ---------------------------------------------------------------------------
-// PDF家計診断レポート（FP提出用フォーマル書式・2026-08-08 改修）
+// PDF家計診断レポート（FP提出用フォーマル書式）
 // ★html2pdf.js は vendor.js 経由（Node-Ready N-1）。CDN URLをここに直書きしない。
-// ★以前はRPG画面（黒背景・二重枠）をそのままキャプチャしていたが、FPがそのまま家計診断に
-//   使える白背景・sans-serifのフォーマルなA4レポート（#pdf-report-template）を state から
-//   動的に組み立てて出力する方式に全面改修した。通常のUI（.card等）とは完全に独立した
-//   別ドキュメントのため、インタラクティブな入力要素を持たない＝毎回まるごと作り直しても
-//   フォーカス等の問題が起きない（CLAUDE.md 制約5はユーザー入力欄の保護が趣旨のため対象外）。
+// ★RPG画面（黒背景・二重枠）をそのままキャプチャする方式は廃止した。pdf-template.html
+//   （デザイン原本。プロジェクトルート）のHTML構造・CSSをこのファイルとstyle.cssに移植し、
+//   FPがそのまま家計診断に使える白背景・sans-serifのA4レポート（#pdf-report-template）を
+//   state から動的に組み立てて出力する。通常のUI（.card等）とは完全に独立した別ドキュメント
+//   のため、インタラクティブな入力要素を持たない＝毎回まるごと作り直してもフォーカス等の
+//   問題が起きない（CLAUDE.md 制約5はユーザー入力欄の保護が趣旨のため対象外）。
 // ---------------------------------------------------------------------------
 
 const REPORT_AREA_LABELS = { tokyo:'東京都', osaka:'大阪府', urban:'地方主要都市', other:'その他地域' };
 const REPORT_INSURANCE_TYPE_LABELS = { association:'協会けんぽ', kumiai:'健康保険組合' };
 
 /**
- * レポート内の見出し要素を組み立てる。
- * @param {'h1'|'h2'} tag
+ * ISO日付文字列（YYYY-MM-DD）を「YYYY年M月D日」表記に変換する。
+ * @param {string} iso
+ * @returns {string}
+ */
+function formatJaDate(iso){
+  const [y, m, d] = String(iso).split('-').map(Number);
+  return `${y}年${m}月${d}日`;
+}
+
+/**
+ * レポートの表題（h1）。左にレポート名、右にアプリ名・出力日を並べる
+ * （pdf-template.html の h1 構造をそのまま踏襲）。
+ * @returns {HTMLHeadingElement}
+ */
+function buildReportH1(){
+  const h1 = document.createElement('h1');
+  const title = document.createElement('span');
+  title.textContent = '家計・固定費 診断レポート';
+  const appName = document.createElement('span');
+  appName.className = 'app-name';
+  appName.textContent = `てどりクエスト / 出力日: ${formatJaDate(new Date().toISOString().slice(0, 10))}`;
+  h1.append(title, appName);
+  return h1;
+}
+
+/**
+ * レポート内の見出し要素（h2）を組み立てる。
  * @param {string} text
  * @returns {HTMLHeadingElement}
  */
-function buildReportHeading(tag, text){
-  const el = document.createElement(tag);
+function buildReportH2(text){
+  const el = document.createElement('h2');
   el.textContent = text;
   return el;
 }
 
 /**
- * レポート内のテーブルを組み立てる。1行目をヘッダー（th）として扱う。
- * @param {string[][]} rows 1行目はヘッダー、以降はデータ行
+ * 「1. プロフィール・基本情報」テーブル：1行にth/td/th/tdを2組並べる2カラム構成。
+ * @param {[string,string,string,string][]} rows
  * @returns {HTMLTableElement}
  */
-function buildReportTable(rows){
+function buildProfileTable(rows){
   const table = document.createElement('table');
-  rows.forEach((cells, rowIndex) => {
+  const tbody = document.createElement('tbody');
+  rows.forEach(([th1, td1, th2, td2]) => {
     const tr = document.createElement('tr');
-    cells.forEach(text => {
-      const cell = document.createElement(rowIndex === 0 ? 'th' : 'td');
+    [['th', th1], ['td', td1], ['th', th2], ['td', td2]].forEach(([tag, text]) => {
+      const cell = document.createElement(tag);
       cell.textContent = text;
       tr.appendChild(cell);
     });
-    table.appendChild(tr);
+    tbody.appendChild(tr);
   });
+  table.appendChild(tbody);
   return table;
+}
+
+/**
+ * 「2. 公的保障の状況」テーブルの1行を組み立てる（th＋強調数値＋説明文の3カラム）。
+ * @param {string} label 項目名
+ * @param {string} boldText 強調表示する数値（カンマ区切り済み）
+ * @param {string} unitText 数値の後に続く単位表記（例：'/ 月'）
+ * @param {string} description 説明文
+ * @returns {HTMLTableRowElement}
+ */
+function buildProtectionRow(label, boldText, unitText, description){
+  const tr = document.createElement('tr');
+  const th = document.createElement('th');
+  th.textContent = label;
+  const amountCell = document.createElement('td');
+  amountCell.className = 'num-align';
+  amountCell.append('約 ');
+  const strong = document.createElement('strong');
+  strong.textContent = boldText;
+  amountCell.append(strong, ` 円 ${unitText}`);
+  const descCell = document.createElement('td');
+  descCell.textContent = description;
+  tr.append(th, amountCell, descCell);
+  return tr;
+}
+
+/**
+ * 「3. 固定費の現状と改善余地」テーブルを組み立てる（項目／現状／理想／評価の4カラム）。
+ * @param {[string,string,string,string][]} rows
+ * @returns {HTMLTableElement}
+ */
+function buildCostTable(rows){
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const headTr = document.createElement('tr');
+  [['項目', false], ['現状（入力値）', true], ['理想・適正水準', true], ['評価', false]].forEach(([text, center]) => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    th.style.width = '25%';
+    if (center) th.style.textAlign = 'center';
+    headTr.appendChild(th);
+  });
+  thead.appendChild(headTr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  rows.forEach(([label, current, ideal, verdict]) => {
+    const tr = document.createElement('tr');
+    const tdLabel = document.createElement('td');
+    tdLabel.textContent = label;
+    const tdCurrent = document.createElement('td');
+    tdCurrent.className = 'num-align';
+    tdCurrent.textContent = current;
+    const tdIdeal = document.createElement('td');
+    tdIdeal.className = 'num-align';
+    tdIdeal.textContent = ideal;
+    const tdVerdict = document.createElement('td');
+    tdVerdict.textContent = verdict;
+    tr.append(tdLabel, tdCurrent, tdIdeal, tdVerdict);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+/**
+ * 「4. アクションプラン」の箇条書きリストを組み立てる。
+ * @param {ReturnType<typeof selectors.buildQuestList>} quests
+ * @returns {HTMLUListElement}
+ */
+function buildActionList(quests){
+  const ul = document.createElement('ul');
+  ul.className = 'action-list';
+  quests.forEach(q => {
+    const li = document.createElement('li');
+    const strong = document.createElement('strong');
+    strong.textContent = q.mainTitle;
+    li.appendChild(strong);
+    li.append(q.detail ?? q.subTitle ?? '');
+    ul.appendChild(li);
+  });
+  return ul;
+}
+
+/**
+ * 合計節約可能額のハイライトボックスを組み立てる。
+ * @param {string} monthlyText 月額（カンマ区切り済み）
+ * @param {string} annualText 年額（カンマ区切り済み）
+ * @returns {HTMLDivElement}
+ */
+function buildHighlightBox(monthlyText, annualText){
+  const box = document.createElement('div');
+  box.className = 'highlight-box';
+  const title = document.createElement('div');
+  title.className = 'title';
+  title.textContent = 'すべてのアクションを実行した場合の合計節約可能額';
+  const amount = document.createElement('div');
+  amount.className = 'amount';
+  amount.textContent = `¥ ${monthlyText} / 月`;
+  const sub = document.createElement('div');
+  sub.className = 'sub';
+  sub.textContent = `（年間で ¥ ${annualText} の手取りアップ効果）`;
+  box.append(title, amount, sub);
+  return box;
+}
+
+/** 免責事項ブロックを組み立てる（pdf-template.html の文言をそのまま使用する）。 */
+function buildDisclaimer(){
+  const div = document.createElement('div');
+  div.className = 'disclaimer';
+  div.append(
+    '※本レポートは「てどりクエスト」の入力データおよび'
+      + `${formatJaDate(C.SYSTEM_BASE_DATE)}時点の制度に基づき自動算出された試算値です。`
+      + '実際の給付額・控除額とは異なる可能性があります。',
+    document.createElement('br'),
+    '※保険の見直しや解約を行う際は、無保険期間が生じないよう、また健康状態等による'
+      + '再加入リスクを十分にご確認の上、ご自身の判断で実施してください。'
+  );
+  return div;
 }
 
 /**
@@ -1357,71 +1504,66 @@ function populatePdfReportTemplate(s){
   const p = s.userProfile ?? {};
   const fc = s.fixedCosts ?? {};
 
-  root.appendChild(buildReportHeading('h1', 'てどりクエスト 家計診断レポート'));
-  const meta = document.createElement('p');
-  meta.className = 'report-meta';
-  meta.textContent = `作成日：${new Date().toLocaleDateString('ja-JP')}　※${C.SYSTEM_BASE_DATE}時点の制度に基づく試算です`;
-  root.appendChild(meta);
+  root.appendChild(buildReportH1());
 
-  root.appendChild(buildReportHeading('h2', '1. プロフィール'));
-  root.appendChild(buildReportTable([
-    ['項目', '内容'],
-    ['年収（額面）', `¥${YEN(p.annualSalary)}`],
-    ['お住まいのエリア', REPORT_AREA_LABELS[p.area] ?? '未選択'],
-    ['健康保険の種類', REPORT_INSURANCE_TYPE_LABELS[p.insuranceType] ?? '未選択'],
-    ['称号・レベル', `${view.rankTitle}（Lv.${view.displayLevel}）`]
+  root.appendChild(buildReportH2('1. プロフィール・基本情報'));
+  const insuranceLabel = (REPORT_INSURANCE_TYPE_LABELS[p.insuranceType] ?? '未選択')
+    + (p.isUnderOneYear ? '（加入12ヶ月未満）' : '');
+  root.appendChild(buildProfileTable([
+    ['年収（額面）', `${YEN(p.annualSalary)} 円`, 'お住まいのエリア', REPORT_AREA_LABELS[p.area] ?? '未選択'],
+    ['健康保険の種類', insuranceLabel, '現在の称号', `Lv.${view.displayLevel} / ${view.rankTitle}`]
   ]));
 
-  root.appendChild(buildReportHeading('h2', '2. 公的保障の状況'));
-  root.appendChild(buildReportTable([
-    ['項目', '金額'],
-    ['高額療養費の自己負担上限（月額）', `¥${view.selfPayCap}`],
-    ['傷病手当金（日額）', `¥${view.injuryDaily} / 日`]
-  ]));
+  root.appendChild(buildReportH2('2. 公的保障の状況（備わっているバリア）'));
+  const protectionTable = document.createElement('table');
+  const protectionBody = document.createElement('tbody');
+  protectionBody.appendChild(buildProtectionRow('高額療養費 自己負担上限', view.selfPayCap, '/ 月',
+    '医療費が高額になった場合でも、この金額以上は免除されます。'));
+  protectionBody.appendChild(buildProtectionRow('傷病手当金', view.injuryDaily, '/ 日',
+    '病気やケガで働けない期間、通算1年6ヶ月まで支給されます。'));
+  protectionTable.appendChild(protectionBody);
+  root.appendChild(protectionTable);
 
-  root.appendChild(buildReportHeading('h2', '3. 固定費の現状と理想'));
-  const costRows = [['項目', '現状（月額）', '理想の目標値', '全国平均']];
+  root.appendChild(buildReportH2('3. 固定費の現状と改善余地'));
   const costCategories = ['smartphone', 'internet', 'medicalInsurance', 'fireInsurance', 'subscriptions', 'nhk'];
   if (fc.hasCar) costCategories.push('carInsurance', 'parking');
-  costCategories.forEach(category => {
+  const costRows = costCategories.map(category => {
     const target = C.FIXED_COST_TARGETS[category];
-    if (!target) return;
     const value = getCostCategoryValue(s, category);
-    const average = getCategoryAverage(s, category, target);
-    const idealText = (target.ideal === null || target.ideal === undefined) ? '—' : `¥${YEN(target.ideal)}`;
-    costRows.push([target.label, `¥${YEN(value)}`, idealText, `¥${YEN(average)}`]);
+    const hasIdeal = target.ideal !== null && target.ideal !== undefined;
+    const idealText = hasIdeal ? `${YEN(target.ideal)} 円以下` : '—';
+    const verdict = !hasIdeal ? '— 参考情報' : (value > target.ideal ? '⚠️ 見直し余地あり' : '◎ 適正範囲内');
+    return [target.label, `${YEN(value)} 円`, idealText, verdict];
   });
-  root.appendChild(buildReportTable(costRows));
+  root.appendChild(buildCostTable(costRows));
 
-  root.appendChild(buildReportHeading('h2', '4. アクションプラン（見直すべき項目）'));
+  root.appendChild(buildReportH2('4. アクションプラン（解呪対象の魔道障壁）'));
   const quests = selectors.buildQuestList(s);
   if (quests.length){
-    const questRows = [['項目', '内容', '月額節約可能額']];
-    quests.forEach(q => questRows.push([q.mainTitle, q.detail ?? q.subTitle ?? '', `¥${YEN(q.monthlySaving)}`]));
-    root.appendChild(buildReportTable(questRows));
+    const lead = document.createElement('p');
+    lead.textContent = '以下の項目を見直すことで、毎月の手取り（自由に使えるお金）を増やすことができます。';
+    root.appendChild(lead);
+    root.appendChild(buildActionList(quests));
   } else {
     const none = document.createElement('p');
-    none.textContent = '現時点で見直しの余地がある固定費は見つかりませんでした。';
+    none.textContent = '現時点で見直しの余地がある固定費は見つかりませんでした。すでに最適化された家計です！';
     root.appendChild(none);
   }
 
-  const highlight = document.createElement('p');
-  highlight.className = 'report-highlight';
-  highlight.textContent = `合計節約可能額：月額 ¥${view.questTotalSaving}`;
-  root.appendChild(highlight);
+  const questTotal = quests.reduce((sum, q) => sum + q.monthlySaving, 0);
+  root.appendChild(buildHighlightBox(YEN(questTotal), YEN(questTotal * 12)));
 
-  const disclaimer = document.createElement('p');
-  disclaimer.className = 'report-disclaimer';
-  disclaimer.textContent = '※本レポートは入力内容に基づく試算であり、実際の給付額・控除額・保険料とは異なる場合があります。'
-    + '制度の詳細は最新の公的情報をご確認ください。';
-  root.appendChild(disclaimer);
+  root.appendChild(buildDisclaimer());
 }
 
 /**
  * PDF家計診断レポートを出力する。
  * ★通常は非表示（.report-container既定でdisplay:none）のテンプレートを、キャプチャ中だけ
- *   画面外（position:fixed; left:-99999px。style.css参照）に配置したまま表示状態にして
+ *   画面外（position:fixed; left:-9999px。style.css参照）に配置したまま表示状態にして
  *   html2canvasに読み取らせ、完了後（例外時も）必ず非表示へ戻す。
+ *   ★html2pdf.js（内部のhtml2canvas）はdisplay:noneの要素を描画できないため、
+ *     「表示はするが画面外」を維持する必要がある（visibility:hidden/opacity:0は
+ *     不可視のまま描画されてしまい白紙PDFの原因になるため使わない）。
  * @returns {Promise<void>}
  */
 export async function exportFullReportPdf(){
@@ -1437,11 +1579,10 @@ export async function exportFullReportPdf(){
 
     await html2pdf().set({
       margin: 10,
-      filename: 'てどりクエスト-家計診断レポート.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false },
       jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
-    }).from(target).save();
+    }).from(target).save('てどりクエスト-家計診断レポート.pdf');
   } finally {
     target.style.display = 'none';
   }
