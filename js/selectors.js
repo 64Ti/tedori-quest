@@ -75,10 +75,22 @@ function subscriptionQuestMeta(kind){
 }
 
 /**
+ * EXクエスト（クレジットカード装備確認）の表示メタ情報を引く（EXクエスト フェーズ2）。
+ * ★通常クエストと区別するため isExtra:true を必ず付与する。
+ * @param {'A'|'B'|'C'|'D'} pattern calc.evaluateExCreditQuests() が返すpattern
+ * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string, completeLabel?:string, isExtra:true}}
+ */
+function exCreditQuestMeta(pattern){
+  const t = C.CARD_QUEST_TEXT[pattern];
+  return { id: t.id, mainTitle: t.mainTitle, subTitle: t.subTitle ?? '',
+    detail: t.detail, completeLabel: t.completeLabel, isExtra: true };
+}
+
+/**
  * クエストID単体から表示メタ情報を復元する（完了済みだが現在のギャップ計算では
  * 再生成されなくなったクエストを一覧から消さないためのフォールバック）。
  * @param {string} id
- * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string, completeLabel?:string}|null}
+ * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string, completeLabel?:string, isExtra?:true}|null}
  */
 function orphanQuestMeta(id){
   const reused = C.QUEST_CATALOG.find(q => q.id === id);
@@ -90,8 +102,8 @@ function orphanQuestMeta(id){
     detail: nf.detail, basis: nf.basis, talkScript: nf.talkScript, disclaimer: nf.disclaimer,
     completeLabel: nf.completeLabel };
   const cq = Object.values(C.CARD_QUEST_TEXT).find(q => q.id === id);
-  if (cq) return { id, mainTitle: cq.mainTitle, subTitle: cq.subTitle, detail: cq.detail,
-    completeLabel: cq.completeLabel };
+  if (cq) return { id, mainTitle: cq.mainTitle, subTitle: cq.subTitle ?? '', detail: cq.detail,
+    completeLabel: cq.completeLabel, isExtra: true };   // ★EXクエスト フェーズ2：CARD_QUEST_TEXT由来は必ずEX扱い
   const sq = Object.values(C.SUBSCRIPTION_QUEST_TEXT).find(q => q.id === id);
   if (sq) return { id, mainTitle: sq.mainTitle, subTitle: sq.subTitle, detail: sq.detail,
     basis: sq.basis, talkScript: sq.talkScript, disclaimer: sq.disclaimer, completeLabel: sq.completeLabel };
@@ -313,7 +325,7 @@ export const selectors = {
    *   一覧から消えないよう合成する。
    * @param {State} state
    * @returns {{id:string, mainTitle:string, subTitle:string, detail?:string,
-   *   monthlySaving:number}[]}
+   *   monthlySaving:number, isExtra?:true}[]}
    */
   buildQuestList(state){
     const s = state ?? {};
@@ -329,10 +341,14 @@ export const selectors = {
     };
     const fixedResults = calc.evaluateFixedCostQuests(costs);
     const subscriptionResults = calc.evaluateSubscriptionQuests(s.selections);
+    const exCreditResults = calc.evaluateExCreditQuests(
+      s.selections?.exCredit, selectors.fixedCostsTotal(s), selectors.netIncome(s));
 
-    // ★クレジットカード機能は一時凍結中（非表示。2026-08-08）。
+    // ★クレジットカード機能（実カード選択による診断）は一時凍結中（非表示。2026-08-08）。
     //   入力UIを隠しただけでなく、クエスト判定からも除外する。
     //   ロジック自体（calc.evaluateCreditCardQuests等）は将来の再開に備えて削除せず残してある。
+    //   ★EXクエスト（フェーズ2）はこれとは別枠。state.selections.exCreditの簡易回答から
+    //     evaluateExCreditQuestsで判定し、常に生成する（下記exCreditResultsを参照）。
     // const cards = selectors.resolvedCards(s);
     // const { annual } = calc.estimateCardSpend(selectors.fixedCostsTotal(s), selectors.netIncome(s));
     // const cardResults = calc.evaluateCreditCardQuests(cards, annual);
@@ -345,6 +361,11 @@ export const selectors = {
     subscriptionResults.forEach(r => {
       if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
       active.push({ ...subscriptionQuestMeta(r.id), monthlySaving: r.monthlySaving });
+    });
+    // ★EXクエストには足切り（QUEST_MIN_SAVING）を適用しない。条件を満たせば常に表示する
+    //   （非表示・アンロックのギミックはフェーズ3で実装するため、今回は対象外）。
+    exCreditResults.forEach(r => {
+      active.push({ ...exCreditQuestMeta(r.pattern), monthlySaving: r.monthlySaving });
     });
     // cardResults.forEach(r => {
     //   if (r.monthlySaving < C.QUEST_MIN_SAVING) return;

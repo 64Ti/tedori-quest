@@ -349,13 +349,21 @@ function canStartDiagnosis(s){
 function createQuestItem(q, s){
   const li = document.createElement('li');
   li.className = 'quest-item';
+  if (q.isExtra) li.classList.add('quest-item--ex');   // ★EXクエスト フェーズ2：金枠の特別デザイン
   li.dataset.questId = q.id;
 
   const head = document.createElement('div');
   head.className = 'quest-item__head';
   const title = document.createElement('h3');
   title.className = 'quest-item__title';
-  title.textContent = q.mainTitle;
+  if (q.isExtra){
+    const badge = document.createElement('span');
+    badge.className = 'quest-item__ex-badge';
+    badge.textContent = '[EX]';
+    title.append(badge, ` ${q.mainTitle}`);
+  } else {
+    title.textContent = q.mainTitle;
+  }
   const saving = document.createElement('span');
   saving.className = 'quest-item__saving';
   saving.textContent = `¥${YEN(q.monthlySaving)}/月`;
@@ -444,28 +452,37 @@ let lastQuestSignature = null;
 export function resetQuestListCache(){ lastQuestSignature = null; }
 
 /**
- * クエスト一覧を再描画する。クエストの構成（id・節約可能額）が変わっていない場合は
+ * クエスト一覧を再描画する。クエストの構成（id・節約可能額・isExtra）が変わっていない場合は
  * チェック状態の同期のみ行い、DOMの作り直しはしない。
+ * ★EXクエスト フェーズ2：isExtra:true のクエストは通常の一覧（data-quest-list）ではなく
+ *   専用コンテナ（#ex-quest-list）に振り分けて描画する。
  * @param {object} s state
  * @returns {void}
  */
 function renderQuestList(s){
   const container = document.querySelector('[data-quest-list]');
+  const exContainer = document.getElementById('ex-quest-list');
   const legendary  = document.querySelector('[data-legendary-hero]');
   if (!container) return;
 
-  const quests = selectors.buildQuestList(s);
-  const signature = JSON.stringify(quests.map(q => [q.id, q.monthlySaving]));
+  const allQuests = selectors.buildQuestList(s);
+  const quests = allQuests.filter(q => !q.isExtra);
+  const exQuests = allQuests.filter(q => q.isExtra);
+  const signature = JSON.stringify(allQuests.map(q => [q.id, q.monthlySaving, Boolean(q.isExtra)]));
   if (signature === lastQuestSignature){
     syncQuestCheckboxes(s);
   } else {
     lastQuestSignature = signature;
     container.querySelectorAll('.quest-item').forEach(el => el.remove());
     quests.forEach(q => container.appendChild(createQuestItem(q, s)));
+    if (exContainer){
+      exContainer.querySelectorAll('.quest-item').forEach(el => el.remove());
+      exQuests.forEach(q => exContainer.appendChild(createQuestItem(q, s)));
+    }
   }
 
   if (legendary){
-    const showLegendary = quests.length === 0;
+    const showLegendary = allQuests.length === 0;
     if (legendary.hidden !== !showLegendary) legendary.hidden = !showLegendary;
     if (showLegendary) renderLegendaryCard(legendary);
   }

@@ -1,6 +1,7 @@
 // calc.js — 純粋関数のみ。DOM / window / localStorage / fetch に一切触れない（CLAUDE.md 制約6）。
 // 法令数値はすべて config.js から import する（CLAUDE.md 制約7）。
 import * as C from './config.js';
+import { findCardById } from './creditCards.js';
 
 // --- 汎用ヘルパ -------------------------------------------------------------
 
@@ -506,6 +507,61 @@ export function evaluateCreditCardQuests(cards, estimatedAnnualSpend){
   if (breakEvenCard){
     const monthlySaving = Math.floor(Number(breakEvenCard.annualFee || 0) / 12);
     if (monthlySaving > 0) results.push({ pattern:'D', monthlySaving, card: breakEvenCard });
+  }
+
+  return results;
+}
+
+/**
+ * EXクエスト（クレジットカード装備確認）を判定する（EXクエスト フェーズ2・2026-08-08）。
+ * ★フェーズ1のSTEP2「EX装備確認」では実際のカードを選ばせず、
+ *   「メインカードの特徴」「休眠カードの有無」という簡易な自己申告（state.selections.exCredit）
+ *   のみを取得する。そのため節約可能額は、実際に選んだカードではなく
+ *   js/creditCards.js の代表的なカードの実データ（年会費・損益分岐点）を参照した
+ *   見込み額として算出する（推測で数値を作らない。evaluateCreditCardQuestsと同じ計算式を使う）。
+ * ★条件を満たせば常に生成する（非表示・アンロックのギミックはフェーズ3で実装）。
+ * @param {{main?:string, sub?:string}} exCredit state.selections.exCredit
+ * @param {number} fixedCostsTotal 現状の固定費合計
+ * @param {number} netIncome 手取り月額
+ * @returns {{pattern:'A'|'B'|'C'|'D', monthlySaving:number}[]} 足切り前の全件（節約可能額が正のもの）
+ */
+export function evaluateExCreditQuests(exCredit, fixedCostsTotal, netIncome){
+  const ec = exCredit ?? {};
+  const { annual: spend } = estimateCardSpend(fixedCostsTotal, netIncome);
+  const results = [];
+
+  // パターンA：メインカードが還元率0.5%前後（低効率）
+  if (ec.main === 'low_rate'){
+    const monthlySaving = Math.floor(Math.floor(spend * 0.01) / 12);
+    if (monthlySaving > 0) results.push({ pattern:'A', monthlySaving });
+  }
+
+  // パターンB：休眠カード（年会費がかかっている、または把握していない）がある
+  //   ★代表例：ANA VISA Suicaカード（年会費2,200円）。特定のカードを指さないための代表値
+  if (ec.sub === 'has_sleep'){
+    const ref = findCardById('ana_visa_suica');
+    const monthlySaving = Math.floor(Number(ref?.annualFee || 0) / 12);
+    if (monthlySaving > 0) results.push({ pattern:'B', monthlySaving });
+  }
+
+  // パターンC：100万円修行カードのメインだが、推定年間決済額が100万円未満
+  //   ★代表例：三井住友カード ゴールド（NL）（年会費5,500円）
+  if (ec.main === 'unreached_100'){
+    const ref = findCardById('smcc_gold_nl');
+    if (spend < 1000000){
+      const monthlySaving = Math.floor((Number(ref?.annualFee || 0) + spend * 0.005) / 12);
+      if (monthlySaving > 0) results.push({ pattern:'C', monthlySaving });
+    }
+  }
+
+  // パターンD：ホテル・マイル特化の高額年会費カードだが、損益分岐点に届いていない
+  //   ★代表例：ヒルトン・オナーズ アメックス（年会費16,500円・無料宿泊特典の条件150万円）
+  if (ec.main === 'unreached_hotel'){
+    const ref = findCardById('hilton_amex');
+    if (spend < (ref?.breakEvenAmount ?? Infinity)){
+      const monthlySaving = Math.floor(Number(ref?.annualFee || 0) / 12);
+      if (monthlySaving > 0) results.push({ pattern:'D', monthlySaving });
+    }
   }
 
   return results;

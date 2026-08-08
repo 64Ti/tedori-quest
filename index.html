@@ -483,6 +483,12 @@
       <div class="card card--legendary" data-legendary-hero hidden></div>
     </div>
 
+    <!-- ★EXクエスト フェーズ2：state.selections.exCredit（STEP2「EX装備確認」）の回答から
+         js/selectors.js buildQuestList() が isExtra:true として生成したクエストのみを
+         js/ui.js が振り分けて描画する（通常のdata-quest-listとは別コンテナ）。
+         ゴールド枠の特別デザインはstyle.css .quest-item--exが担う。 -->
+    <ul id="ex-quest-list" class="quest-list" style="margin-top:2rem;"></ul>
+
     <!-- --- クレジットカード診断（優先度を下げ、クエスト一覧より下に配置） ---
          ★機能一時凍結中（2026-08-08）：入力UI・クエスト判定ともに非表示にする。
            今後の改修に備え、マークアップ・ロジックは削除せず hidden 属性で隠すだけに留める。 -->
