@@ -107,6 +107,18 @@
           <option value="other">その他地域</option>
         </select>
       </div>
+
+      <!-- ★新クエスト【都市部のマイカー（過剰装備）】：エリアが東京都・大阪府の時のみ表示する。
+           表示切替はjs/ui.jsのrender()内で state.userProfile.area を見て同期する
+           （data-conditional-field="hasCar" の既存欄と同じ仕組み。状態駆動にすることで
+           ページ再読込・呪文復元直後でも正しい表示状態を再現できる）。 -->
+      <div id="urban-area-container" data-conditional-field="urbanArea" hidden style="margin-top: 10px;">
+          <label class="rpg-checkbox-label">
+              <input type="checkbox" id="urban-area-check" data-model="userProfile.isUrbanAreaCar">
+              <span class="rpg-checkbox-text">東京23区、または大阪市内に住んでいる</span>
+          </label>
+      </div>
+
       <div class="field">
         <div class="field__label-row">
           <label class="field__label" for="in-insuranceType">健康保険の種類</label>

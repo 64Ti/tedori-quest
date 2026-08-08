@@ -6,7 +6,7 @@ import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotify
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
          captureCard, saveCard, resetQuestListCache, resetExQuestUnlockState, populateAnnualSalarySelect,
-         populateSubscriptionAccordion, populateRealChargeAccordion,
+         populateSubscriptionAccordion, populateRealChargeAccordion, lockScreen,
          triggerLevelUpEffect, showLevelReveal, hideLevelReveal, exportFullReportPdf } from './ui.js';
 import { selectors } from './selectors.js';
 import * as calc from './calc.js';
@@ -190,6 +190,12 @@ function bindEvents(){
       setByPath(state, el.dataset.model, value);
       if (el.dataset.model === 'creditCards.main' || el.dataset.model === 'creditCards.sub'){
         onCreditCardSelectChange(el.dataset.model);
+      }
+      if (el.dataset.model === 'userProfile.area' && value !== 'tokyo' && value !== 'osaka'){
+        // ★新クエスト【都市部のマイカー】：対象エリア以外に変更したら、隠れる
+        //   チェックボックスの回答も一緒にリセットする（非表示のまま古い回答が
+        //   残り続けてクエストが誤発生しないようにする）。
+        state.userProfile.isUrbanAreaCar = false;
       }
     }
   });
@@ -405,6 +411,7 @@ const ACTIONS = {
    *   もう一度押すとレベルが変わって見える不具合があった。
    */
   startDiagnosis(){
+    lockScreen(1);   // ★STEP進行時の入力ロック機能：STEP1を確定・ロックする
     state.meta.createdAt = state.meta.createdAt ?? new Date().toISOString();
     state.meta.lastOpenedAt = new Date().toISOString();
     if (Number.isFinite(state.meta.initialLevel)){
@@ -431,6 +438,7 @@ const ACTIONS = {
    *   概算＝初期レベルのバラつきという位置づけのため、固定費反映後の再計算は決定的に行う）。
    */
   generateQuests(){
+    lockScreen(2);   // ★STEP進行時の入力ロック機能：STEP2を確定・ロックする
     const trueLevel = calc.calcInitialLevel(selectors.netIncome(state), selectors.fixedCostsTotal(state));
     state.meta.initialLevel = trueLevel;
     state.meta.currentLevel = trueLevel;

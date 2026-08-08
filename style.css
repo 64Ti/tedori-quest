@@ -364,6 +364,20 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
 .rpg-checkbox input:focus-visible ~ .rpg-checkbox__box{outline:2px solid var(--text-gold); outline-offset:2px;}
 .rpg-checkbox__label{font-size:var(--fs-sm);}
 
+/* --- 新クエスト【都市部のマイカー】用チェックボックス（.rpg-checkbox相当だが指定のクラス名で実装） --- */
+.rpg-checkbox-label{
+  position:relative; display:flex; align-items:center; gap:var(--sp-2);
+  min-height:44px; cursor:pointer; font-weight:400;
+}
+.rpg-checkbox-label input{position:absolute; opacity:0; width:0; height:0;}
+.rpg-checkbox-text{font-size:var(--fs-sm); color:var(--text-main);}
+.rpg-checkbox-text::before{
+  content:'[ ] '; font-family:'DotGothic16', monospace, sans-serif; color:var(--text-main);
+}
+.rpg-checkbox-label input:checked ~ .rpg-checkbox-text::before{content:'[*] '; color:var(--text-gold);}
+.rpg-checkbox-label input:checked ~ .rpg-checkbox-text{color:var(--text-gold);}
+.rpg-checkbox-label input:focus-visible ~ .rpg-checkbox-text{outline:2px solid var(--text-gold); outline-offset:2px;}
+
 /* --- プログレッシブディスクロージャー：チェック時にスムーズに出現する折りたたみ領域 ---
    ★grid-template-rows 0fr→1fr の手法により、height:autoな中身でも滑らかにアニメーションできる。 */
 .sub-reveal{display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--dur) var(--ease);}
@@ -539,6 +553,14 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
   font-size:10px; color:#666666; margin-top:32px; border-top:1px solid #cccccc; padding-top:8px;
 }
 
+/* PDF出力時の要素内改ページを回避 */
+#pdf-report-template tr,
+#pdf-report-template .action-list li,
+#pdf-report-template .highlight-box {
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
 /* ===== ⑬e フッター（§7.4：法定表示への導線。全ページ共通） ===== */
 .app-footer{
   margin-top:var(--sp-8); padding-top:var(--sp-6);
@@ -614,6 +636,16 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
    .screen は section 要素のため section の余白・区切り線をそのまま継承する。 */
 .screen{animation:screen-in var(--dur) var(--ease);}
 @keyframes screen-in{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+
+/* STEP進行時の入力ロック機能：次のSTEPへ進むと前のSTEPが半透明・操作不可になる。 */
+.locked {
+    opacity: 0.6;
+    pointer-events: none;
+}
+.locked h2::after {
+    content: " 🔒";
+    font-size: 0.8em;
+}
 
 /* --- ヘッダーのレベル進捗ゲージ（画面3・4専用）---
    ★STEP1・STEP2で入力するたびに動くEXPゲージ演出は廃止した。

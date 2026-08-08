@@ -87,6 +87,16 @@ function exCreditQuestMeta(pattern){
 }
 
 /**
+ * 新クエスト【都市部のマイカー（過剰装備）】の表示メタ情報を引く。
+ * @returns {{id:string, mainTitle:string, subTitle:string, detail:string, difficulty:string, completeLabel:string}}
+ */
+function urbanCarQuestMeta(){
+  const t = C.URBAN_CAR_QUEST_TEXT;
+  return { id: t.id, mainTitle: t.mainTitle, subTitle: t.subTitle, detail: t.detail,
+    difficulty: t.difficulty, completeLabel: t.completeLabel };
+}
+
+/**
  * クエストID単体から表示メタ情報を復元する（完了済みだが現在のギャップ計算では
  * 再生成されなくなったクエストを一覧から消さないためのフォールバック）。
  * @param {string} id
@@ -101,6 +111,7 @@ function orphanQuestMeta(id){
   if (nf) return { id, mainTitle: nf.mainTitle, subTitle: nf.subTitle,
     detail: nf.detail, basis: nf.basis, talkScript: nf.talkScript, disclaimer: nf.disclaimer,
     completeLabel: nf.completeLabel };
+  if (id === C.URBAN_CAR_QUEST_TEXT.id) return urbanCarQuestMeta();
   const cq = Object.values(C.CARD_QUEST_TEXT).find(q => q.id === id);
   if (cq) return { id, mainTitle: cq.mainTitle, subTitle: cq.subTitle ?? '', detail: cq.detail,
     completeLabel: cq.completeLabel, isExtra: true };   // ★EXクエスト フェーズ2：CARD_QUEST_TEXT由来は必ずEX扱い
@@ -343,6 +354,10 @@ export const selectors = {
     const subscriptionResults = calc.evaluateSubscriptionQuests(s.selections);
     const exCreditResults = calc.evaluateExCreditQuests(
       s.selections?.exCredit, selectors.fixedCostsTotal(s), selectors.netIncome(s));
+    const urbanCarResult = calc.evaluateUrbanCarQuest({
+      hasCar: fc.hasCar, isUrbanAreaCar: s.userProfile?.isUrbanAreaCar,
+      parking: fc.parking, carInsurance: fc.carInsurance
+    });
 
     // ★クレジットカード機能（実カード選択による診断）は一時凍結中（非表示。2026-08-08）。
     //   入力UIを隠しただけでなく、クエスト判定からも除外する。
@@ -362,6 +377,11 @@ export const selectors = {
       if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
       active.push({ ...subscriptionQuestMeta(r.id), monthlySaving: r.monthlySaving });
     });
+    // ★新クエスト【都市部のマイカー（過剰装備）】：通常クエストのため他の固定費クエストと
+    //   同じ足切り（QUEST_MIN_SAVING）を適用する。
+    if (urbanCarResult && urbanCarResult.monthlySaving >= C.QUEST_MIN_SAVING){
+      active.push({ ...urbanCarQuestMeta(), monthlySaving: urbanCarResult.monthlySaving });
+    }
     // ★EXクエストには足切り（QUEST_MIN_SAVING）を適用しない。条件を満たせば常に表示する
     //   （非表示・アンロックのギミックはフェーズ3で実装するため、今回は対象外）。
     exCreditResults.forEach(r => {

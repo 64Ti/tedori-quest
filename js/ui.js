@@ -225,6 +225,14 @@ function syncConditionalFields(s){
     const next = !s.fixedCosts.hasCar;
     if (carField.hidden !== next) carField.hidden = next;
   }
+
+  // ★新クエスト【都市部のマイカー（過剰装備）】：エリアが東京都・大阪府の時のみ
+  //   「東京23区、または大阪市内に住んでいる」チェックボックスを表示する。
+  const urbanField = document.querySelector('[data-conditional-field="urbanArea"]');
+  if (urbanField){
+    const next = !(s.userProfile.area === 'tokyo' || s.userProfile.area === 'osaka');
+    if (urbanField.hidden !== next) urbanField.hidden = next;
+  }
 }
 
 /**
@@ -323,6 +331,21 @@ function syncScreens(s){
       else btn.removeAttribute('aria-current');
     }
   });
+}
+
+/**
+ * 指定した画面（STEP）を入力ロック状態にする。コンテナに .locked クラスを付与し、
+ * 内部の全 <input>・<select> を disabled にする（STEP進行時の入力ロック機能）。
+ * ★一度確定して次のSTEPへ進んだ後は、前のSTEPの入力内容を変更できないようにするための機能。
+ *   何度呼んでも安全（既にロック済みの要素へ再度 disabled=true を設定しても副作用はない）。
+ * @param {1|2|3|4} n ロックする画面番号
+ * @returns {void}
+ */
+export function lockScreen(n){
+  const section = document.querySelector(`.screen[data-screen="${n}"]`);
+  if (!section) return;
+  section.classList.add('locked');
+  section.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
 }
 
 /**
@@ -1640,16 +1663,19 @@ function populatePdfReportTemplate(s){
 
 /**
  * PDF家計診断レポートを出力する。
- * ★致命的バグ修正：以前は #pdf-report-template を position:fixed/absolute; left:-9999px で
- *   画面外に飛ばしたまま display:block にしてhtml2canvasへ渡していたが、実機検証で
+ * ★致命的バグ修正：#pdf-report-template を position:fixed/absolute; left:-9999px で
+ *   画面外に飛ばしたまま display:block にしてhtml2canvasへ渡す方式は、実機検証で
  *   「html2canvasは負の座標に配置された要素の高さを正しく計測できず、高さ0のcanvas
- *   （＝空白または壊れたPDF。RPG画面がそのまま写り込んで見えることもある）になる」
- *   不具合を確認した。そのため画面外オフセットには一切頼らず、
- *   ①レポート以外の <body> 直下の要素（RPGのヘッダー・main・ボトムナビ等）をすべて
- *     一時的に display:none にし、②レポートだけを通常のドキュメントフロー内に表示する
- *   方式に変更した。ヘッダー等の非表示とレポートの表示は同じ同期処理内で行うため、
- *   ブラウザが「何も表示されていない」フレームを描画することはない（一瞬でRPG画面から
- *   レポート表示へ切り替わる）。完了後（例外時も）必ず元の状態へ戻す。
+ *   （＝空白または壊れたPDF）になる」不具合を確認したため採用しない
+ *   （position:absoluteに変えても同様に高さ0になることを確認済み）。
+ *   代わりに、①レポート以外の <body> 直下の要素（RPGのヘッダー・main・ボトムナビ等）を
+ *   すべて一時的に display:none にし、②レポートだけを通常のドキュメントフロー内に
+ *   表示する方式を用いる。非表示化と表示切替は同じ同期処理内で行うため、ブラウザが
+ *   「何も表示されていない」フレームを描画することはない（一瞬でRPG画面からレポート
+ *   表示へ切り替わる）。完了後（例外時も）必ず元の状態へ戻す。
+ * ★改ページ見切れ対策：pagebreakオプションでCSSのpage-break-inside:avoid（style.css
+ *   #pdf-report-template tr/.action-list li/.highlight-box）を有効にし、テーブル行・
+ *   アクションプランの各項目・ハイライトボックスがページ境界で分断されないようにする。
  * @returns {Promise<void>}
  */
 export async function exportFullReportPdf(){
@@ -1668,11 +1694,13 @@ export async function exportFullReportPdf(){
     await document.fonts.ready;   // フォント未ロードによる文字化け防止（captureCardと同様の理由）
 
     await html2pdf().set({
-      margin: 10,
+      margin: [15, 10, 15, 10],   // 上下左右に余白を設ける
+      filename: '家計診断レポート.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false },
-      jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
-    }).from(target).save('てどりクエスト-家計診断レポート.pdf');
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }   // CSSのbreak-inside:avoidを有効にする
+    }).from(target).save();
   } finally {
     target.style.display = 'none';
     siblings.forEach((el, i) => { el.style.display = originalDisplay[i]; });

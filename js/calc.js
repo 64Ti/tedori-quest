@@ -412,6 +412,25 @@ export function evaluateFixedCostQuests(costs){
 }
 
 /**
+ * 新クエスト【都市部のマイカー（過剰装備）】を判定する。
+ * ・発生条件：自動車を所有している（hasCar）かつ、都市部（東京23区・大阪市内）在住の
+ *   自己申告（isUrbanAreaCar）がともにtrueの場合
+ * ・節約可能額：駐車場代＋自動車保険（月額）の合計。両方とも未入力、または合計が0円の場合は
+ *   固定値（C.URBAN_CAR_QUEST_DEFAULT_SAVING）を使う
+ * @param {{hasCar:boolean, isUrbanAreaCar:boolean, parking:number, carInsurance:number}} costs
+ * @returns {{monthlySaving:number}|null} 条件を満たさない場合は null
+ */
+export function evaluateUrbanCarQuest(costs){
+  const c = costs ?? {};
+  if (!c.hasCar || !c.isUrbanAreaCar) return null;
+  const parking = Math.max(0, Number(c.parking) || 0);
+  const carInsurance = Math.max(0, Number(c.carInsurance) || 0);
+  const sum = parking + carInsurance;
+  const monthlySaving = sum > 0 ? sum : C.URBAN_CAR_QUEST_DEFAULT_SAVING;
+  return { monthlySaving };
+}
+
+/**
  * サブスクリプションの新クエスト（重複の呪縛／幽霊ギルドの退会／スマホの深淵）を判定する
  * （ゲーミフィケーション改修・2026-08-08）。3つは互いに独立しており、条件を満たしたものが
  * すべて同時に発生しうる。

@@ -47,9 +47,11 @@ export const INITIAL_STATE = {
                                           //   有効な選択肢を初期値にせず、必ずユーザーに選ばせる
     isUnderOneYear: false,                // 健保加入12ヶ月未満
     isResidentTaxExempt: false,           // 高額療養費 区分オ 判定
-    area: null                            // 家賃市場平均のエリア。★プレースホルダー化（2026-08-08）。
+    area: null,                           // 家賃市場平均のエリア。★プレースホルダー化（2026-08-08）。
                                           //   未選択時、家賃・駐車場代の平均表示は calc.js 側の
                                           //   _default フォールバック（urban相当）で安全に計算される
+    isUrbanAreaCar: false                 // ★新クエスト【都市部のマイカー】：東京23区・大阪市内在住の
+                                          //   自己申告（area==='tokyo'|'osaka'の時のみUIに表示・入力可）
     // ★勤続年数はユーザーテストフィードバック改修（2026-08-07）で入力欄を廃止した。
     //   住民税の勤続1年目非課税判定は C.DEFAULT_YEARS_OF_SERVICE（selectors.netIncome参照）で
     //   「非課税ではない」側に固定して計算する
