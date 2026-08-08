@@ -370,7 +370,8 @@ export const NISA_DISCLAIMER =
 //     このファイルに書いてはならない（CLAUDE.md 制約1）
 // ---------------------------------------------------------------------------
 export const ENDPOINT   = '/api/feedback';   // ★同一オリジンのプロキシ。Web3Forms を直接叩かない
-export const SITE_URL   = 'https://tedori-quest.com';
+export const SITE_URL   = 'https://tedori-quest.com';   // ★独自ドメイン取得・Cloudflareへの紐づけ完了済み（2026-08-08）。
+                                                          //   Xシェア・共有リンク（呪文URL）はすべてこの値を経由する
 export const STORAGE_KEY = 'tq_state_v1';
 export const RATE_LIMIT = { maxPerDay:3, cooldownMs:10000, windowMs:86400000 };
 export const FETCH_TIMEOUT_MS = 10000;
