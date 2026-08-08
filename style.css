@@ -183,11 +183,17 @@ details.tip[open] > .tip__text{
 .before-after .field{margin-top:0;}
 
 /* ===== ⑤ プログレスバー ===== */
-.progress{height:8px; background:var(--border); overflow:hidden;}
+/* ★ヘッダー（黒背景=--main）の上に置かれるゲージのため、トラック・インジケーターとも
+   黒背景に同化しない色を選ぶ（ユーザーテストフィードバック改修）。
+   トラック=--sub-gray（黒背景上でも視認できる中間グレー）、
+   インジケーター=--base（白。黒背景・グレートラックの両方に対してコントラストが立つ）、
+   さらに先端に--accentの細い目印を置き「どこまで進んだか」を一目で分かるようにする。 */
+.progress{height:8px; background:var(--sub-gray); overflow:hidden;}
 .progress__fill{
-  height:100%; background:var(--main);
+  height:100%; background:var(--base);
   width:var(--progress, 0%);
   transition:width var(--dur) var(--ease);
+  border-right:2px solid var(--accent);   /* ★進捗の先端マーカー。0%時は幅0のため見えない */
 }
 
 /* ===== ⑤a 家賃の常時比較メーター ===== */

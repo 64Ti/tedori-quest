@@ -21,9 +21,15 @@ export const INITIAL_STATE = {
                                           //   画面上のレベル表示は、これが確定するまでリアルタイムに動かない
     currentLevel: null,                   // クエスト解呪ごとに再算出される現在レベル（未解呪時はnull＝initialLevelと同値扱い）
     feedbackBonusGranted: false,          // ★生涯1回。呪文にも含める（送信完了ボーナス・+1Lv固定）
-    feedbackEmotionBonusGranted: false,   // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回・+1〜+3Lv）
-    feedbackCategoryBonusGranted: false,  // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回・+1〜+3Lv）
-    feedbackCommentBonusGranted: false,   // ★隠しボーナスEXP③：自由記述入力時（生涯1回・+5〜+10Lv）
+    // ★隠しボーナスEXP（ゲーミフィケーション改修）：タップ・入力の時点ではレベルに反映せず、
+    //   「送信する」ボタン押下時に合計を一括反映する。*Granted は「抽選済み（1回だけ）」の意味で、
+    //   *Amount がまだ未適用の加算量（送信時にまとめて足し込み、適用後は0に戻す）。
+    feedbackEmotionBonusGranted: false,   // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回・+1〜+3Lv抽選）
+    feedbackEmotionBonusAmount: 0,
+    feedbackCategoryBonusGranted: false,  // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回・+1〜+3Lv抽選）
+    feedbackCategoryBonusAmount: 0,
+    feedbackCommentBonusGranted: false,   // ★隠しボーナスEXP③：自由記述入力時（生涯1回・+5〜+10Lv抽選）
+    feedbackCommentBonusAmount: 0,
     createdAt: null, lastOpenedAt: null,
     screen: 1,                            // ★ウィザードUI改修（2026-08-08）：表示中の画面（1〜4）。
                                           //   旧hasCompletedStep1（真偽値）を置き換えた

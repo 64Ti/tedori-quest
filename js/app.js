@@ -84,9 +84,10 @@ function bindEvents(){
     if (el && el.type !== 'checkbox' && el.tagName !== 'SELECT'){
       el.value = formatNumber(getByPath(state, el.dataset.model));
     }
-    // ★隠しボーナスEXP③：自由記述欄に数文字以上入力してフォーカスが外れた時（生涯1回のみ）
+    // ★隠しボーナスEXP③：自由記述欄に数文字以上入力してフォーカスが外れた時（生涯1回のみ抽選。
+    //   レベルへの反映は「送信する」ボタン押下時＝applyPendingFeedbackBonus）
     if (e.target.id === 'in-feedback-comment' && e.target.value.trim().length >= 2){
-      grantHiddenFeedbackBonus('feedbackCommentBonusGranted', 5, 10);
+      queueHiddenFeedbackBonus('feedbackCommentBonusGranted', 'feedbackCommentBonusAmount', 5, 10);
     }
   }, true);
 
@@ -123,18 +124,20 @@ function bindEvents(){
     const btn = e.target.closest('[data-action]');
     if (btn) ACTIONS[btn.dataset.action]?.(btn, e);
 
-    // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回のみ）
+    // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回のみ抽選。
+    //   レベルへの反映は「送信する」ボタン押下時＝applyPendingFeedbackBonus）
     const emo = e.target.closest('[data-feedback-emotion]');
     if (emo){
       selectSingle(emo, '[data-feedback-emotion]');
-      grantHiddenFeedbackBonus('feedbackEmotionBonusGranted', 1, 3);
+      queueHiddenFeedbackBonus('feedbackEmotionBonusGranted', 'feedbackEmotionBonusAmount', 1, 3);
     }
 
-    // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回のみ）
+    // ★隠しボーナスEXP②：「気になった点はありますか」タップ時（生涯1回のみ抽選。
+    //   レベルへの反映は「送信する」ボタン押下時＝applyPendingFeedbackBonus）
     const chip = e.target.closest('[data-feedback-category]');
     if (chip){
       chip.setAttribute('aria-pressed', chip.getAttribute('aria-pressed') !== 'true');
-      grantHiddenFeedbackBonus('feedbackCategoryBonusGranted', 1, 3);
+      queueHiddenFeedbackBonus('feedbackCategoryBonusGranted', 'feedbackCategoryBonusAmount', 1, 3);
     }
   });
 
@@ -249,26 +252,47 @@ function selectSingle(target, selector){
 
 // ---------------------------------------------------------------------------
 // フィードバック隠しボーナスEXP（ゲーミフィケーション改修・2026-08-08）
-//   ★感情選択・気になった点選択・自由記述入力の各操作に連動し、初回のみ
-//     ランダムなレベルアップが即座に発生する隠し要素。各トリガーは生涯1回のみ発動する。
-//   ★フラグは state.meta に持たせ、リロードしても再発動しないようにする。
-//     既存の「送信完了ボーナス」（feedbackBonusGranted・+1Lv固定・サーバー確認必須）とは別枠。
+//   ★感情選択・気になった点選択・自由記述入力の各操作に連動する隠し要素。各トリガーは
+//     生涯1回のみ抽選される。★致命的バグ修正（2026-08-08）：以前はタップ・入力の瞬間に
+//     即座にレベルへ反映していたが、「送信する」ボタンを押すまではレベルを変動させず、
+//     送信ボタン押下時に合計を一括反映する方式に変更した（queueHiddenFeedbackBonus／
+//     applyPendingFeedbackBonus）。抽選結果（加算量）はフィードバックシートを閉じても
+//     消えないよう state.meta に保持し、送信時にまとめて適用してから0に戻す。
+//   ★既存の「送信完了ボーナス」（feedbackBonusGranted・+1Lv固定・サーバー確認必須）とは別枠。
 // ---------------------------------------------------------------------------
 
 /**
- * フィードバック操作に連動した隠しボーナスEXPを付与する（各トリガー生涯1回のみ）。
+ * フィードバック操作に連動した隠しボーナスEXPを抽選し、加算量をキューに積む（即座には反映しない）。
+ * 実際にレベルへ反映するのは applyPendingFeedbackBonus()（送信ボタン押下時）。
  * @param {'feedbackEmotionBonusGranted'|'feedbackCategoryBonusGranted'|'feedbackCommentBonusGranted'} flagKey
+ * @param {'feedbackEmotionBonusAmount'|'feedbackCategoryBonusAmount'|'feedbackCommentBonusAmount'} amountKey
  * @param {number} minDelta 加算量の下限（両端含む）
  * @param {number} maxDelta 加算量の上限（両端含む）
  * @returns {void}
  */
-function grantHiddenFeedbackBonus(flagKey, minDelta, maxDelta){
-  if (state.meta[flagKey]) return;                     // ★同じトリガーは生涯1回のみ
+function queueHiddenFeedbackBonus(flagKey, amountKey, minDelta, maxDelta){
+  if (state.meta[flagKey]) return;                     // ★同じトリガーの抽選は生涯1回のみ
   state.meta[flagKey] = true;
-  const delta = minDelta + Math.floor(Math.random() * (maxDelta - minDelta + 1));
+  state.meta[amountKey] = minDelta + Math.floor(Math.random() * (maxDelta - minDelta + 1));
+}
+
+/**
+ * キューに積まれたフィードバック隠しボーナスEXPの合計を一括でレベルへ反映する。
+ * 「送信する」ボタン押下時に呼ぶ（通信の成否によらず、ボタンを押した時点で反映する）。
+ * 反映後はキューを0に戻す（*Granted の抽選済みフラグは生涯1回のまま維持する）。
+ * @returns {void}
+ */
+function applyPendingFeedbackBonus(){
+  const total = (state.meta.feedbackEmotionBonusAmount || 0)
+    + (state.meta.feedbackCategoryBonusAmount || 0)
+    + (state.meta.feedbackCommentBonusAmount || 0);
+  if (total <= 0) return;
   const before = selectors.currentLevel(state);
   if (!Number.isFinite(state.meta.initialLevel)) state.meta.initialLevel = C.INITIAL_LEVEL_BASE;
-  state.meta.currentLevel = before + delta;
+  state.meta.currentLevel = before + total;
+  state.meta.feedbackEmotionBonusAmount = 0;
+  state.meta.feedbackCategoryBonusAmount = 0;
+  state.meta.feedbackCommentBonusAmount = 0;
   syncNotifiedLevel();   // ★maybeNotifyLevelUp の遅延判定による重複通知を防ぐ
   enqueueToast(`✨ Lv.${before} ➔ Lv.${selectors.currentLevel(state)} にUP！`, 'levelup');
   triggerLevelUpEffect();
@@ -282,17 +306,23 @@ const ACTIONS = {
   /**
    * 画面1（STEP1）完了：収入ベースの初期レベルをレベル公開演出で見せてから画面2へ進む
    * （ウィザードUI改修・2026-08-08）。
-   */
-  /**
    * ★ゲーミフィケーション改修（2026-08-08）：画面上のレベル・ゲージは
    *   「STEP1→2」「STEP2→3」のボタン押下時のみ動く仕様にした（入力中はリアルタイムに動かさない）。
    *   ここで state.meta.initialLevel を確定（フリーズ）することで、
    *   selectors.currentLevel() が画面2の入力に反応しなくなる。
    *   ★同じ年収でも初期レベルが毎回同じにならないよう、-3〜+3のランダムな端数を加える。
+   * ★致命的バグ修正（2026-08-08）：初期レベルが確定済み（＝このボタンを一度でも押したことがある）
+   *   場合は、再度押しても計算・ランダム端数の再抽選もレベル公開演出の再表示も行わない。
+   *   以前はボタンを押すたびに毎回再計算・再ポップアップしてしまい、STEP1に戻って
+   *   もう一度押すとレベルが変わって見える不具合があった。
    */
   startDiagnosis(){
     state.meta.createdAt = state.meta.createdAt ?? new Date().toISOString();
     state.meta.lastOpenedAt = new Date().toISOString();
+    if (Number.isFinite(state.meta.initialLevel)){
+      goToScreen(2);
+      return;
+    }
     // ★固定費はこの時点で未入力のため収入のみ反映される（selectors.initialLevel()と等価）
     const base = calc.calcInitialLevel(selectors.netIncome(state), selectors.fixedCostsTotal(state));
     const jitter = Math.floor(Math.random() * (C.INITIAL_LEVEL_JITTER * 2 + 1)) - C.INITIAL_LEVEL_JITTER;
@@ -395,6 +425,9 @@ const ACTIONS = {
     try{
       const restored = restoreFromSpell(code);
       applyRestoredState(restored);
+      unlockAllScreensAfterRestore();
+      resetQuestListCache();
+      syncNotifiedLevel();   // ★復元直後に基準レベルとの差分で誤った「LEVEL UP!」通知が出るのを防ぐ
       if (input) input.value = '';
       showToast('呪文から復元しました');
     }catch{
@@ -462,6 +495,10 @@ const ACTIONS = {
     isSubmittingFeedback = true;
     btn.disabled = true;
     btn.classList.add('is-loading');
+    // ★「送信する」を押した段階で、キューに積まれた隠しボーナスEXPを一括反映する
+    //   （通信の成否は問わない。致命的バグ修正・2026-08-08：以前はタップ・入力の瞬間に
+    //   即座に反映していた）。
+    applyPendingFeedbackBonus();
     try{
       const result = await sendFeedback(collectFeedbackData(), state);
       handleFeedbackResult(result);
@@ -558,6 +595,21 @@ function applyRestoredState(restored){
   state.betaFeedback = restored.betaFeedback;
 }
 
+/**
+ * 「復活の呪文」で復元した直後、進行度に関わらず全タブへ自由に移動できるようロックを解除する。
+ * ★致命的バグ修正（2026-08-08）：「呪文」には state.meta.screen / maxScreen を含めていないため
+ *   （encodeSpell参照）、復元直後は常に INITIAL_STATE の既定値（screen:1, maxScreen:1）のままとなり、
+ *   STEP2・クエスト・結果タブが復元後もロックされ続けるバグがあった。
+ *   呪文は「これまでの入力を一通り終えたセッション」の完全なスナップショットである前提のため、
+ *   復元成功時は無条件で maxScreen を最大にし、全タブへ自由に遷移できるようにする。
+ * ★resetAdventure（フルリセット）ではこの関数を呼ばない。まっさらな状態から再スタートする際は
+ *   タブが再びロックされているのが正しい挙動のため。
+ * @returns {void}
+ */
+function unlockAllScreensAfterRestore(){
+  state.meta.maxScreen = 4;
+}
+
 // ---------------------------------------------------------------------------
 // 起動時の呪文自動ロード（?s=... クエリパラメータ）
 // ---------------------------------------------------------------------------
@@ -566,6 +618,9 @@ function loadSpellFromUrlIfPresent(){
   if (!code) return;
   try{
     applyRestoredState(restoreFromSpell(code));
+    unlockAllScreensAfterRestore();
+    resetQuestListCache();
+    syncNotifiedLevel();   // ★復元直後に基準レベルとの差分で誤った「LEVEL UP!」通知が出るのを防ぐ
     showToast('呪文から復元しました');
   }catch{
     showToast('URLの呪文が正しくないようです。もう一度リンクを確認してください', 'warn');
