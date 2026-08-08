@@ -427,6 +427,34 @@
       </div>
     </div>
 
+    <!-- --- EX装備確認（クレジットカード）：エクストラクエスト フェーズ1 ---
+         ★任意入力。回答はstate.selections.exCreditに保存するのみで、判定ロジックは
+           後続フェーズで実装する（今回はUIとState保存まで）。 -->
+    <div class="card">
+      <p class="card__title card__title--ex">▼ 【EX】現在の装備（クレジットカード）の確認</p>
+      <p class="section-lead">
+        ここから先は、より手取りを増幅させたい者向けの「任意の」質問だ。答えなくても冒険は進められるが、答えておけば後でいいことがあるかもしれないぞ。
+      </p>
+      <div class="field">
+        <label class="field__label" for="credit-main">メインカード（一番よく使うカード）の特徴</label>
+        <select id="credit-main" class="input input--select" data-model="selections.exCredit.main">
+          <option value="none">未選択</option>
+          <option value="low_rate">還元率0.5%前後、またはよくわからない</option>
+          <option value="unreached_100">年間100万円利用で無料・特典があるが、届くか微妙</option>
+          <option value="unreached_hotel">ホテル宿泊・マイル特化の高額年会費だが、元が取れているか微妙</option>
+          <option value="high_rate">還元率1.0%以上の高還元カード</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="credit-sub">使っていないカード（休眠カード）の有無</label>
+        <select id="credit-sub" class="input input--select" data-model="selections.exCredit.sub">
+          <option value="none">未選択</option>
+          <option value="has_sleep">使っていないが、年会費がかかっている（または把握していない）カードがある</option>
+          <option value="no_sleep">使っていないカードはない／年会費無料のみ</option>
+        </select>
+      </div>
+    </div>
+
     <button type="button" class="btn btn--block" style="margin-top:1.5rem;" data-action="generateQuests">
       クエストへ行く
     </button>

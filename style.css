@@ -85,6 +85,8 @@ section:last-of-type{border-bottom:none;}
 }
 .card + .card{margin-top:var(--sp-4);}
 .card__title{display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-body); font-weight:400;}
+/* ★EXコンテンツ（任意入力・隠し要素）の見出し。特別感を出すためゴールドで強調する（フェーズ1）。 */
+.card__title--ex{color:var(--text-gold);}
 
 /* --- ボタン（.btn／コマンド選択）。tedori-quest-ui-spec.md §4.2 準拠 ---
    ★ホバー時も背景は黒のまま反転させない。「▶」カーソルを左側に出現させて選択を示す。
@@ -374,9 +376,13 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
 .other-sub-row .input{flex:1;}
 
 /* ===== ⑪ クエスト一覧 =====
-   ★罫線は使わず、アイテム間の大きな余白（margin-bottom:56px）だけで区切る。 */
+   ★各クエストをRPG風ウィンドウを模した白い枠線で囲み、1つ1つが独立したボックスとして
+     視認できるようにする（ユーザーテストフィードバック改修）。 */
 .quest-list{display:flex; flex-direction:column; margin-top:var(--sp-3);}
-.quest-item{padding:0; margin-bottom:56px;}
+.quest-item{
+  border:2px solid var(--window-border); border-radius:var(--radius);
+  padding:var(--sp-4); margin-bottom:var(--sp-3);
+}
 .quest-item:last-child{margin-bottom:0;}
 .quest-item__head{display:flex; justify-content:space-between; align-items:flex-start; gap:var(--sp-3);}
 .quest-item__title{font-size:var(--fs-h3); font-weight:400; letter-spacing:var(--ls-base); line-height:1.6; color:var(--text-main);}
