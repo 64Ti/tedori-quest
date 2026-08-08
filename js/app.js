@@ -5,7 +5,7 @@ import { state, subscribe, setPersistErrorHandler, parseYen,
 import { scheduleRender, showToast, enqueueToast, syncNotifiedLevel, maybeNotifyLevelUp,
          openSheet, closeSheet, flashButton,
          getByPath, setByPath, formatNumber, copyToClipboard,
-         captureCard, saveCard, resetQuestListCache, populateAnnualSalarySelect,
+         captureCard, saveCard, resetQuestListCache, resetExQuestUnlockState, populateAnnualSalarySelect,
          populateSubscriptionAccordion, populateRealChargeAccordion,
          triggerLevelUpEffect, showLevelReveal, hideLevelReveal, exportFullReportPdf } from './ui.js';
 import { selectors } from './selectors.js';
@@ -522,6 +522,7 @@ const ACTIONS = {
       applyRestoredState(restored);
       unlockAllScreensAfterRestore();
       resetQuestListCache();
+      resetExQuestUnlockState();
       syncNotifiedLevel();   // ★復元直後に基準レベルとの差分で誤った「LEVEL UP!」通知が出るのを防ぐ
       if (input) input.value = '';
       showToast('呪文から復元しました');
@@ -558,6 +559,7 @@ const ACTIONS = {
     const fresh = structuredClone(INITIAL_STATE);
     applyRestoredState(fresh);
     resetQuestListCache();
+    resetExQuestUnlockState();
     syncNotifiedLevel();   // ★リセット直後に誤ったレベル差分演出が出ないよう基準を同期する
     showToast('冒険をはじめから始めます');
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
@@ -715,6 +717,7 @@ function loadSpellFromUrlIfPresent(){
     applyRestoredState(restoreFromSpell(code));
     unlockAllScreensAfterRestore();
     resetQuestListCache();
+    resetExQuestUnlockState();
     syncNotifiedLevel();   // ★復元直後に基準レベルとの差分で誤った「LEVEL UP!」通知が出るのを防ぐ
     showToast('呪文から復元しました');
   }catch{

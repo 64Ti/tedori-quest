@@ -454,14 +454,15 @@ export function resetQuestListCache(){ lastQuestSignature = null; }
 /**
  * クエスト一覧を再描画する。クエストの構成（id・節約可能額・isExtra）が変わっていない場合は
  * チェック状態の同期のみ行い、DOMの作り直しはしない。
- * ★EXクエスト フェーズ2：isExtra:true のクエストは通常の一覧（data-quest-list）ではなく
- *   専用コンテナ（#ex-quest-list）に振り分けて描画する。
+ * ★EXクエスト（フェーズ2〜3）：isExtra:true のクエストは通常の一覧（data-quest-list）ではなく
+ *   専用コンテナ（[data-ex-quest-items]）に振り分けて描画する。表示・非表示とアンロック演出は
+ *   別関数 syncExQuestUnlock() が担当する（構成が変わっていない再描画でも毎回判定が必要なため）。
  * @param {object} s state
  * @returns {void}
  */
 function renderQuestList(s){
   const container = document.querySelector('[data-quest-list]');
-  const exContainer = document.getElementById('ex-quest-list');
+  const exContainer = document.querySelector('[data-ex-quest-items]');
   const legendary  = document.querySelector('[data-legendary-hero]');
   if (!container) return;
 
@@ -486,6 +487,70 @@ function renderQuestList(s){
     if (legendary.hidden !== !showLegendary) legendary.hidden = !showLegendary;
     if (showLegendary) renderLegendaryCard(legendary);
   }
+
+  syncExQuestUnlock(s);
+}
+
+// ---------------------------------------------------------------------------
+// EXクエスト アンロック演出（エクストラクエスト フェーズ3・2026-08-08）
+//   ★通常クエストが0〜2件（優秀な勇者）の場合は最初から解放し、専用メッセージを表示する。
+//     3件以上（通常の冒険者）の場合は初期状態でロックし、通常クエストを累計2件解呪した
+//     「瞬間」にのみメッセージ挿入＋アニメーションを発生させる（以後の再描画では再生しない）。
+// ---------------------------------------------------------------------------
+let exQuestWasUnlocked = null;   // null=未初期化（初回描画）。true/false=直近の同期時点の解放状態
+
+/** EXクエストのアンロック演出の追跡状態をリセットする（全リセット・呪文復元直後に呼ぶ）。 */
+export function resetExQuestUnlockState(){ exQuestWasUnlocked = null; }
+
+const EX_UNLOCK_MESSAGES = {
+  elite:  '【特例開放】あなたの家計はすでに高い防御力を誇っています。さらなる高みを目指すための特別な試練を用意しました！',
+  normal: '見事2つの魔道障壁を浄化した！その行動力を称え、新たな試練（EXクエスト）を開放する！'
+};
+
+/**
+ * アンロックメッセージ（<p class="ex-unlock-msg">）をコンテナの先頭に挿入する。
+ * 既に挿入済みの場合は何もしない（再描画のたびに重複挿入しないためのガード）。
+ * @param {HTMLElement} container #ex-quest-list（外側div）
+ * @param {'elite'|'normal'} kind
+ * @param {boolean} animate trueの場合のみ出現アニメーションを付与する
+ * @returns {void}
+ */
+function insertExUnlockMessage(container, kind, animate){
+  if (container.querySelector('.ex-unlock-msg')) return;
+  const p = document.createElement('p');
+  p.className = `ex-unlock-msg ${kind}-msg`;
+  if (animate) p.classList.add('is-animating');
+  p.textContent = EX_UNLOCK_MESSAGES[kind];
+  container.insertBefore(p, container.firstChild);
+}
+
+/**
+ * EXクエスト一覧（#ex-quest-list）の表示・非表示と、ロック解除の瞬間の演出を同期する。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncExQuestUnlock(s){
+  const container = document.getElementById('ex-quest-list');
+  if (!container) return;
+
+  const unlocked = selectors.exQuestUnlocked(s);
+  const isElite = selectors.normalQuestCount(s) <= 2;
+
+  if (!unlocked){
+    container.style.display = 'none';
+    exQuestWasUnlocked = false;
+    return;
+  }
+
+  // ★演出（アニメーション）を出すのは「通常の冒険者（isElite=false）」が
+  //   ロック（exQuestWasUnlocked===false）からアンロックへ切り替わった、まさにその瞬間のみ。
+  //   優秀な勇者（isElite=true）は常に静的表示（何度renderが走っても演出しない）。
+  //   ★render()は入力のたびに何度も走るため、画面1・2の入力中に固定費が0円→1円以上に
+  //   変わっただけの初回遷移（isElite）まで演出扱いにしないよう、isEliteを最優先で除外する。
+  const justUnlocked = !isElite && exQuestWasUnlocked === false;
+  container.style.display = 'block';
+  insertExUnlockMessage(container, isElite ? 'elite' : 'normal', justUnlocked);
+  exQuestWasUnlocked = true;
 }
 
 // ---------------------------------------------------------------------------

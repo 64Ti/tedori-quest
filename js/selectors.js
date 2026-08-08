@@ -385,6 +385,44 @@ export const selectors = {
   },
 
   /**
+   * 通常クエスト（isExtraでないもの）の件数を数える（EXクエスト フェーズ3）。
+   * @param {State} state
+   * @returns {number}
+   */
+  normalQuestCount(state){
+    return selectors.buildQuestList(state).filter(q => !q.isExtra).length;
+  },
+
+  /**
+   * 解呪済み（state.quests.completed）の通常クエストの件数を数える
+   * （EXクエスト フェーズ3：アンロック判定の「累計2つ」に使う）。
+   * @param {State} state
+   * @returns {number}
+   */
+  completedNormalQuestCount(state){
+    const s = state ?? {};
+    const completed = s.quests?.completed ?? {};
+    return selectors.buildQuestList(s)
+      .filter(q => !q.isExtra && Object.prototype.hasOwnProperty.call(completed, q.id))
+      .length;
+  },
+
+  /**
+   * EXクエスト一覧（#ex-quest-list）を表示してよいかどうかを判定する（EXクエスト フェーズ3）。
+   * ・通常クエストが0〜2件（優秀な勇者）の場合は常に解放する
+   * ・3件以上（通常の冒険者）の場合は、通常クエストを累計2件解呪するまでロックする
+   * ・固定費が未入力（クエスト自体が算出されていない初期状態）では常にロックする
+   * @param {State} state
+   * @returns {boolean}
+   */
+  exQuestUnlocked(state){
+    if (selectors.fixedCostsTotal(state) <= 0) return false;
+    const normalTotal = selectors.normalQuestCount(state);
+    if (normalTotal <= 2) return true;
+    return selectors.completedNormalQuestCount(state) >= 2;
+  },
+
+  /**
    * Xシェア用の文面を生成する（Phase3.3／Phase4.1）。
    * ★金額は一切含めず、レベル・役職・最大の成果のクエスト名（中立的な subTitle）のみを含める
    *   （CLAUDE.md 制約8の精神を踏襲）。伝説の勇者（Lv.99カンスト）の場合は専用文面で統一する

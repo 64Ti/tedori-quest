@@ -483,11 +483,18 @@
       <div class="card card--legendary" data-legendary-hero hidden></div>
     </div>
 
-    <!-- ★EXクエスト フェーズ2：state.selections.exCredit（STEP2「EX装備確認」）の回答から
-         js/selectors.js buildQuestList() が isExtra:true として生成したクエストのみを
-         js/ui.js が振り分けて描画する（通常のdata-quest-listとは別コンテナ）。
-         ゴールド枠の特別デザインはstyle.css .quest-item--exが担う。 -->
-    <ul id="ex-quest-list" class="quest-list" style="margin-top:2rem;"></ul>
+    <!-- ★EXクエスト（フェーズ2〜3）：state.selections.exCredit（STEP2「EX装備確認」）の回答から
+         js/selectors.js buildQuestList() が isExtra:true として生成したクエストのみを、
+         js/ui.js が通常のdata-quest-listとは別に振り分けて描画する。
+         外側div#ex-quest-listは表示・非表示の制御とアンロック演出メッセージの挿入先、
+         内側ul[data-ex-quest-items]がクエスト<li>の描画先（構造をulの直接の子に限定するため分離）。
+         ★フェーズ3：通常クエストが3件以上の場合は初期状態でdisplay:noneにし、
+           通常クエストを累計2件解呪した瞬間にjs/ui.jsが表示へ切り替える
+           （js/selectors.js exQuestUnlocked参照）。ゴールド枠の特別デザインはstyle.css
+           .quest-item--exが担う。 -->
+    <div id="ex-quest-list" style="display:none; margin-top:2rem;">
+      <ul class="quest-list" data-ex-quest-items></ul>
+    </div>
 
     <!-- --- クレジットカード診断（優先度を下げ、クエスト一覧より下に配置） ---
          ★機能一時凍結中（2026-08-08）：入力UI・クエスト判定ともに非表示にする。

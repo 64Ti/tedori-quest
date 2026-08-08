@@ -403,6 +403,23 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
 .quest-item--ex{border-color:var(--text-gold);}
 .quest-item__ex-badge{color:var(--text-gold); font-weight:400;}
 
+/* --- EXクエスト アンロック演出メッセージ（エクストラクエスト フェーズ3） ---
+   ★特例開放（優秀な勇者）・動的アンロック（通常の冒険者）共通のゴールド強調ボックス。
+     動的アンロック時のみ .is-animating を付与し、下からフワッと浮かび上がりつつ
+     一瞬金色に光るアニメーションを1回だけ再生する（既に解放済みの状態での再描画では
+     クラスを付け直さないため、アニメーションは繰り返さない）。 */
+.ex-unlock-msg{
+  color:var(--text-gold); font-weight:400; text-align:center; line-height:1.6;
+  border:2px solid var(--text-gold); border-radius:var(--radius);
+  padding:var(--sp-3); margin-bottom:var(--sp-3);
+}
+.ex-unlock-msg.is-animating{animation:ex-unlock-reveal 900ms var(--ease);}
+@keyframes ex-unlock-reveal{
+  0%{opacity:0; transform:translateY(16px); box-shadow:0 0 0 rgba(248,216,32,0);}
+  55%{opacity:1; transform:translateY(0); box-shadow:0 0 18px rgba(248,216,32,.9);}
+  100%{opacity:1; transform:translateY(0); box-shadow:0 0 0 rgba(248,216,32,0);}
+}
+
 /* ===== ⑫ アラート・メッセージボックス（tedori-quest-ui-spec.md §4.4） =====
    ★RPGの「会話ウィンドウ」風。背景は黒、枠は白、左側にのみ赤の警告線を添える。 */
 .alert, .revolving-alert{
