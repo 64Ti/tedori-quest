@@ -385,10 +385,12 @@ export function calcCurrentLevel(initialLevel, totalSaving){
 /**
  * 固定費クエスト（節約可能額）を判定する。節約可能額 = 現状の価格 − 理想の目標値。
  * 理想の目標値が null のカテゴリ（駐車場代）は判定対象外とする。
+ * ★ざっくり選択方式（フェーズ4・2026-08-09）：通信費・光回線・医療保険・自動車保険・
+ *   火災保険は正確な円額入力から選択式に変更したため、引き算ロジックの対象からは外れた
+ *   （evaluateRoughCostQuests参照）。ここではNHK受信料（引き続き円額を持つ）のみを扱う。
  * ★サブスクは「合計額－理想値」の単調なギャップ判定から、独立した3クエスト
  *   （evaluateSubscriptionQuests）へ置き換えたため、ここでは扱わない（ゲーミフィケーション改修・2026-08-08）。
- * @param {{smartphone:number, internetMonthly:number, medicalInsurance:number,
- *   fireInsurance:number, nhkMonthly:number, hasCar:boolean, carInsurance:number}} costs 現状の各カテゴリ金額
+ * @param {{nhkMonthly:number}} costs 現状の各カテゴリ金額
  * @returns {{category:string, monthlySaving:number}[]} 足切り前の全件（節約可能額が正のもの）
  */
 export function evaluateFixedCostQuests(costs){
@@ -402,13 +404,68 @@ export function evaluateFixedCostQuests(costs){
     const saving = Math.floor(cur - ideal);
     if (saving > 0) results.push({ category, monthlySaving: saving });
   };
-  push('smartphone', c.smartphone);
-  push('internet', c.internetMonthly);
-  push('medicalInsurance', c.medicalInsurance);
-  push('fireInsurance', c.fireInsurance);
   push('nhk', c.nhkMonthly);
-  if (c.hasCar) push('carInsurance', c.carInsurance);
   return results;
+}
+
+/**
+ * ざっくり選択方式の固定費クエストを判定する（フェーズ4・2026-08-09）。
+ * ★節約可能額は引き算ではなく、選択されたレンジに対応する固定値
+ *   （C.ROUGH_QUEST_SAVINGS）を返却する。該当するレンジが定義されていない場合
+ *   （最も安いレンジ・unknown）は発生しない。
+ * @param {{smartphone?:string, internetMonthly?:string, medicalInsurance?:string,
+ *   carInsurance?:string, fireInsurance?:string, hasCar?:boolean}} fixedCosts 各項目の選択レンジ（value文字列）
+ * @returns {{category:string, monthlySaving:number}[]}
+ */
+export function evaluateRoughCostQuests(fixedCosts){
+  const fc = fixedCosts ?? {};
+  const results = [];
+  const push = (category, field, value) => {
+    const saving = C.ROUGH_QUEST_SAVINGS[field]?.[value];
+    if (Number.isFinite(saving) && saving > 0) results.push({ category, monthlySaving: saving });
+  };
+  push('smartphone', 'smartphone', fc.smartphone);
+  push('internet', 'internetMonthly', fc.internetMonthly);
+  push('medicalInsurance', 'medicalInsurance', fc.medicalInsurance);
+  push('fireInsurance', 'fireInsurance', fc.fireInsurance);
+  if (fc.hasCar) push('carInsurance', 'carInsurance', fc.carInsurance);
+  return results;
+}
+
+/**
+ * 索敵クエスト（ざっくり選択で「わからない」を選んだ場合）を判定する（フェーズ4・2026-08-09）。
+ * ★returnsのcategoryはC.SCOUT_QUEST_TEXT／C.ROUGH_COST_OPTIONSのキー（例：internetMonthly）を
+ *   そのまま使う。fixedQuestMeta用のカテゴリ名（internet等）とは名前空間が異なるため混同しない。
+ * @param {{smartphone?:string, internetMonthly?:string, medicalInsurance?:string,
+ *   carInsurance?:string, fireInsurance?:string, hasCar?:boolean}} fixedCosts 各項目の選択レンジ（value文字列）
+ * @returns {{category:string, monthlySaving:number}[]}
+ */
+export function evaluateScoutQuests(fixedCosts){
+  const fc = fixedCosts ?? {};
+  const results = [];
+  const push = (field, isUnknown) => {
+    if (!isUnknown) return;
+    const t = C.SCOUT_QUEST_TEXT[field];
+    if (t) results.push({ category: field, monthlySaving: t.amount });
+  };
+  push('smartphone', fc.smartphone === 'unknown');
+  push('internetMonthly', fc.internetMonthly === 'unknown');
+  push('medicalInsurance', fc.medicalInsurance === 'unknown');
+  push('fireInsurance', fc.fireInsurance === 'unknown');
+  if (fc.hasCar) push('carInsurance', fc.carInsurance === 'unknown');
+  return results;
+}
+
+/**
+ * ざっくり選択（レンジ）から、レベル算出用の代表額（円）を引く（フェーズ4・2026-08-09）。
+ * ★実額ではない見込み値のため、UI・PDF上の表示には使わない（selectors.fixedCostsTotal専用）。
+ * @param {string} field C.ROUGH_COST_OPTIONS のキー（smartphone/internetMonthly/medicalInsurance/carInsurance/fireInsurance）
+ * @param {string|null|undefined} value 選択されたレンジのvalue
+ * @returns {number} 未選択・該当レンジなしの場合は0
+ */
+export function roughCostApproxYen(field, value){
+  const opt = C.ROUGH_COST_OPTIONS[field]?.find(o => o.value === value);
+  return opt ? opt.approxYen : 0;
 }
 
 /**

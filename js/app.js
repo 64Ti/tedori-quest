@@ -541,11 +541,6 @@ const ACTIONS = {
     }
   },
 
-  assistFireInsurance(){
-    // 「わからない」時の相場補完値（config.js FIRE_INSURANCE.assistMonthly）。
-    state.fixedCosts.fireInsurance = C.FIRE_INSURANCE_ASSIST_MONTHLY;
-  },
-
   /**
    * 「冒険を最初から始める」の確認モーダルを開く。
    * ★ブラウザ標準の window.confirm は、URLバー付近に表示され「今後表示しない」チェックが

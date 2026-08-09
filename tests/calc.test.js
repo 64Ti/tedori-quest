@@ -222,10 +222,12 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
   function buildLegendaryState(overrides = {}){
     return buildState({
       userProfile: { annualSalary: 3600000, age: 30 },
+      // ★ざっくり選択方式（フェーズ4）：クエストが発生しない最安レンジ
+      //   （ROUGH_QUEST_SAVINGSに未定義）を選び、固定費合計は0円超のまま維持する。
       fixedCosts: {
-        smartphone: 2000, internetMonthly: 0,
-        medicalInsurance: 0, fireInsurance: 400,
-        nhkPlan: 'none', hasCar: false, carInsurance: 0, parking: 0, rent: 0
+        smartphone: '4999_under', internetMonthly: '3999_under',
+        medicalInsurance: '4999_under', fireInsurance: '499_under',
+        nhkPlan: 'none', hasCar: false, carInsurance: null, parking: 0, rent: 0
       },
       meta: { initialLevel: 10, currentLevel: 10, feedbackBonusGranted: false },
       ...overrides
@@ -260,8 +262,8 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
   //   確定）を押していないため、Lv.99（伝説の勇者）が暴発してはならない。
   test('LEGENDARY-BUGFIX-01: STEP2確定前（currentLevel未確定）は1項目入力だけでLv.99が暴発しない', () => {
     const state = buildState({
-      // ideal通りの1項目だけ入力＝一見「クエスト0件」に見える状態
-      fixedCosts: { ...buildState().fixedCosts, smartphone: 2000 },
+      // クエストが発生しない最安レンジを1項目だけ選択＝一見「クエスト0件」に見える状態
+      fixedCosts: { ...buildState().fixedCosts, smartphone: '4999_under' },
       meta: { initialLevel: 15, currentLevel: null, feedbackBonusGranted: false }
     });
     assert.equal(selectors.buildQuestList(state).length, 0);      // クエストは確かに0件
@@ -303,30 +305,74 @@ describe('8.4 レベル・称号（Phase1〜4改修・2026-08-07：新方式）'
 });
 
 describe('Phase2 固定費クエスト・クレジットカードクエストの自動判定', () => {
-  test('PHASE2-09: 固定費クエスト（現状価格－理想の目標値、正のみ採用）', () => {
-    const results = calc.evaluateFixedCostQuests({
-      smartphone: 8000,          // 理想2,000 → 差6,000
-      internetMonthly: 0,        // 契約なし扱い → 差0（採用されない）
-      medicalInsurance: 0,       // 理想0 → 差0
-      fireInsurance: 833,        // 理想400 → 差433
-      subscriptions: 0,
-      nhkMonthly: 1100,          // 理想0 → 差1,100
-      hasCar: false, carInsurance: 0
-    });
+  test('PHASE2-09: 固定費クエスト（NHK受信料のみ。現状価格－理想の目標値、正のみ採用）', () => {
+    // ★ざっくり選択方式（フェーズ4・2026-08-09）：通信費・光回線・医療保険・自動車保険・
+    //   火災保険は選択式に変更され、evaluateRoughCostQuests/evaluateScoutQuestsに移管された。
+    //   evaluateFixedCostQuestsはNHK受信料のみを扱う。
+    const results = calc.evaluateFixedCostQuests({ nhkMonthly: 1100 });   // 理想0 → 差1,100
     const byCat = Object.fromEntries(results.map(r => [r.category, r.monthlySaving]));
-    assert.equal(byCat.smartphone, 6000);
-    assert.equal(byCat.fireInsurance, 433);
     assert.equal(byCat.nhk, 1100);
-    assert.equal(byCat.internet, undefined);
+    assert.equal(byCat.smartphone, undefined);
     assert.equal(byCat.parking, undefined);   // 駐車場代は判定対象外
   });
 
+  test('PHASE2-09b: ざっくり選択（通信費・光回線・医療保険・火災保険）は固定値でクエスト化される', () => {
+    const results = calc.evaluateRoughCostQuests({
+      smartphone: '10000_over',        // 固定値7,000円
+      internetMonthly: '6000_over',    // 固定値2,000円
+      medicalInsurance: '20000_over',  // 固定値15,000円
+      fireInsurance: '1000_over',      // 固定値600円
+      hasCar: false
+    });
+    const byCat = Object.fromEntries(results.map(r => [r.category, r.monthlySaving]));
+    assert.equal(byCat.smartphone, 7000);
+    assert.equal(byCat.internet, 2000);
+    assert.equal(byCat.medicalInsurance, 15000);
+    assert.equal(byCat.fireInsurance, 600);
+    assert.equal(byCat.carInsurance, undefined);   // 自動車保険はhasCar=falseなら判定対象外
+  });
+
+  test('PHASE2-09c: ざっくり選択でテーブル未定義のレンジ（最安値・unknown）はクエスト化されない', () => {
+    const results = calc.evaluateRoughCostQuests({
+      smartphone: '4999_under', internetMonthly: '3999_under',
+      medicalInsurance: '4999_under', fireInsurance: '499_under', hasCar: false
+    });
+    assert.equal(results.length, 0);
+  });
+
   test('PHASE2-10: 自動車保険は hasCar=false の場合クエスト化されない', () => {
-    const results = calc.evaluateFixedCostQuests({
-      smartphone: 0, internetMonthly: 0, medicalInsurance: 0, fireInsurance: 0,
-      subscriptions: 0, nhkMonthly: 0, hasCar: false, carInsurance: 9000
+    const results = calc.evaluateRoughCostQuests({
+      smartphone: '4999_under', internetMonthly: '3999_under',
+      medicalInsurance: '4999_under', fireInsurance: '499_under',
+      hasCar: false, carInsurance: '10000_over'   // hasCar=falseなので無視される
     });
     assert.equal(results.find(r => r.category === 'carInsurance'), undefined);
+  });
+
+  test('PHASE2-10b: 自動車保険は hasCar=true かつ該当レンジなら固定値でクエスト化される', () => {
+    const results = calc.evaluateRoughCostQuests({ hasCar: true, carInsurance: '10000_over' });
+    const car = results.find(r => r.category === 'carInsurance');
+    assert.ok(car);
+    assert.equal(car.monthlySaving, 6000);
+  });
+
+  test('PHASE2-10c: 索敵クエスト（unknown選択）はSCOUT_QUEST_TEXTのkeyをcategoryとして返す', () => {
+    const results = calc.evaluateScoutQuests({
+      smartphone: 'unknown', internetMonthly: 'unknown', medicalInsurance: '4999_under',
+      fireInsurance: 'unknown', hasCar: true, carInsurance: 'unknown'
+    });
+    const byCat = Object.fromEntries(results.map(r => [r.category, r.monthlySaving]));
+    assert.equal(byCat.smartphone, 5000);
+    assert.equal(byCat.internetMonthly, 5000);    // C.SCOUT_QUEST_TEXTのキー（internetではない）
+    assert.equal(byCat.fireInsurance, 1000);
+    assert.equal(byCat.carInsurance, 5000);
+    assert.equal(byCat.medicalInsurance, undefined);   // unknownでないので索敵は発生しない
+  });
+
+  test('PHASE2-10d: roughCostApproxYenはレベル算出用の代表額を返し、未選択・該当なしは0円', () => {
+    assert.equal(calc.roughCostApproxYen('smartphone', '10000_over'), 12000);
+    assert.equal(calc.roughCostApproxYen('smartphone', null), 0);
+    assert.equal(calc.roughCostApproxYen('smartphone', 'nonexistent'), 0);
   });
 
   test('PHASE2-11: 推定カード決済額（固定費合計＋(手取り-固定費)×0.6）', () => {
@@ -377,21 +423,24 @@ describe('Phase2 固定費クエスト・クレジットカードクエストの
   });
 
   test('PHASE2-18: 足切りルール（500円未満のクエストはbuildQuestListから除外）', () => {
+    // ★ざっくり選択方式（フェーズ4）：医療保険「10,000〜19,999円」は固定値5,000円で
+    //   足切り（500円）を超えるため採用され、テーブル未定義の最安レンジは発生しない。
     const state = buildState({
-      fixedCosts: { ...buildState().fixedCosts, medicalInsurance: 4300 } // 理想0→差4,300円は採用
+      fixedCosts: { ...buildState().fixedCosts, medicalInsurance: '10000_19999' }
     });
-    const withSmall = buildState({
-      fixedCosts: { ...buildState().fixedCosts, medicalInsurance: 400 } // 差400円は足切り対象
+    const withNoQuest = buildState({
+      fixedCosts: { ...buildState().fixedCosts, medicalInsurance: '4999_under' }
     });
-    assert.ok(selectors.buildQuestList(state).some(q => q.monthlySaving === 4300));
-    assert.equal(selectors.buildQuestList(withSmall).length, 0);
+    assert.ok(selectors.buildQuestList(state).some(q => q.monthlySaving === 5000));
+    assert.equal(selectors.buildQuestList(withNoQuest).length, 0);
   });
 
   test('PHASE2-19: buildQuestListは節約可能額の降順でソートされる', () => {
     const state = buildState({
-      fixedCosts: { ...buildState().fixedCosts, smartphone: 8000, fireInsurance: 5000 }
+      fixedCosts: { ...buildState().fixedCosts, smartphone: '10000_over', fireInsurance: '1000_over' }
     });
     const list = selectors.buildQuestList(state);
+    assert.ok(list.length >= 2);
     for (let i = 1; i < list.length; i++){
       assert.ok(list[i-1].monthlySaving >= list[i].monthlySaving);
     }

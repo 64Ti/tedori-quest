@@ -141,17 +141,29 @@ function buildViewModel(s){
 function getCostCategoryValue(s, category){
   const fc = s.fixedCosts ?? {};
   switch (category){
-    case 'smartphone':       return Math.max(0, Number(fc.smartphone) || 0);
-    case 'internet':         return Math.max(0, Number(fc.internetMonthly) || 0);
-    case 'medicalInsurance': return Math.max(0, Number(fc.medicalInsurance) || 0);
-    case 'fireInsurance':    return Math.max(0, Number(fc.fireInsurance) || 0);
+    // ★ざっくり選択方式（フェーズ4）：レンジ選択の代表額（円）をcalc.roughCostApproxYenで引く。
+    //   実額ではない見込み値のため、目安バー・PDFの数値表示には使わない
+    //   （判定・並び替え用の内部値としてのみ使用する。表示はROUGH_CATEGORY_FIELD経由のラベル）。
+    case 'smartphone':       return calc.roughCostApproxYen('smartphone', fc.smartphone);
+    case 'internet':         return calc.roughCostApproxYen('internetMonthly', fc.internetMonthly);
+    case 'medicalInsurance': return calc.roughCostApproxYen('medicalInsurance', fc.medicalInsurance);
+    case 'fireInsurance':    return calc.roughCostApproxYen('fireInsurance', fc.fireInsurance);
     case 'subscriptions':    return selectors.subscriptionTotal(s);
     case 'nhk':               return (C.NHK_PLANS.find(p => p.value === fc.nhkPlan) ?? C.NHK_PLANS[0]).monthly;
-    case 'carInsurance':     return Math.max(0, Number(fc.carInsurance) || 0);
+    case 'carInsurance':     return calc.roughCostApproxYen('carInsurance', fc.carInsurance);
     case 'parking':          return Math.max(0, Number(fc.parking) || 0);
     default: return 0;
   }
 }
+
+/**
+ * ざっくり選択方式のカテゴリ名（PDF表示用）→ C.ROUGH_COST_OPTIONS のキー対応表。
+ * @type {Record<string,string>}
+ */
+const ROUGH_CATEGORY_FIELD = {
+  smartphone: 'smartphone', internet: 'internetMonthly', medicalInsurance: 'medicalInsurance',
+  fireInsurance: 'fireInsurance', carInsurance: 'carInsurance'
+};
 
 /**
  * カテゴリの「全国平均」に相当する基準値を取得する。駐車場代はエリアによって
@@ -576,6 +588,70 @@ function syncExQuestUnlock(s){
   exQuestWasUnlocked = true;
 }
 
+/**
+ * 真の最終クエスト（NISA）の表示制御と中身の構築を行う（フェーズ4・2026-08-09）。
+ * ★通常クエスト（isExtraがfalsyなもの）が1件以上あり、かつすべて解呪済みの場合にのみ出現する。
+ * ★innerHTMLによる丸ごと書き込みを禁止する制約（CLAUDE.md 制約5）に従い、
+ *   与えられたHTMLテンプレートはcreateElement/textContentで組み立てる。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncTrueEndQuest(s){
+  const container = document.getElementById('true-end-container');
+  const questEl = document.getElementById('true-end-quest');
+  if (!container || !questEl) return;
+
+  const normalTotal = selectors.normalQuestCount(s);
+  const unlocked = normalTotal > 0 && selectors.completedNormalQuestCount(s) === normalTotal;
+
+  const nextDisplay = unlocked ? 'block' : 'none';
+  if (container.style.display !== nextDisplay) container.style.display = nextDisplay;
+  if (!unlocked) return;
+
+  const totalMonthly = selectors.buildQuestList(s)
+    .filter(q => !q.isExtra)
+    .reduce((sum, q) => sum + q.monthlySaving, 0);
+
+  const r = 0.05 / 12;   // 月利（年利5%）
+  const n = 240;         // 240ヶ月（20年）
+  const futureValue = Math.floor(totalMonthly * ((Math.pow(1 + r, n) - 1) / r));
+
+  questEl.textContent = '';
+
+  const h3 = document.createElement('h3');
+  h3.textContent = '[真のEX] 取り戻した手取りを装備し、NISA（未来の金貨）を育成せよ！';
+  questEl.appendChild(h3);
+
+  const p1 = document.createElement('p');
+  p1.append('見事な戦いぶりだ！ムダな固定費という名の吸血魔素を完全に断ち切ったことで、あなたの手元には毎月 ');
+  const strong1 = document.createElement('strong');
+  strong1.textContent = `${totalMonthly.toLocaleString('ja-JP')}円`;
+  p1.appendChild(strong1);
+  p1.append(' の『ゴールド（余剰資金）』が残るようになった。');
+  questEl.appendChild(p1);
+
+  const p2 = document.createElement('p');
+  p2.textContent = '次はこのゴールドをただの宝箱に眠らせるのではなく、非課税の魔法『NISA』を使って未来の資産へと育て上げるフェーズだ！冒険は新たなステージへ続く！';
+  questEl.appendChild(p2);
+
+  const box = document.createElement('div');
+  box.className = 'future-prediction-box';
+  const boxStrong = document.createElement('strong');
+  boxStrong.textContent = '【未来の予測盤】';
+  box.appendChild(boxStrong);
+  box.appendChild(document.createElement('br'));
+  box.append(`浮いた毎月 ${totalMonthly.toLocaleString('ja-JP')}円 を年利5%で20年間運用した場合...`);
+  box.appendChild(document.createElement('br'));
+  box.append('➔ 約 ');
+  const fvStrong = document.createElement('strong');
+  fvStrong.style.fontSize = '1.3em';
+  fvStrong.style.color = '#d32f2f';
+  fvStrong.textContent = `${futureValue.toLocaleString('ja-JP')}円`;
+  box.appendChild(fvStrong);
+  box.append(' に増幅する計算だ！');
+  questEl.appendChild(box);
+}
+
 // ---------------------------------------------------------------------------
 // サブスク階層UI（ゲーミフィケーション改修v3・2026-08-08）
 //   ★アコーディオン＋チェックボックス＋プログレッシブディスクロージャー方式に全面刷新。
@@ -910,6 +986,7 @@ function render(){
     syncScreens(state);
     syncHeaderGauge(state);
     renderQuestList(state);
+    syncTrueEndQuest(state);
 
     const step1Btn = document.querySelector('[data-requires-step1]');
     if (step1Btn){
@@ -1638,7 +1715,12 @@ function populatePdfReportTemplate(s){
     const hasIdeal = target.ideal !== null && target.ideal !== undefined;
     const idealText = hasIdeal ? `${YEN(target.ideal)} 円以下` : '—';
     const verdict = !hasIdeal ? '— 参考情報' : (value > target.ideal ? '⚠️ 見直し余地あり' : '◎ 適正範囲内');
-    return [target.label, `${YEN(value)} 円`, idealText, verdict];
+    // ★ざっくり選択方式（フェーズ4）：正確な円額ではなくレンジのラベルをそのまま表示する。
+    const roughField = ROUGH_CATEGORY_FIELD[category];
+    const currentText = roughField
+      ? (C.ROUGH_COST_OPTIONS[roughField].find(o => o.value === (s.fixedCosts?.[roughField]))?.label ?? '未選択')
+      : `${YEN(value)} 円`;
+    return [target.label, currentText, idealText, verdict];
   });
   root.appendChild(buildCostTable(costRows));
 

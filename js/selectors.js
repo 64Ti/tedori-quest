@@ -97,6 +97,17 @@ function urbanCarQuestMeta(){
 }
 
 /**
+ * 索敵クエスト（ざっくり選択で「わからない」を選んだ場合）の表示メタ情報を引く。
+ * @param {string} field ROUGH_COST_OPTIONS/SCOUT_QUEST_TEXT のキー
+ * @returns {{id:string, mainTitle:string, subTitle:string, detail:string, difficulty:string, completeLabel:string}}
+ */
+function scoutQuestMeta(field){
+  const t = C.SCOUT_QUEST_TEXT[field];
+  return { id: t.id, mainTitle: t.mainTitle, subTitle: '', detail: t.detail,
+    difficulty: t.difficulty, completeLabel: '🎉 索敵完了！' };
+}
+
+/**
  * クエストID単体から表示メタ情報を復元する（完了済みだが現在のギャップ計算では
  * 再生成されなくなったクエストを一覧から消さないためのフォールバック）。
  * @param {string} id
@@ -112,6 +123,8 @@ function orphanQuestMeta(id){
     detail: nf.detail, basis: nf.basis, talkScript: nf.talkScript, disclaimer: nf.disclaimer,
     completeLabel: nf.completeLabel };
   if (id === C.URBAN_CAR_QUEST_TEXT.id) return urbanCarQuestMeta();
+  const scoutMatch = Object.entries(C.SCOUT_QUEST_TEXT).find(([, t]) => t.id === id);
+  if (scoutMatch) return scoutQuestMeta(scoutMatch[0]);
   const cq = Object.values(C.CARD_QUEST_TEXT).find(q => q.id === id);
   if (cq) return { id, mainTitle: cq.mainTitle, subTitle: cq.subTitle ?? '', detail: cq.detail,
     completeLabel: cq.completeLabel, isExtra: true };   // ★EXクエスト フェーズ2：CARD_QUEST_TEXT由来は必ずEX扱い
@@ -183,14 +196,17 @@ export const selectors = {
    */
   fixedCostsTotal(state){
     const fc = state?.fixedCosts ?? {};
-    const internet = Math.max(0, Number(fc.internetMonthly) || 0);
+    // ★ざっくり選択方式（フェーズ4）：通信費・光回線・医療保険・自動車保険・火災保険は
+    //   レンジ選択（文字列）になったため、レベル算出用の代表額（円）をcalc.roughCostApproxYenで引く。
+    const smartphone = calc.roughCostApproxYen('smartphone', fc.smartphone);
+    const internet = calc.roughCostApproxYen('internetMonthly', fc.internetMonthly);
+    const medicalInsurance = calc.roughCostApproxYen('medicalInsurance', fc.medicalInsurance);
+    const fireInsurance = calc.roughCostApproxYen('fireInsurance', fc.fireInsurance);
     const nhk = (C.NHK_PLANS.find(p => p.value === fc.nhkPlan) ?? C.NHK_PLANS[0]).monthly;
     const car = fc.hasCar
-      ? Math.max(0, Number(fc.carInsurance) || 0) + Math.max(0, Number(fc.parking) || 0)
+      ? calc.roughCostApproxYen('carInsurance', fc.carInsurance) + Math.max(0, Number(fc.parking) || 0)
       : 0;
-    return Math.max(0, Number(fc.smartphone) || 0) + internet
-         + Math.max(0, Number(fc.medicalInsurance) || 0)
-         + Math.max(0, Number(fc.fireInsurance) || 0)
+    return smartphone + internet + medicalInsurance + fireInsurance
          + selectors.subscriptionTotal(state)
          + nhk + car;
   },
@@ -342,21 +358,27 @@ export const selectors = {
     const s = state ?? {};
     const fc = s.fixedCosts ?? {};
     const costs = {
+      nhkMonthly: (C.NHK_PLANS.find(p => p.value === fc.nhkPlan) ?? C.NHK_PLANS[0]).monthly
+    };
+    // ★ざっくり選択方式（フェーズ4）：通信費・光回線・医療保険・自動車保険・火災保険は
+    //   レンジ選択（文字列value）なので、そのまま渡す（evaluateRoughCostQuests/evaluateScoutQuests参照）。
+    const roughCosts = {
       smartphone: fc.smartphone,
       internetMonthly: fc.internetMonthly,
       medicalInsurance: fc.medicalInsurance,
       fireInsurance: fc.fireInsurance,
-      nhkMonthly: (C.NHK_PLANS.find(p => p.value === fc.nhkPlan) ?? C.NHK_PLANS[0]).monthly,
-      hasCar: fc.hasCar,
-      carInsurance: fc.carInsurance
+      carInsurance: fc.carInsurance,
+      hasCar: fc.hasCar
     };
     const fixedResults = calc.evaluateFixedCostQuests(costs);
+    const roughResults = calc.evaluateRoughCostQuests(roughCosts);
+    const scoutResults = calc.evaluateScoutQuests(roughCosts);
     const subscriptionResults = calc.evaluateSubscriptionQuests(s.selections);
     const exCreditResults = calc.evaluateExCreditQuests(
       s.selections?.exCredit, selectors.fixedCostsTotal(s), selectors.netIncome(s));
     const urbanCarResult = calc.evaluateUrbanCarQuest({
       hasCar: fc.hasCar, isUrbanAreaCar: s.userProfile?.isUrbanAreaCar,
-      parking: fc.parking, carInsurance: fc.carInsurance
+      parking: fc.parking, carInsurance: calc.roughCostApproxYen('carInsurance', fc.carInsurance)
     });
 
     // ★クレジットカード機能（実カード選択による診断）は一時凍結中（非表示。2026-08-08）。
@@ -372,6 +394,17 @@ export const selectors = {
     fixedResults.forEach(r => {
       if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
       active.push({ ...fixedQuestMeta(r.category), monthlySaving: r.monthlySaving });
+    });
+    // ★ざっくり選択方式（フェーズ4）：通常クエスト（レンジに応じた固定節約額）と、
+    //   unknown選択時の索敵クエストをそれぞれ追加する。カテゴリ名はfixedQuestMetaと共通のため、
+    //   既存のクエスト文言（changeSim/reviewInternet等）をそのまま再利用できる。
+    roughResults.forEach(r => {
+      if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
+      active.push({ ...fixedQuestMeta(r.category), monthlySaving: r.monthlySaving });
+    });
+    scoutResults.forEach(r => {
+      if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
+      active.push({ ...scoutQuestMeta(r.category), monthlySaving: r.monthlySaving });
     });
     subscriptionResults.forEach(r => {
       if (r.monthlySaving < C.QUEST_MIN_SAVING) return;

@@ -969,6 +969,94 @@ export const FIXED_COST_TARGETS = {
 export const QUEST_MIN_SAVING = 500;
 
 // ---------------------------------------------------------------------------
+// ざっくり選択方式（フェーズ4・2026-08-09）
+//   ★通信費・光回線・医療保険・自動車保険・火災保険を、正確な円額入力から
+//     「ざっくりレンジ選択（select）」に変更した。
+//   ★節約可能額は引き算ではなく固定値の返却に変更する（calc.evaluateRoughCostQuests参照）。
+//   ★approxYenはレベル算出（selectors.fixedCostsTotal）専用の代表値であり実額ではない。
+//     UI・PDF上には表示せず、選択したレンジのラベル文言のみを表示する
+//     （全国平均に近い水準をunknownの代表値とし、それ以外は各レンジの目安中央値・下限値とした）。
+// ---------------------------------------------------------------------------
+export const ROUGH_COST_OPTIONS = {
+  smartphone: [
+    { value:'10000_over', label:'10,000円以上',              approxYen:12000 },
+    { value:'5000_9999',  label:'5,000円〜9,999円',           approxYen: 7500 },
+    { value:'4999_under', label:'4,999円以下',                approxYen: 3000 },
+    { value:'unknown',    label:'わからない / 調べていない',   approxYen: 6000 }
+  ],
+  internetMonthly: [
+    { value:'6000_over', label:'6,000円以上',       approxYen: 7000 },
+    { value:'4000_5999', label:'4,000円〜5,999円',  approxYen: 5000 },
+    { value:'3999_under', label:'3,999円以下',       approxYen: 3000 },
+    { value:'unknown',    label:'わからない / 未契約', approxYen: 5500 }
+  ],
+  medicalInsurance: [
+    { value:'20000_over',   label:'20,000円以上',          approxYen:22000 },
+    { value:'10000_19999',  label:'10,000円〜19,999円',    approxYen:15000 },
+    { value:'5000_9999',    label:'5,000円〜9,999円',      approxYen: 7500 },
+    { value:'4999_under',   label:'4,999円以下',           approxYen: 3000 },
+    { value:'unknown',      label:'わからない / 未加入',    approxYen: 4000 }
+  ],
+  carInsurance: [
+    { value:'10000_over', label:'10,000円以上',    approxYen:11000 },
+    { value:'5000_9999',  label:'5,000円〜9,999円', approxYen: 7500 },
+    { value:'4999_under', label:'4,999円以下',      approxYen: 3000 },
+    { value:'unknown',    label:'わからない / 車なし', approxYen: 7000 }
+  ],
+  fireInsurance: [
+    { value:'1000_over', label:'1,000円以上（2年で2.4万円以上）',  approxYen:1200 },
+    { value:'500_999',   label:'500円〜999円（2年で1〜2万円台）',   approxYen: 750 },
+    { value:'499_under',  label:'499円以下（2年で1万円未満）',      approxYen: 300 },
+    { value:'unknown',   label:'わからない / 調べていない',         approxYen: 833 }
+  ]
+};
+
+// ★節約可能額の固定値テーブル。該当しないレンジ（4999_under等）・unknownはここに含めない
+//   （unknownは通常クエストではなくSCOUT_QUEST_TEXTの索敵クエストとして扱う）。
+export const ROUGH_QUEST_SAVINGS = {
+  smartphone:       { '10000_over':7000, '5000_9999':3000 },
+  internetMonthly:  { '6000_over':2000 },
+  medicalInsurance: { '20000_over':15000, '10000_19999':5000, '5000_9999':2000 },
+  carInsurance:     { '10000_over':6000, '5000_9999':2000 },
+  fireInsurance:    { '1000_over':600, '500_999':200 }
+};
+
+// ★索敵クエスト：対象項目でunknownが選択された場合に発生する。節約可能額は仮置きの固定値
+//   （火災保険のみ1,000円、他は5,000円）。
+export const SCOUT_QUEST_TEXT = {
+  smartphone: {
+    id:'scoutSmartphone',
+    mainTitle:'【索敵】通信費の正体を暴け！マイページへログインせよ',
+    detail:'敵の姿が見えなければ戦えない！まずは毎月いくらスマホ代を払っているか確認しよう。',
+    difficulty:'easy', amount:5000
+  },
+  internetMonthly: {
+    id:'scoutInternet',
+    mainTitle:'【索敵】光回線の契約状況を確認せよ！',
+    detail:'毎月引かれているネット代、本当に適正か？契約書類やマイページを発掘せよ！',
+    difficulty:'easy', amount:5000
+  },
+  medicalInsurance: {
+    id:'scoutMedicalInsurance',
+    mainTitle:'【索敵】医療保険の証券を発掘せよ！',
+    detail:'自分がどんな保障にいくら払っているか把握していないのは危険だ！保険証券を見つけ出せ。',
+    difficulty:'easy', amount:5000
+  },
+  carInsurance: {
+    id:'scoutCarInsurance',
+    mainTitle:'【索敵】自動車保険の更新通知を探し出せ！',
+    detail:'車両保険の有無などで金額は大きく変わる。まずは現在の保険料を把握せよ！',
+    difficulty:'easy', amount:5000
+  },
+  fireInsurance: {
+    id:'scoutFireInsurance',
+    mainTitle:'【索敵】賃貸契約書に潜む火災保険の闇を暴け！',
+    detail:'賃貸の更新時に、言われるがまま割高な保険に入っていないか？契約書を確認せよ！',
+    difficulty:'easy', amount:1000
+  }
+};
+
+// ---------------------------------------------------------------------------
 // Phase2.4 クレジットカード推定決済額・レベルアップ抽選の定数
 // ---------------------------------------------------------------------------
 export const CARD_SPEND_DISPOSABLE_RATIO = 0.6;

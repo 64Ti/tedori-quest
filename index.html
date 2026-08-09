@@ -181,111 +181,79 @@
       <p class="section-lead">通算1年6ヶ月まで支給されます（連続3日の待期後・4日目から）。</p>
     </div>
 
-    <!-- --- 通信費（スマホ） --- -->
+    <!-- --- 通信費（スマホ） ---
+         ★ざっくり選択方式（フェーズ4・2026-08-09）：正確な円額入力からレンジ選択に変更した。
+           目安バー（cost-bar）は実額前提のため廃止し、選択したレンジのラベル自体が
+           目安として機能する。 -->
     <div class="card">
       <p class="card__title">📶 通信費（スマホ）</p>
       <div class="field">
-        <label class="field__label" for="in-smartphone">現状（月額）</label>
-        <input id="in-smartphone" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="7,000" autocomplete="off" enterkeyhint="done"
-               data-model="fixedCosts.smartphone" data-composing="0">
-      </div>
-      <p class="section-lead" data-bind="text:smartphoneJudge">通信費を入力すると判定が表示されます</p>
-
-      <div class="cost-bar" data-cost-bar="smartphone">
-        <div class="cost-bar__track">
-          <div class="cost-bar__fill"></div>
-          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
-          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
-        </div>
-        <div class="cost-bar__legend">
-          <span>理想 2,000円以下</span>
-          <span>全国平均 ¥6,000</span>
-        </div>
+        <label class="field__label" for="telecom">現状（月額）</label>
+        <select id="telecom" class="input input--select" data-model="fixedCosts.smartphone">
+          <option value="" selected disabled>選択してください</option>
+          <option value="10000_over">10,000円以上</option>
+          <option value="5000_9999">5,000円〜9,999円</option>
+          <option value="4999_under">4,999円以下</option>
+          <option value="unknown">わからない / 調べていない</option>
+        </select>
       </div>
     </div>
 
-    <!-- --- 光回線・通信費（ウィザードUI改修：プロバイダ選択式を廃止しシンプルな数値入力に） --- -->
+    <!-- --- 光回線・通信費（ざっくり選択方式） --- -->
     <div class="card">
       <p class="card__title">🌐 光回線・通信費（月額）</p>
       <div class="field">
-        <label class="field__label" for="in-internetMonthly">現状（月額。契約なしの場合は0円）</label>
-        <input id="in-internetMonthly" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="5,500" autocomplete="off" enterkeyhint="done"
-               data-model="fixedCosts.internetMonthly" data-composing="0">
-      </div>
-
-      <div class="cost-bar" data-cost-bar="internet">
-        <div class="cost-bar__track">
-          <div class="cost-bar__fill"></div>
-          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
-          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
-        </div>
-        <div class="cost-bar__legend">
-          <span>理想 3,800円以下</span>
-          <span>全国平均 ¥5,500</span>
-        </div>
+        <label class="field__label" for="internet">現状（月額。契約なしの場合は「わからない」を選択）</label>
+        <select id="internet" class="input input--select" data-model="fixedCosts.internetMonthly">
+          <option value="" selected disabled>選択してください</option>
+          <option value="6000_over">6,000円以上</option>
+          <option value="4000_5999">4,000円〜5,999円</option>
+          <option value="3999_under">3,999円以下</option>
+          <option value="unknown">わからない / 未契約</option>
+        </select>
       </div>
     </div>
 
-    <!-- --- 医療保険 --- -->
+    <!-- --- 医療保険（ざっくり選択方式） --- -->
     <div class="card">
       <p class="card__title">🏥 医療保険</p>
       <div class="field">
         <div class="field__label-row">
-          <label class="field__label" for="in-medicalInsurance">現状（月額）</label>
+          <label class="field__label" for="medical_insurance">現状（月額）</label>
           <details class="tip">
             <summary aria-label="ヒントを見る">？</summary>
             <p class="tip__text">公的医療保険（高額療養費制度など）があるため、本当に民間の医療保険が必要か見直す余地があります。生命保険料控除で税金が安くなるからと加入する方もいますが、戻ってくる税金よりも支払う保険料の方が高くなるため、節税目的での加入はおすすめしません。</p>
           </details>
         </div>
-        <input id="in-medicalInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="3,000" autocomplete="off" enterkeyhint="done"
-               data-model="fixedCosts.medicalInsurance" data-composing="0">
-      </div>
-
-      <div class="cost-bar" data-cost-bar="medicalInsurance">
-        <div class="cost-bar__track">
-          <div class="cost-bar__fill"></div>
-          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
-          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
-        </div>
-        <div class="cost-bar__legend">
-          <span>理想 0円</span>
-          <span>全国平均 ¥4,000</span>
-        </div>
+        <select id="medical_insurance" class="input input--select" data-model="fixedCosts.medicalInsurance">
+          <option value="" selected disabled>選択してください</option>
+          <option value="20000_over">20,000円以上</option>
+          <option value="10000_19999">10,000円〜19,999円</option>
+          <option value="5000_9999">5,000円〜9,999円</option>
+          <option value="4999_under">4,999円以下</option>
+          <option value="unknown">わからない / 未加入</option>
+        </select>
       </div>
     </div>
 
-    <!-- --- 火災保険 --- -->
+    <!-- --- 火災保険（ざっくり選択方式） --- -->
     <div class="card">
       <p class="card__title">🔥 火災保険（家財保険）</p>
       <div class="field">
         <div class="field__label-row">
-          <label class="field__label" for="in-fireInsurance">現状（月額換算）</label>
+          <label class="field__label" for="fire_insurance">現状（月額換算）</label>
           <details class="tip">
             <summary aria-label="ヒントを見る">？</summary>
             <p class="tip__text">賃貸の契約時に不動産屋で加入した場合、月833円（年額1万円）相当のプランに入らされていることが一般的です。</p>
           </details>
         </div>
-        <input id="in-fireInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-               placeholder="833" autocomplete="off" enterkeyhint="done"
-               data-model="fixedCosts.fireInsurance" data-composing="0">
-      </div>
-      <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="assistFireInsurance">
-        わからない場合は相場（月833円）を入力する
-      </button>
-
-      <div class="cost-bar" data-cost-bar="fireInsurance">
-        <div class="cost-bar__track">
-          <div class="cost-bar__fill"></div>
-          <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
-          <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
-        </div>
-        <div class="cost-bar__legend">
-          <span>理想 400円以下</span>
-          <span>全国平均 ¥833</span>
-        </div>
+        <select id="fire_insurance" class="input input--select" data-model="fixedCosts.fireInsurance">
+          <option value="" selected disabled>選択してください</option>
+          <option value="1000_over">1,000円以上（2年で2.4万円以上）</option>
+          <option value="500_999">500円〜999円（2年で1〜2万円台）</option>
+          <option value="499_under">499円以下（2年で1万円未満）</option>
+          <option value="unknown">わからない / 調べていない</option>
+        </select>
       </div>
     </div>
 
@@ -368,6 +336,7 @@
         <input id="in-rent" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
                placeholder="59,000" autocomplete="off" enterkeyhint="done"
                data-model="fixedCosts.rent" data-composing="0">
+        <p class="help-text" style="font-size: 0.8em; color: #666; margin-top: 4px;">※おおよその金額でOK！</p>
       </div>
 
       <!-- ★常時表示の適正判定メーター。差額が0円/超過なしの場合でも
@@ -403,21 +372,14 @@
 
       <div data-conditional-field="hasCar" hidden>
         <div class="field">
-          <label class="field__label" for="in-carInsurance">自動車保険（月額換算）</label>
-          <input id="in-carInsurance" type="text" inputmode="numeric" pattern="[0-9,]*" class="input"
-                 placeholder="7,000" autocomplete="off" enterkeyhint="done"
-                 data-model="fixedCosts.carInsurance" data-composing="0">
-        </div>
-        <div class="cost-bar" data-cost-bar="carInsurance">
-          <div class="cost-bar__track">
-            <div class="cost-bar__fill"></div>
-            <span class="cost-bar__marker cost-bar__marker--average" data-cost-marker="average"></span>
-            <span class="cost-bar__marker cost-bar__marker--ideal" data-cost-marker="ideal"></span>
-          </div>
-          <div class="cost-bar__legend">
-            <span>理想 4,000円以下</span>
-            <span>全国平均 ¥7,000</span>
-          </div>
+          <label class="field__label" for="car_insurance">自動車保険（月額換算）</label>
+          <select id="car_insurance" class="input input--select" data-model="fixedCosts.carInsurance">
+            <option value="" selected disabled>選択してください</option>
+            <option value="10000_over">10,000円以上</option>
+            <option value="5000_9999">5,000円〜9,999円</option>
+            <option value="4999_under">4,999円以下</option>
+            <option value="unknown">わからない / 車なし</option>
+          </select>
         </div>
 
         <div class="field">
@@ -506,6 +468,19 @@
            .quest-item--exが担う。 -->
     <div id="ex-quest-list" style="display:none; margin-top:2rem;">
       <ul class="quest-list" data-ex-quest-items></ul>
+    </div>
+
+    <!-- --- 真の最終クエスト（NISA）：フェーズ4 ---
+         ★通常クエスト（isExtraが falsy なもの）がすべて解呪された時にのみ出現する。
+           js/ui.js syncTrueEndQuest() が表示制御と #true-end-quest の中身を組み立てる
+           （CLAUDE.md 制約5により innerHTML は使わず createElement で構築する）。 -->
+    <div id="true-end-container" style="display: none; margin-top: 30px;">
+        <div class="true-end-msg" style="color: #F8D820; font-weight: bold; text-align: center; margin-bottom: 15px;">
+            【完全浄化達成】すべての魔道障壁は消え去った！真の防御力を手に入れた勇者よ、次なる冒険の扉が開かれた！
+        </div>
+        <div id="true-end-quest" class="quest-item quest-item--true-end">
+            <!-- js/ui.js syncTrueEndQuest() が動的に中身を生成する -->
+        </div>
     </div>
 
     <!-- --- クレジットカード診断（優先度を下げ、クエスト一覧より下に配置） ---

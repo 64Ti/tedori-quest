@@ -434,6 +434,23 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
   100%{opacity:1; transform:translateY(0); box-shadow:0 0 0 rgba(248,216,32,0);}
 }
 
+/* --- 真の最終クエスト（NISA）：フェーズ4 --- */
+.quest-item--true-end {
+    border: 3px solid #FFD700 !important;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+    background: linear-gradient(135deg, #ffffff 0%, #fffdf0 100%);
+}
+.quest-item--true-end h3 {
+    color: #d4af37;
+}
+.future-prediction-box {
+    background: #fff8e1;
+    padding: 12px;
+    margin-top: 15px;
+    border-radius: 6px;
+    border: 1px solid #FFD700;
+}
+
 /* ===== ⑫ アラート・メッセージボックス（tedori-quest-ui-spec.md §4.4） =====
    ★RPGの「会話ウィンドウ」風。背景は黒、枠は白、左側にのみ赤の警告線を添える。 */
 .alert, .revolving-alert{
