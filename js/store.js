@@ -94,7 +94,8 @@ export const INITIAL_STATE = {
                                           //   [{ id:'o1', label:'ジム', monthly:8000 }] 最大5件
     exCredit: { main:'none', sub:'none' }, // ★EXクエスト フェーズ1：STEP2「EX装備確認」の回答。
                                           //   任意入力のため未回答時は'none'のまま（クエスト判定は将来フェーズで実装）
-    furusato: 'none', ideco: 'none'      // ★錬金術クエスト：ふるさと納税・iDeCoの習得状況（任意入力）
+    furusato: 'none', ideco: 'none',     // ★錬金術クエスト：ふるさと納税・iDeCoの習得状況（任意入力）
+    subscriptionUnknown: false           // ★索敵クエスト：サブスクの明細を見ていない（わからない）
   },
 
   betaFeedback: { ratingSubmitted:false, lastRating:null }

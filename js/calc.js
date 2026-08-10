@@ -524,6 +524,12 @@ export function evaluateSubscriptionQuests(selections){
   const others = Array.isArray(sel.otherSubscriptions) ? sel.otherSubscriptions : [];
   const results = [];
 
+  // ★索敵クエスト：「サブスクの明細を見ていない（わからない）」にチェックした場合、
+  //   他の判定結果によらず配列の先頭に追加する。
+  if (sel.subscriptionUnknown === true){
+    results.push({ id: 'scoutSubscription', monthlySaving: 5000 });
+  }
+
   // ① 重複の呪縛：カテゴリ内で2サービス以上が契約中の場合、最高額の1件を残して他を解約する想定の節約額
   let duplicateSaving = 0;
   for (const category of C.SUBSCRIPTION_PLANS){

@@ -907,6 +907,14 @@ export const SUBSCRIPTION_QUEST_TEXT = {
     ],
     disclaimer: 'OS・アプリのバージョンにより設定画面の場所は異なる場合があります。',
     completeLabel: '🎉 スマホの課金一覧をチェック・整理した！'
+  },
+  scoutSubscription: {
+    id: 'scoutSubscription',
+    mainTitle: '【索敵】クレカ明細から謎の引き落とし（サブスク）を特定せよ！',
+    subTitle: '',
+    detail: '少額だからと油断するな！クレジットカードの明細を確認し、使っていない定期購読サービスを洗い出せ！',
+    talkScript: [],
+    completeLabel: '🎉 索敵完了！'
   }
 };
 

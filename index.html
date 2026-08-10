@@ -297,6 +297,14 @@
         ✅ サブスクを選択しています。上のカテゴリから内容を確認・変更できます。
       </p>
 
+      <!-- ★索敵クエスト：サブスクの明細を見ていない（わからない）場合の独立チェックボックス。
+           既存の.field/data-modelパターンと同じ状態保存の仕組みに乗せる（js/calc.js
+           evaluateSubscriptionQuests参照）。 -->
+      <label class="rpg-checkbox-label" style="margin-top: 15px; padding: 10px; border: 1px dashed #F8D820; border-radius: 8px;">
+          <input type="checkbox" id="sub-unknown-check" data-model="selections.subscriptionUnknown">
+          <span class="rpg-checkbox-text" style="color: #F8D820;">サブスクの明細を見ていない（わからない）</span>
+      </label>
+
       <!-- ★リアル課金（手動入力）。ジム・習い事など、定額プランに当てはまらない契約を受ける枠。
            config.js OTHER_SUBSCRIPTION_PRESETS（＋「その他」自由入力1行）を、デジタル版と同じ
            アコーディオン＋RPG風チェックボックスで並べる（js/ui.js populateRealChargeAccordion）。
