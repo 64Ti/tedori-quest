@@ -14,18 +14,27 @@ export async function onRequestPost({ request, env }){
 
   if (body.botcheck) return json({ success:true }, 200);       // Honeypot：静かに握り潰す
 
-  const res = await fetch('https://api.web3forms.com/submit', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({
-      ...body,
-      access_key: env.WEB3FORMS_KEY,                           // ★サーバ側環境変数のみに存在
-      subject: '【てどりクエスト】β版フィードバック'
-    })
-  });
-  return new Response(await res.text(), {
-    status: res.status, headers:{ 'Content-Type':'application/json' }
-  });
+  // ★環境変数未設定時は診断しやすいよう明示的に500を返す（デプロイ後の設定漏れ検知用）。
+  if (!env.WEB3FORMS_KEY){
+    return json({ success:false, message:'Server configuration error: Missing API Key' }, 500);
+  }
+
+  try{
+    const res = await fetch('https://api.web3forms.com/submit', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        ...body,
+        access_key: env.WEB3FORMS_KEY,                         // ★サーバ側環境変数のみに存在
+        subject: '【てどりクエスト】β版フィードバック'
+      })
+    });
+    return new Response(await res.text(), {
+      status: res.status, headers:{ 'Content-Type':'application/json' }
+    });
+  }catch(error){
+    return json({ success:false, message: error.message }, 500);
+  }
 }
 
 /**
