@@ -488,6 +488,21 @@ export function evaluateUrbanCarQuest(costs){
 }
 
 /**
+ * 錬金術クエスト（ふるさと納税・iDeCo）を判定する。
+ * ★節税効果は年収・税率により個人差が大きく法令数値として断定できないため、
+ *   節約可能額（monthlySaving）は判定対象としない（呼び出し側で0円固定として扱う）。
+ * @param {{furusato?:string, ideco?:string}} selections
+ * @returns {{category:'furusato'|'ideco'}[]} 未習得（not_doing）の項目のみを返す
+ */
+export function evaluateAlchemyQuests(selections){
+  const s = selections ?? {};
+  const results = [];
+  if (s.furusato === 'not_doing') results.push({ category: 'furusato' });
+  if (s.ideco === 'not_doing') results.push({ category: 'ideco' });
+  return results;
+}
+
+/**
  * サブスクリプションの新クエスト（重複の呪縛／幽霊ギルドの退会／スマホの深淵）を判定する
  * （ゲーミフィケーション改修・2026-08-08）。3つは互いに独立しており、条件を満たしたものが
  * すべて同時に発生しうる。

@@ -143,7 +143,7 @@
       </label>
 
       <button type="button" class="btn btn--block" style="margin-top:1rem;" data-action="startDiagnosis" data-requires-step1 disabled>
-        冒険を始める
+        冒険の書を記録する（STEP2へ）
       </button>
     </div>
 
@@ -429,6 +429,31 @@
       </div>
     </div>
 
+    <!-- --- EX装備確認（税金対策・錬金術）：ふるさと納税／iDeCo ---
+         ★任意入力。回答はstate.selections.furusato/idecoに保存し、js/selectors.jsが
+           isExtra:trueのEXクエストとして生成する（未習得の場合のみ）。既存の.field/data-model
+           の状態保存パターンをそのまま流用する（専用のイベントリスナーは追加しない）。 -->
+    <div class="card">
+      <h3 style="color: #F8D820; margin-top: 20px; font-size: 1.1em;">▼ 【EX】高度な錬金術（税金対策）の習得状況</h3>
+      <p class="help-text" style="font-size: 0.8em; margin-bottom: 10px;">※分からなければ「未習得」で進んで構わないぞ。</p>
+      <div class="field">
+        <label class="field__label" for="furusato">ふるさと納税</label>
+        <select id="furusato" class="input input--select" data-model="selections.furusato">
+          <option value="none">未選択</option>
+          <option value="doing">習得済（毎年やっている）</option>
+          <option value="not_doing">未習得 / わからない</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="ideco">iDeCo（確定拠出年金）</label>
+        <select id="ideco" class="input input--select" data-model="selections.ideco">
+          <option value="none">未選択</option>
+          <option value="doing">習得済（やっている）</option>
+          <option value="not_doing">未習得 / わからない</option>
+        </select>
+      </div>
+    </div>
+
     <button type="button" class="btn btn--block" style="margin-top:1.5rem;" data-action="generateQuests">
       クエストへ行く
     </button>
@@ -515,7 +540,7 @@
     </div>
 
     <button type="button" class="btn btn--block" style="margin-top:1.5rem;" data-action="goToFinalResult">
-      結果を見る
+      魔法陣を起動する（診断結果へ）
     </button>
     <button type="button" class="btn btn--ghost btn--block" style="margin-top:.75rem;" data-action="goToScreen2">
       ← 固定費入力に戻る
@@ -550,11 +575,29 @@
       </p>
     </div>
 
+    <!-- ★索敵クエスト後の「復活の呪文（セーブ）」案内強化：発生したクエストのタイトルに
+         【索敵】が含まれる場合のみ、js/ui.jsのsyncScoutWarningBanner()がdisplay:blockに切り替える。
+         最初からdisplay:none;で配置し、JSでのDOM新規生成は行わない。 -->
+    <div id="scout-warning-banner" style="display: none; background-color: #ffeb3b; color: #d32f2f; padding: 15px; border: 2px dashed #d32f2f; border-radius: 8px; margin-bottom: 20px; font-weight: bold; text-align: center;">
+        【一時離脱の推奨】<br>
+        敵の姿（明細や証券）が見えない時は、無理に戦わず一度ログアウトせよ！<br>
+        下にある『復活の呪文』をコピーしておけば、いつでもこの状態から再開できるぞ！
+    </div>
+
     <div class="karte-actions">
       <button type="button" class="btn btn--accent" data-action="shareX">🐦 Xでシェア</button>
       <button type="button" class="btn" data-action="saveKarte">🖼️ 画像で保存</button>
       <button type="button" class="btn btn--ghost btn-copy-spell" data-action="copySpell">📜 魔法の呪文をコピー</button>
       <button type="button" class="btn btn--ghost btn-copy-spell" data-action="exportPdf">📄 PDFとして出力する</button>
+    </div>
+
+    <!-- ★勇者の記録拡散（SNSシェア機能）：既存の🐦Xでシェア（shareX/shareTextV2、金額を含まない
+         内部生成文面）とは別枠。こちらは画面表示中のレベル・称号テキストをそのままDOMから
+         取得してツイート文を生成する（js/app.js bindEvents内の専用clickリスナー参照）。 -->
+    <div style="text-align: center; margin-top: 30px;">
+        <button id="twitter-share-btn" style="background-color: #1DA1F2; color: white; padding: 10px 20px; border-radius: 5px; border: none; font-weight: bold; cursor: pointer;">
+            🐦 勇者の記録をX(Twitter)でシェアする
+        </button>
     </div>
 
     <button type="button" class="btn btn--ghost btn--block" style="margin-top:1.5rem;" data-action="goToScreen3">

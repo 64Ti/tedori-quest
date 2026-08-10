@@ -652,6 +652,21 @@ function syncTrueEndQuest(s){
   questEl.appendChild(box);
 }
 
+/**
+ * 索敵クエスト後の「復活の呪文（セーブ）」案内バナーの表示制御。
+ * ★発生したクエスト配列にタイトル【索敵】を含むものが1件でもあればdisplay:blockにする。
+ *   要素はindex.htmlに最初からdisplay:none;で配置済みのため、ここでの新規DOM生成は行わない。
+ * @param {object} s state
+ * @returns {void}
+ */
+function syncScoutWarningBanner(s){
+  const banner = document.getElementById('scout-warning-banner');
+  if (!banner) return;
+  const hasScoutQuest = selectors.buildQuestList(s).some(q => q.mainTitle?.includes('【索敵】'));
+  const next = hasScoutQuest ? 'block' : 'none';
+  if (banner.style.display !== next) banner.style.display = next;
+}
+
 // ---------------------------------------------------------------------------
 // サブスク階層UI（ゲーミフィケーション改修v3・2026-08-08）
 //   ★アコーディオン＋チェックボックス＋プログレッシブディスクロージャー方式に全面刷新。
@@ -987,6 +1002,7 @@ function render(){
     syncHeaderGauge(state);
     renderQuestList(state);
     syncTrueEndQuest(state);
+    syncScoutWarningBanner(state);
 
     const step1Btn = document.querySelector('[data-requires-step1]');
     if (step1Btn){

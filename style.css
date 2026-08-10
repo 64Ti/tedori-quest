@@ -438,17 +438,20 @@ textarea.input{text-align:left; resize:vertical; min-height:88px; font-weight:40
 .quest-item--true-end {
     border: 3px solid #FFD700 !important;
     box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
-    background: linear-gradient(135deg, #ffffff 0%, #fffdf0 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #fffdf0 100%) !important;
+    color: #333333 !important;
 }
 .quest-item--true-end h3 {
-    color: #d4af37;
+    color: #8b6508 !important;
+    font-weight: bold;
 }
 .future-prediction-box {
-    background: #fff8e1;
+    background: #fff8e1 !important;
     padding: 12px;
     margin-top: 15px;
     border-radius: 6px;
     border: 1px solid #FFD700;
+    color: #333333 !important;
 }
 
 /* ===== ⑫ アラート・メッセージボックス（tedori-quest-ui-spec.md §4.4） =====

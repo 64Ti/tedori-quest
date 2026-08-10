@@ -422,6 +422,28 @@ describe('Phase2 固定費クエスト・クレジットカードクエストの
     assert.equal(results.find(r => r.pattern === 'D'), undefined);
   });
 
+  test('ALCHEMY-01: 未習得（not_doing）の項目のみ錬金術クエストが発生する', () => {
+    const results = calc.evaluateAlchemyQuests({ furusato: 'not_doing', ideco: 'doing' });
+    assert.deepEqual(results.map(r => r.category), ['furusato']);
+  });
+
+  test('ALCHEMY-02: 両方未習得なら2件、両方習得済/未選択なら0件', () => {
+    assert.equal(calc.evaluateAlchemyQuests({ furusato: 'not_doing', ideco: 'not_doing' }).length, 2);
+    assert.equal(calc.evaluateAlchemyQuests({ furusato: 'doing', ideco: 'none' }).length, 0);
+    assert.equal(calc.evaluateAlchemyQuests({}).length, 0);
+  });
+
+  test('ALCHEMY-03: buildQuestListはisExtra:trueかつ足切りなしで錬金術クエストを含む', () => {
+    const state = buildState({
+      selections: { subscriptionPlanIds: [], otherSubscriptions: [], furusato: 'not_doing', ideco: 'not_doing' }
+    });
+    const quests = selectors.buildQuestList(state);
+    const furusato = quests.find(q => q.id === 'alchemyFurusato');
+    const ideco = quests.find(q => q.id === 'alchemyIdeco');
+    assert.ok(furusato && furusato.isExtra === true);
+    assert.ok(ideco && ideco.isExtra === true);
+  });
+
   test('PHASE2-18: 足切りルール（500円未満のクエストはbuildQuestListから除外）', () => {
     // ★ざっくり選択方式（フェーズ4）：医療保険「10,000〜19,999円」は固定値5,000円で
     //   足切り（500円）を超えるため採用され、テーブル未定義の最安レンジは発生しない。

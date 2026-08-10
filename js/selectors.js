@@ -108,6 +108,17 @@ function scoutQuestMeta(field){
 }
 
 /**
+ * 錬金術クエスト（ふるさと納税・iDeCo）の表示メタ情報を引く。
+ * ★通常クエストと区別するため isExtra:true を必ず付与する。節約可能額は判定対象外のため0円固定。
+ * @param {'furusato'|'ideco'} category
+ * @returns {{id:string, mainTitle:string, subTitle:string, detail:string, isExtra:true}}
+ */
+function alchemyQuestMeta(category){
+  const t = C.ALCHEMY_QUEST_TEXT[category];
+  return { id: t.id, mainTitle: t.mainTitle, subTitle: '', detail: t.detail, isExtra: true };
+}
+
+/**
  * クエストID単体から表示メタ情報を復元する（完了済みだが現在のギャップ計算では
  * 再生成されなくなったクエストを一覧から消さないためのフォールバック）。
  * @param {string} id
@@ -128,6 +139,8 @@ function orphanQuestMeta(id){
   const cq = Object.values(C.CARD_QUEST_TEXT).find(q => q.id === id);
   if (cq) return { id, mainTitle: cq.mainTitle, subTitle: cq.subTitle ?? '', detail: cq.detail,
     completeLabel: cq.completeLabel, isExtra: true };   // ★EXクエスト フェーズ2：CARD_QUEST_TEXT由来は必ずEX扱い
+  const alchemyMatch = Object.entries(C.ALCHEMY_QUEST_TEXT).find(([, t]) => t.id === id);
+  if (alchemyMatch) return alchemyQuestMeta(alchemyMatch[0]);
   const sq = Object.values(C.SUBSCRIPTION_QUEST_TEXT).find(q => q.id === id);
   if (sq) return { id, mainTitle: sq.mainTitle, subTitle: sq.subTitle, detail: sq.detail,
     basis: sq.basis, talkScript: sq.talkScript, disclaimer: sq.disclaimer, completeLabel: sq.completeLabel };
@@ -380,6 +393,7 @@ export const selectors = {
       hasCar: fc.hasCar, isUrbanAreaCar: s.userProfile?.isUrbanAreaCar,
       parking: fc.parking, carInsurance: calc.roughCostApproxYen('carInsurance', fc.carInsurance)
     });
+    const alchemyResults = calc.evaluateAlchemyQuests(s.selections);
 
     // ★クレジットカード機能（実カード選択による診断）は一時凍結中（非表示。2026-08-08）。
     //   入力UIを隠しただけでなく、クエスト判定からも除外する。
@@ -419,6 +433,11 @@ export const selectors = {
     //   （非表示・アンロックのギミックはフェーズ3で実装するため、今回は対象外）。
     exCreditResults.forEach(r => {
       active.push({ ...exCreditQuestMeta(r.pattern), monthlySaving: r.monthlySaving });
+    });
+    // ★錬金術クエスト（ふるさと納税・iDeCo）もEXクエストのため足切りを適用しない。
+    //   節約可能額は判定対象外（0円固定）のため、足切り判定自体が意味を持たない。
+    alchemyResults.forEach(r => {
+      active.push({ ...alchemyQuestMeta(r.category), monthlySaving: 0 });
     });
     // cardResults.forEach(r => {
     //   if (r.monthlySaving < C.QUEST_MIN_SAVING) return;
