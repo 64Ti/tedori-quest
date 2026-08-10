@@ -45,12 +45,11 @@
 
 <!-- §7.6 アナリティクス：Cloudflare Web Analytics（Cookieレス・同意バナー不要）。
      ★data-cf-beacon のトークンは Cloudflare Pages 側でサイト登録後に発行される値に
-       差し替えること。トークン未設定のため、この <script> は現状コメントアウトしている
-       （ダミートークンのまま有効化すると計測が機能しないだけでなく、外部への空リクエストが
-       発生するため）。有効化時は functions/ の実装と同様、値を直書きせず環境で管理すること。
+       差し替えること。REPLACE_WITH_CLOUDFLARE_WEB_ANALYTICS_TOKEN のままだと計測は機能しないため、
+       サイト登録後に実トークンへ差し替えること。値を直書きせず環境で管理する方式への変更は
+       別途検討する。 -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
         data-cf-beacon='{"token": "REPLACE_WITH_CLOUDFLARE_WEB_ANALYTICS_TOKEN"}'></script>
--->
 </head>
 <body>
 
@@ -610,6 +609,7 @@
 
   <!-- §7.4：法定表示（privacy.html）へは全ページのフッターからリンクする -->
   <footer class="app-footer">
+    <p style="font-size: var(--fs-xs); color: var(--text-muted); margin-bottom: 8px;">※本サービスはプロモーションを含みます</p>
     <a class="app-footer__link" href="./privacy.html">プライバシーポリシー・免責事項</a>
     <a class="app-footer__link" href="https://x.com/TAB_6400" target="_blank" rel="noopener noreferrer">開発者X（Twitter）アカウント</a>
     <p class="app-footer__note">本試算は2026年8月1日時点の制度に基づきます。</p>
