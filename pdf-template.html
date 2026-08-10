@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>てどりクエスト - 家計診断レポート</title>
+<style>
+    /* A4サイズの印刷を想定したベース設定 */
+    :root {
+        --print-width: 210mm;
+        --border-color: #333333;
+        --bg-light: #f5f5f5;
+    }
+
+    body {
+        margin: 0;
+        padding: 20px;
+        background-color: #e0e0e0; /* プレビュー用の背景色 */
+        font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+        color: #111;
+        line-height: 1.5;
+    }
+
+    /* レポート本体（A4用紙のイメージ） */
+    .report-container {
+        width: var(--print-width);
+        min-height: 297mm;
+        margin: 0 auto;
+        padding: 20mm;
+        background-color: #ffffff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        box-sizing: border-box;
+    }
+
+    h1 {
+        font-size: 24px;
+        text-align: center;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 10px;
+        margin-top: 0;
+        margin-bottom: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+    }
+
+    h1 .app-name {
+        font-size: 14px;
+        font-weight: normal;
+        color: #555;
+    }
+
+    h2 {
+        font-size: 16px;
+        color: #fff;
+        background-color: var(--border-color);
+        padding: 6px 12px;
+        margin-top: 24px;
+        margin-bottom: 12px;
+    }
+
+    /* テーブル共通設定 */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 16px;
+        font-size: 14px;
+    }
+
+    th, td {
+        border: 1px solid var(--border-color);
+        padding: 8px 12px;
+    }
+
+    th {
+        background-color: var(--bg-light);
+        text-align: left;
+        width: 30%;
+        font-weight: bold;
+    }
+
+    .num-align {
+        text-align: right;
+    }
+
+    /* ハイライトボックス（合計節約可能額） */
+    .highlight-box {
+        border: 2px solid #d32f2f;
+        background-color: #ffebee;
+        padding: 16px;
+        text-align: center;
+        margin: 24px 0;
+    }
+    
+    .highlight-box .title {
+        font-size: 16px;
+        font-weight: bold;
+        color: #d32f2f;
+        margin-bottom: 8px;
+    }
+
+    .highlight-box .amount {
+        font-size: 32px;
+        font-weight: bold;
+        color: #d32f2f;
+    }
+
+    /* リスト設定 */
+    .action-list {
+        margin: 0;
+        padding-left: 24px;
+    }
+    .action-list li {
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+    .action-list strong {
+        display: block;
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+
+    /* 印刷時の設定 */
+    @media print {
+        body {
+            background-color: transparent;
+            padding: 0;
+        }
+        .report-container {
+            box-shadow: none;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    }
+
+    .disclaimer {
+        font-size: 10px;
+        color: #666;
+        margin-top: 32px;
+        border-top: 1px solid #ccc;
+        padding-top: 8px;
+    }
+</style>
+</head>
+<body>
+
+<div class="report-container" id="pdf-report-template">
+    <h1>
+        <span>家計・固定費 診断レポート</span>
+        <span class="app-name">てどりクエスト / 出力日: 2026年8月8日</span>
+    </h1>
+
+    <h2>1. プロフィール・基本情報</h2>
+    <table>
+        <tbody>
+            <tr>
+                <th>年収（額面）</th>
+                <td>5,500,000 円</td>
+                <th>お住まいのエリア</th>
+                <td>大阪府</td>
+            </tr>
+            <tr>
+                <th>健康保険の種類</th>
+                <td>健康保険組合（加入12ヶ月未満）</td>
+                <th>現在の称号</th>
+                <td>Lv.23 / 中堅の魔導士</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>2. 公的保障の状況（備わっているバリア）</h2>
+    <table>
+        <tbody>
+            <tr>
+                <th>高額療養費 自己負担上限</th>
+                <td class="num-align">約 <strong>92,940</strong> 円 / 月</td>
+                <td>医療費が高額になった場合でも、この金額以上は免除されます。</td>
+            </tr>
+            <tr>
+                <th>傷病手当金</th>
+                <td class="num-align">約 <strong>10,447</strong> 円 / 日</td>
+                <td>病気やケガで働けない期間、通算1年6ヶ月まで支給されます。</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>3. 固定費の現状と改善余地</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 25%;">項目</th>
+                <th style="width: 25%; text-align: center;">現状（入力値）</th>
+                <th style="width: 25%; text-align: center;">理想・適正水準</th>
+                <th style="width: 25%;">評価</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>通信費（スマホ）</td>
+                <td class="num-align">1,500 円</td>
+                <td class="num-align">2,000 円以下</td>
+                <td>◎ 最適化済み</td>
+            </tr>
+            <tr>
+                <td>光回線・通信費</td>
+                <td class="num-align">0 円</td>
+                <td class="num-align">3,800 円以下</td>
+                <td>◎ 最適化済み</td>
+            </tr>
+            <tr>
+                <td>自動車保険</td>
+                <td class="num-align">8,000 円</td>
+                <td class="num-align">4,000 円以下</td>
+                <td>⚠️ 見直し余地あり</td>
+            </tr>
+            <tr>
+                <td>サブスクリプション</td>
+                <td class="num-align">1,590 円</td>
+                <td class="num-align">1,000 円以下</td>
+                <td>◎ 適正範囲内</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>4. アクションプラン（解呪対象の魔道障壁）</h2>
+    <p style="font-size: 14px;">以下の項目を見直すことで、毎月の手取り（自由に使えるお金）を増やすことができます。</p>
+    
+    <ul class="action-list">
+        <li>
+            <strong>【代理店型の罠】自動車保険をネット型に切り替えよ</strong>
+            自動車保険の全国平均は月7,000円ですが、ネット型（ダイレクト型）に切り替えることで月4,000円程度まで下げられるケースが一般的です。現在の等級が引き継げるか確認し、同等の補償内容で見積もりを取りましょう。
+        </li>
+    </ul>
+
+    <div class="highlight-box">
+        <div class="title">すべてのアクションを実行した場合の合計節約可能額</div>
+        <div class="amount">¥ 4,000 / 月</div>
+        <div style="font-size: 14px; margin-top: 8px; color: #333;">（年間で ¥ 48,000 の手取りアップ効果）</div>
+    </div>
+
+    <div class="disclaimer">
+        ※本レポートは「てどりクエスト」の入力データおよび2026年8月1日時点の制度に基づき自動算出された試算値です。実際の給付額・控除額とは異なる可能性があります。<br>
+        ※保険の見直しや解約を行う際は、無保険期間が生じないよう、また健康状態等による再加入リスクを十分にご確認の上、ご自身の判断で実施してください。
+    </div>
+</div>
+
+</body>
+</html>
