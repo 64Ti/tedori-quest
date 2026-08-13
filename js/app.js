@@ -56,21 +56,6 @@ function syncTipBackdrop(){
   if (backdrop.hidden === anyOpen) backdrop.hidden = !anyOpen;
 }
 
-/**
- * 勇者の記録拡散（SNSシェア機能）。画面（マイカルテ）に表示中のレベル・称号テキストを
- * DOM（innerText）からそのまま取得してツイート文を生成する。裏側のState変数
- * （selectors.currentLevel等）は使わない（表示されている通りの文言を尊重するため）。
- * @returns {void}
- */
-function shareTwitterFromDom(){
-  const levelText = document.querySelector('.karte__level')?.innerText.trim() ?? '';
-  const rankText = document.querySelector('.karte__rank')?.innerText.trim() ?? '';
-  const text = `てどりクエストで家計の魔道障壁を解呪し、【${levelText} / ${rankText}】へとレベルアップした！`
-             + `新たな装備と魔法で未来の資産を育てるぞ！ #てどりクエスト #家計見直し`;
-  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-  window.open(url, '_blank', 'noopener');
-}
-
 // §6.10 エラー文言（確定版）。in_flight・honeypot は表示しない。
 const FEEDBACK_MESSAGES = {
   rate_limited: ['本日の送信上限に達しました。また明日お聞かせください', 'warn'],
@@ -162,10 +147,6 @@ function bindEvents(){
 
     const btn = e.target.closest('[data-action]');
     if (btn) ACTIONS[btn.dataset.action]?.(btn, e);
-
-    // ★勇者の記録拡散（SNSシェア機能）：既存のshareX（内部生成のshareTextV2）とは別枠。
-    //   裏側のState変数は使わず、画面に表示中のレベル・称号テキストをDOMから直接取得する。
-    if (e.target.closest('#twitter-share-btn')) shareTwitterFromDom();
 
     // ★隠しボーナスEXP①：「使ってみてどうでしたか？」タップ時（生涯1回のみ抽選。
     //   レベルへの反映は「送信する」ボタン押下時＝applyPendingFeedbackBonus）
