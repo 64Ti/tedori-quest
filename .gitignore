@@ -1,1 +1,6 @@
 .claude/
+
+# Cloudflare Pages / wrangler ローカル開発用（実キーを含むためコミットしない。CLAUDE.md 制約1）
+.dev.vars
+.dev.vars.*
+.wrangler/

@@ -22,7 +22,9 @@ export async function onRequestPost({ request, env }){
   try{
     const res = await fetch('https://api.web3forms.com/submit', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json' },
+      // ★Web3Forms公式のJSON送信例はAccept: application/jsonも合わせて送る
+      //   （Content-Typeのみだとコンテントネゴシエーションで意図しない応答形式になりうる）。
+      headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
       body: JSON.stringify({
         ...body,
         access_key: env.WEB3FORMS_KEY,                         // ★サーバ側環境変数のみに存在
